@@ -33,6 +33,15 @@ export class UsersService {
     });
   }
 
+  async saveRefreshTokenEntry(userId: string, jti: string) {
+    await this.prisma.refreshToken.create({
+      data: {
+        userId,
+        jti,
+      },
+    });
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { email } });
   }
@@ -43,23 +52,17 @@ export class UsersService {
     });
   }
 
-  async saveRefreshToken(userId: string, refreshToken: string): Promise<User> {
-    const saltRounds = parseInt(
-      this.config.get('BCRYPT_SALT_ROUNDS') || '10',
-      10,
-    );
-    const hash = await bcrypt.hash(refreshToken, saltRounds);
+  async cleanRevokedTokens(olderThanDays = 7): Promise<number> {
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - olderThanDays);
 
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshTokenHash: hash },
+    const result = await this.prisma.refreshToken.deleteMany({
+      where: {
+        revoked: true,
+        createdAt: { lt: dateThreshold },
+      },
     });
-  }
 
-  async removeRefreshToken(userId: string): Promise<User> {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshTokenHash: null },
-    });
+    return result.count;
   }
 }

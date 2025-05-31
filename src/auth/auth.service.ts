@@ -6,19 +6,22 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { Tokens, JwtPayload } from './types/jwt.types';
+import { randomUUID } from 'crypto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
-    private config: ConfigService
+    private config: ConfigService,
+    private prisma: PrismaService,
   ) {}
 
   async register(dto: RegisterDto) {
     const user = await this.usersService.createUser(dto);
     const tokens = await this.generateTokens(user.id, user.email);
-    await this.usersService.saveRefreshToken(user.id, tokens.refreshToken);
+
     return { ...user, ...tokens };
   }
 
@@ -30,29 +33,69 @@ export class AuthService {
     if (!isValid) throw new UnauthorizedException('Невірний email або пароль');
 
     const tokens = await this.generateTokens(user.id, user.email);
-    await this.usersService.saveRefreshToken(user.id, tokens.refreshToken);
+
     return tokens;
   }
 
   async refresh(userId: string, refreshToken: string): Promise<Tokens> {
+    let payload: JwtPayload & { jti: string };
+
+    try {
+      payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.config.get<string>('JWT_REFRESH_SECRET'),
+      });
+    } catch (err) {
+      console.error('Помилка при перевірці токена:', err);
+      throw new UnauthorizedException('Недійсний токен');
+    }
+
+    const tokenInDb = await this.prisma.refreshToken.findUnique({
+      where: { jti: payload.jti },
+    });
+
+    if (!tokenInDb || tokenInDb.revoked || tokenInDb.userId !== userId) {
+      throw new UnauthorizedException('Токен відкликано або недійсний');
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { jti: payload.jti },
+      data: { revoked: true },
+    });
+
     const user = await this.usersService.findById(userId);
-    if (!user || !user.refreshTokenHash)
-      throw new UnauthorizedException('Токен не знайдено');
+    if (!user) throw new UnauthorizedException('Користувача не знайдено');
 
-    const isMatch = await bcrypt.compare(refreshToken, user.refreshTokenHash);
-    if (!isMatch) throw new UnauthorizedException('Недійсний токен');
+    const {
+      accessToken,
+      refreshToken: newRefreshToken,
+      jti: newJti,
+    } = await this.generateTokens(user.id, user.email);
 
-    const tokens = await this.generateTokens(user.id, user.email);
-    await this.usersService.saveRefreshToken(user.id, tokens.refreshToken);
-    return tokens;
+    await this.prisma.refreshToken.create({
+      data: {
+        jti: newJti,
+        userId: user.id,
+      },
+    });
+
+    return { accessToken, refreshToken: newRefreshToken, jti: newJti };
   }
 
   async logout(userId: string): Promise<void> {
-    await this.usersService.removeRefreshToken(userId);
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        revoked: false,
+      },
+      data: {
+        revoked: true,
+      },
+    });
   }
 
   private async generateTokens(userId: string, email: string): Promise<Tokens> {
-    const payload: JwtPayload = { sub: userId, email };
+    const refreshTokenId = randomUUID();
+    const payload: JwtPayload = { sub: userId, email, jti: refreshTokenId };
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.config.get<string>('JWT_ACCESS_SECRET'),
@@ -63,6 +106,9 @@ export class AuthService {
         expiresIn: this.config.get<string>('JWT_ACCESS_EXPIRES_IN', '7d'),
       }),
     ]);
-    return { accessToken, refreshToken };
+
+    await this.usersService.saveRefreshTokenEntry(userId, refreshTokenId);
+
+    return { accessToken, refreshToken, jti: refreshTokenId };
   }
 }

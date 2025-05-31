@@ -5,10 +5,12 @@ import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy'; // 👈 Импорт стратегии
+import { PrismaModule } from 'src/prisma/prisma.module';
 
 @Module({
   imports: [
     UsersModule,
+    PrismaModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
