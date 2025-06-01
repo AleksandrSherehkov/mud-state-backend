@@ -16,13 +16,17 @@ import { LogoutDto } from './dto/logout.dto';
 import { AuthService } from './auth.service';
 import { PublicUserDto } from '../users/dto/public-user.dto';
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { ApiMutationErrorResponses } from 'src/common/swagger/api-exceptions';
+import {
+  ApiMutationErrorResponses,
+  ApiQueryErrorResponses,
+} from 'src/common/swagger/api-exceptions';
 import { Tokens } from './types/jwt.types';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -32,6 +36,11 @@ import { MeResponseDto } from './dto/me-response.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { extractRequestInfo } from 'src/common/helpers/request-info';
 import { TerminateSessionDto } from './dto/terminate-session.dto';
+import { ActiveSessionDto } from './dto/active-session.dto';
+import { RefreshTokenSessionDto } from './dto/refresh-token-session.dto';
+import { TerminateCountResponseDto } from './dto/terminate-count-response.dto';
+import { TerminateResultDto } from './dto/terminate-result.dto';
+import { FullSessionDto } from './dto/full-session.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -79,6 +88,8 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @HttpCode(200)
   @ApiOperation({ summary: 'Оновлення токенів' })
   @ApiBody({ type: RefreshDto })
@@ -95,6 +106,8 @@ export class AuthController {
   }
 
   @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @HttpCode(200)
   @ApiOperation({ summary: 'Вихід користувача (очищення refresh токена)' })
   @ApiBody({ type: LogoutDto })
@@ -108,30 +121,26 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Отримати інформацію про себе' })
   @ApiOkResponse({
     description: 'Повертає ID та email користувача з access токена',
     type: MeResponseDto,
   })
+  @ApiQueryErrorResponses('Користувача не знайдено')
   getMe(@CurrentUser() user: UserFromJwt): UserFromJwt {
     return user;
   }
 
   @Get(':userId/sessions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Список активних сесій користувача' })
   @ApiOkResponse({
     description: 'Список сесій з IP та User-Agent',
-    schema: {
-      example: [
-        {
-          jti: 'uuid',
-          ip: '192.168.0.1',
-          userAgent: 'Mozilla/5.0...',
-          createdAt: '2025-05-31T14:50:00.000Z',
-        },
-      ],
-    },
+    type: [RefreshTokenSessionDto],
   })
+  @ApiQueryErrorResponses('Сесії користувача не знайдено')
   getSessions(@Param('userId') userId: string) {
     return this.prisma.refreshToken.findMany({
       where: { userId, revoked: false },
@@ -146,20 +155,13 @@ export class AuthController {
 
   @Get('sessions/active')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Список активних сесій поточного користувача' })
   @ApiOkResponse({
     description: 'Список активних сесій з IP, User-Agent і часом старту',
-    schema: {
-      example: [
-        {
-          id: 'sess_abc123',
-          ip: '192.168.1.1',
-          userAgent: 'Mozilla/5.0...',
-          startedAt: '2025-05-31T14:00:00.000Z',
-        },
-      ],
-    },
+    type: [ActiveSessionDto],
   })
+  @ApiQueryErrorResponses('Активні сесії не знайдено')
   getActiveSessions(@CurrentUser('userId') userId: string) {
     return this.prisma.session.findMany({
       where: { userId, isActive: true },
@@ -174,15 +176,13 @@ export class AuthController {
 
   @Post('sessions/terminate-others')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Завершити всі інші сесії, крім поточної' })
   @ApiOkResponse({
     description: 'Інші сесії завершено',
-    schema: {
-      example: {
-        terminatedCount: 2,
-      },
-    },
+    type: TerminateCountResponseDto,
   })
+  @ApiMutationErrorResponses()
   async terminateOtherSessions(
     @CurrentUser('userId') userId: string,
     @Req() req: Request,
@@ -196,7 +196,7 @@ export class AuthController {
         userAgent,
         isActive: true,
       },
-      orderBy: { startedAt: 'desc' }, // актуальна
+      orderBy: { startedAt: 'desc' },
     });
 
     const result = await this.prisma.session.updateMany({
@@ -218,6 +218,13 @@ export class AuthController {
 
   @Get('sessions/me')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Список всіх сесій користувача' })
+  @ApiOkResponse({
+    description: 'Усі сесії поточного користувача',
+    type: [FullSessionDto],
+  })
+  @ApiQueryErrorResponses('Сесії користувача не знайдено')
   getMySessions(@CurrentUser('userId') userId: string) {
     return this.prisma.session.findMany({
       where: { userId },
@@ -235,15 +242,13 @@ export class AuthController {
 
   @Post('sessions/terminate')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Завершити конкретну сесію за IP та User-Agent' })
   @ApiOkResponse({
     description: 'Сесію завершено',
-    schema: {
-      example: {
-        terminated: true,
-      },
-    },
+    type: TerminateResultDto,
   })
+  @ApiMutationErrorResponses()
   async terminateSpecificSession(
     @CurrentUser('userId') userId: string,
     @Req() req: Request,
