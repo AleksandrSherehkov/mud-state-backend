@@ -9,4 +9,10 @@ export class MeResponseDto {
     description: 'Email користувача',
   })
   email: string;
+
+  @ApiProperty({
+    example: '2025-05-31T14:16:08.682Z',
+    description: 'Дата створення',
+  })
+  createdAt: Date;
 }

@@ -31,6 +31,7 @@ import { TokenResponseDto } from './dto/token-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { extractRequestInfo } from 'src/common/helpers/request-info';
+import { TerminateSessionDto } from './dto/terminate-session.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -141,5 +142,137 @@ export class AuthController {
         createdAt: true,
       },
     });
+  }
+
+  @Get('sessions/active')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Список активних сесій поточного користувача' })
+  @ApiOkResponse({
+    description: 'Список активних сесій з IP, User-Agent і часом старту',
+    schema: {
+      example: [
+        {
+          id: 'sess_abc123',
+          ip: '192.168.1.1',
+          userAgent: 'Mozilla/5.0...',
+          startedAt: '2025-05-31T14:00:00.000Z',
+        },
+      ],
+    },
+  })
+  getActiveSessions(@CurrentUser('userId') userId: string) {
+    return this.prisma.session.findMany({
+      where: { userId, isActive: true },
+      select: {
+        id: true,
+        ip: true,
+        userAgent: true,
+        startedAt: true,
+      },
+    });
+  }
+
+  @Post('sessions/terminate-others')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Завершити всі інші сесії, крім поточної' })
+  @ApiOkResponse({
+    description: 'Інші сесії завершено',
+    schema: {
+      example: {
+        terminatedCount: 2,
+      },
+    },
+  })
+  async terminateOtherSessions(
+    @CurrentUser('userId') userId: string,
+    @Req() req: Request,
+  ) {
+    const { ip, userAgent } = extractRequestInfo(req);
+
+    const session = await this.prisma.session.findFirst({
+      where: {
+        userId,
+        ip,
+        userAgent,
+        isActive: true,
+      },
+      orderBy: { startedAt: 'desc' }, // актуальна
+    });
+
+    const result = await this.prisma.session.updateMany({
+      where: {
+        userId,
+        isActive: true,
+        NOT: {
+          id: session?.id,
+        },
+      },
+      data: {
+        isActive: false,
+        endedAt: new Date(),
+      },
+    });
+
+    return { terminatedCount: result.count };
+  }
+
+  @Get('sessions/me')
+  @UseGuards(JwtAuthGuard)
+  getMySessions(@CurrentUser('userId') userId: string) {
+    return this.prisma.session.findMany({
+      where: { userId },
+      orderBy: { startedAt: 'desc' },
+      select: {
+        id: true,
+        ip: true,
+        userAgent: true,
+        isActive: true,
+        startedAt: true,
+        endedAt: true,
+      },
+    });
+  }
+
+  @Post('sessions/terminate')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Завершити конкретну сесію за IP та User-Agent' })
+  @ApiOkResponse({
+    description: 'Сесію завершено',
+    schema: {
+      example: {
+        terminated: true,
+      },
+    },
+  })
+  async terminateSpecificSession(
+    @CurrentUser('userId') userId: string,
+    @Req() req: Request,
+    @Body() dto: TerminateSessionDto,
+  ) {
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = dto.ip;
+
+    const session = await this.prisma.session.findFirst({
+      where: {
+        userId,
+        ip,
+        userAgent,
+        isActive: true,
+      },
+    });
+
+    if (!session) {
+      return { terminated: false };
+    }
+
+    await this.prisma.session.update({
+      where: { id: session.id },
+      data: {
+        isActive: false,
+        endedAt: new Date(),
+      },
+    });
+
+    return { terminated: true };
   }
 }

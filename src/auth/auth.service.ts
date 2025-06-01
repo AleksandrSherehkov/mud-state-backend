@@ -68,6 +68,17 @@ export class AuthService {
       data: { revoked: true },
     });
 
+    await this.prisma.session.updateMany({
+      where: {
+        refreshTokenId: payload.jti,
+        endedAt: null,
+      },
+      data: {
+        endedAt: new Date(),
+        isActive: false,
+      },
+    });
+
     const user = await this.usersService.findById(userId);
     if (!user) throw new UnauthorizedException('Користувача не знайдено');
 
@@ -82,6 +93,17 @@ export class AuthService {
       },
       data: {
         revoked: true,
+      },
+    });
+
+    await this.prisma.session.updateMany({
+      where: {
+        userId,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+        endedAt: new Date(),
       },
     });
   }
@@ -109,6 +131,15 @@ export class AuthService {
       data: {
         userId,
         jti: refreshTokenId,
+        ip,
+        userAgent,
+      },
+    });
+
+    await this.prisma.session.create({
+      data: {
+        userId,
+        refreshTokenId,
         ip,
         userAgent,
       },

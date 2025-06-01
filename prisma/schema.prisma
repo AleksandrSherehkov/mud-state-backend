@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
- 
 }
 
 datasource db {
@@ -9,12 +8,13 @@ datasource db {
 }
 
 model User {
-  id         String     @id @default(cuid())
-  email      String     @unique
-  password   String 
-  characters Character[]
-  refreshTokens     RefreshToken[]
-  createdAt  DateTime   @default(now())
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  characters    Character[]
+  refreshTokens RefreshToken[]
+  sessions      Session[]
+  createdAt     DateTime       @default(now())
 }
 
 model Character {
@@ -24,8 +24,8 @@ model Character {
   class      String
   stats      Json
   locationId String
-  user       User     @relation(fields: [userId], references: [id])
   userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
 }
 
@@ -33,9 +33,30 @@ model RefreshToken {
   id        String   @id @default(cuid())
   jti       String   @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   revoked   Boolean  @default(false)
   ip        String?
   userAgent String?
   createdAt DateTime @default(now())
+
+  sessions Session[] @relation("SessionToRefreshToken")
+
+  @@index([userId, revoked])
+}
+
+model Session {
+  id             String        @id @default(cuid())
+  userId         String
+  refreshTokenId String?
+  refreshToken   RefreshToken? @relation("SessionToRefreshToken", fields: [refreshTokenId], references: [jti], onDelete: SetNull)
+  ip             String?
+  userAgent      String?
+  isActive       Boolean       @default(true)
+  startedAt      DateTime      @default(now())
+  endedAt        DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@index([refreshTokenId, isActive])
 }
