@@ -35,5 +35,7 @@ model RefreshToken {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   revoked   Boolean  @default(false)
+  ip        String?
+  userAgent String?
   createdAt DateTime @default(now())
 }

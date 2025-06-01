@@ -3,10 +3,12 @@ import {
   Controller,
   Get,
   HttpCode,
+  Param,
   Post,
-  Request,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
@@ -27,11 +29,16 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { UserFromJwt } from './types/user-from-jwt';
 import { TokenResponseDto } from './dto/token-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
+import { PrismaService } from '../prisma/prisma.service';
+import { extractRequestInfo } from 'src/common/helpers/request-info';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private prisma: PrismaService,
+  ) {}
 
   @Post('register')
   @HttpCode(201)
@@ -42,8 +49,13 @@ export class AuthController {
     type: PublicUserDto,
   })
   @ApiMutationErrorResponses()
-  async register(@Body() dto: RegisterDto): Promise<PublicUserDto> {
-    const user = await this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Req() req: Request,
+  ): Promise<PublicUserDto> {
+    const { ip, userAgent } = extractRequestInfo(req);
+
+    const user = await this.authService.register(dto, ip, userAgent);
     return {
       id: user.id,
       email: user.email,
@@ -60,8 +72,9 @@ export class AuthController {
     type: TokenResponseDto,
   })
   @ApiMutationErrorResponses()
-  async login(@Body() dto: LoginDto): Promise<Tokens> {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() req: Request): Promise<Tokens> {
+    const { ip, userAgent } = extractRequestInfo(req);
+    return this.authService.login(dto, ip, userAgent);
   }
 
   @Post('refresh')
@@ -70,8 +83,14 @@ export class AuthController {
   @ApiBody({ type: RefreshDto })
   @ApiOkResponse({ type: TokenResponseDto })
   @ApiMutationErrorResponses()
-  async refresh(@Body() dto: RefreshDto) {
-    return this.authService.refresh(dto.userId, dto.refreshToken);
+  async refresh(@Body() dto: RefreshDto, @Req() req: Request): Promise<Tokens> {
+    const { ip, userAgent } = extractRequestInfo(req);
+    return this.authService.refresh(
+      dto.userId,
+      dto.refreshToken,
+      ip,
+      userAgent,
+    );
   }
 
   @Post('logout')
@@ -95,5 +114,32 @@ export class AuthController {
   })
   getMe(@CurrentUser() user: UserFromJwt): UserFromJwt {
     return user;
+  }
+
+  @Get(':userId/sessions')
+  @ApiOperation({ summary: 'Список активних сесій користувача' })
+  @ApiOkResponse({
+    description: 'Список сесій з IP та User-Agent',
+    schema: {
+      example: [
+        {
+          jti: 'uuid',
+          ip: '192.168.0.1',
+          userAgent: 'Mozilla/5.0...',
+          createdAt: '2025-05-31T14:50:00.000Z',
+        },
+      ],
+    },
+  })
+  getSessions(@Param('userId') userId: string) {
+    return this.prisma.refreshToken.findMany({
+      where: { userId, revoked: false },
+      select: {
+        jti: true,
+        ip: true,
+        userAgent: true,
+        createdAt: true,
+      },
+    });
   }
 }
