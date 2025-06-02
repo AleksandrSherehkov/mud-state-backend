@@ -13,6 +13,9 @@ export class PublicUserDto {
   })
   email: string;
 
+  @ApiProperty({ example: 'USER', enum: ['ADMIN', 'MODERATOR', 'USER'] })
+  role: 'ADMIN' | 'MODERATOR' | 'USER';
+
   @ApiProperty({
     example: '2025-05-31T14:16:08.682Z',
     description: 'Дата створення',

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  NotFoundException,
   Param,
   Post,
   Req,
@@ -30,7 +31,7 @@ import {
 import { Tokens } from './types/jwt.types';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { UserFromJwt } from './types/user-from-jwt';
+
 import { TokenResponseDto } from './dto/token-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -41,6 +42,8 @@ import { RefreshTokenSessionDto } from './dto/refresh-token-session.dto';
 import { TerminateCountResponseDto } from './dto/terminate-count-response.dto';
 import { TerminateResultDto } from './dto/terminate-result.dto';
 import { FullSessionDto } from './dto/full-session.dto';
+import { Roles } from './decorators/roles.decorator';
+import { RolesGuard } from './guards/roles.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -69,6 +72,7 @@ export class AuthController {
     return {
       id: user.id,
       email: user.email,
+      role: user.role,
       createdAt: user.createdAt,
     };
   }
@@ -124,16 +128,28 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Отримати інформацію про себе' })
   @ApiOkResponse({
-    description: 'Повертає ID та email користувача з access токена',
+    description: 'Повертає ID, email та роль користувача з бази',
     type: MeResponseDto,
   })
   @ApiQueryErrorResponses('Користувача не знайдено')
-  getMe(@CurrentUser() user: UserFromJwt): UserFromJwt {
-    return user;
+  async getMe(@CurrentUser('userId') userId: string): Promise<MeResponseDto> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('Користувача не знайдено');
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt,
+    };
   }
 
   @Get(':userId/sessions')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Список активних сесій користувача' })
   @ApiOkResponse({
@@ -154,7 +170,8 @@ export class AuthController {
   }
 
   @Get('sessions/active')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Список активних сесій поточного користувача' })
   @ApiOkResponse({
@@ -175,7 +192,8 @@ export class AuthController {
   }
 
   @Post('sessions/terminate-others')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Завершити всі інші сесії, крім поточної' })
   @ApiOkResponse({
@@ -217,7 +235,8 @@ export class AuthController {
   }
 
   @Get('sessions/me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Список всіх сесій користувача' })
   @ApiOkResponse({
@@ -241,7 +260,8 @@ export class AuthController {
   }
 
   @Post('sessions/terminate')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Завершити конкретну сесію за IP та User-Agent' })
   @ApiOkResponse({
