@@ -36,6 +36,27 @@ export class AuthService {
     const isValid = await bcrypt.compare(dto.password, user.password);
     if (!isValid) throw new UnauthorizedException('Невірний email або пароль');
 
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        userId: user.id,
+        revoked: false,
+      },
+      data: {
+        revoked: true,
+      },
+    });
+
+    await this.prisma.session.updateMany({
+      where: {
+        userId: user.id,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+        endedAt: new Date(),
+      },
+    });
+
     return this.generateTokens(user.id, user.email, ip, userAgent);
   }
 
@@ -115,6 +136,7 @@ export class AuthService {
   ): Promise<Tokens> {
     const refreshTokenId = randomUUID();
     const payload: JwtPayload = { sub: userId, email, jti: refreshTokenId };
+
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.config.get<string>('JWT_ACCESS_SECRET'),
