@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class LogoutDto {
   @ApiProperty({ example: 'clx123...', description: 'ID користувача' })
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   userId: string;
 }

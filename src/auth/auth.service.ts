@@ -58,7 +58,6 @@ export class AuthService {
     const tokenInDb = await this.prisma.refreshToken.findUnique({
       where: { jti: payload.jti },
     });
-
     if (!tokenInDb || tokenInDb.revoked || tokenInDb.userId !== userId) {
       throw new UnauthorizedException('Токен відкликано або недійсний');
     }

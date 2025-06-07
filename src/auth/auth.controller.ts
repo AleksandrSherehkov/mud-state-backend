@@ -15,7 +15,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { AuthService } from './auth.service';
-import { PublicUserDto } from '../users/dto/public-user.dto';
+
 import {
   ApiBearerAuth,
   ApiBody,
@@ -44,6 +44,8 @@ import { TerminateResultDto } from './dto/terminate-result.dto';
 import { FullSessionDto } from './dto/full-session.dto';
 import { Roles } from './decorators/roles.decorator';
 import { RolesGuard } from './guards/roles.guard';
+import { LogoutResponseDto } from './dto/logout-response.dto';
+import { RegisterResponseDto } from './dto/register-response.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -55,25 +57,31 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(201)
-  @ApiOperation({ summary: 'Реєстрація нового користувача' })
+  @ApiOperation({
+    summary: 'Реєстрація нового користувача',
+    description: `Створює нового користувача, одразу авторизує його і повертає токени доступу (accessToken, refreshToken), а також створює відповідну сесію і refreshToken у базі даних.`,
+  })
   @ApiBody({ type: RegisterDto })
   @ApiCreatedResponse({
     description: 'Користувач успішно створений',
-    type: PublicUserDto,
+    type: RegisterResponseDto,
   })
   @ApiMutationErrorResponses()
   async register(
     @Body() dto: RegisterDto,
     @Req() req: Request,
-  ): Promise<PublicUserDto> {
+  ): Promise<RegisterResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
 
-    const user = await this.authService.register(dto, ip, userAgent);
+    const result = await this.authService.register(dto, ip, userAgent);
     return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      createdAt: user.createdAt,
+      id: result.id,
+      email: result.email,
+      role: result.role,
+      createdAt: result.createdAt,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      jti: result.jti,
     };
   }
 
@@ -117,10 +125,12 @@ export class AuthController {
   @ApiBody({ type: LogoutDto })
   @ApiOkResponse({
     description: 'Користувач вийшов із системи',
+    type: LogoutResponseDto,
   })
   @ApiMutationErrorResponses()
   async logout(@Body() dto: LogoutDto) {
     await this.authService.logout(dto.userId);
+    return { loggedOut: true, terminatedAt: new Date().toISOString() };
   }
 
   @Get('me')

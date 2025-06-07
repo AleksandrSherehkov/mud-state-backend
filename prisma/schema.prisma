@@ -38,7 +38,7 @@ model Character {
 
 model RefreshToken {
   id        String   @id @default(cuid())
-  jti       String   @unique
+  jti       String @unique
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   revoked   Boolean  @default(false)
