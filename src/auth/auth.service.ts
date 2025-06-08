@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
@@ -12,7 +13,6 @@ import * as bcrypt from 'bcrypt';
 import { Tokens, JwtPayload } from './types/jwt.types';
 import { randomUUID } from 'crypto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { LogoutResponseDto } from './dto/logout-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -20,7 +20,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private config: ConfigService,
-    private prisma: PrismaService
+    private prisma: PrismaService,
   ) {}
 
   async register(dto: RegisterDto, ip?: string, userAgent?: string) {
@@ -29,7 +29,7 @@ export class AuthService {
       user.id,
       user.email,
       ip,
-      userAgent
+      userAgent,
     );
     return { ...user, ...tokens };
   }
@@ -69,7 +69,7 @@ export class AuthService {
     userId: string,
     refreshToken: string,
     ip?: string,
-    userAgent?: string
+    userAgent?: string,
   ): Promise<Tokens> {
     let payload: JwtPayload & { jti: string };
 
@@ -111,18 +111,17 @@ export class AuthService {
   }
 
   async logout(userId: string): Promise<{ loggedOut: boolean }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('Користувача не знайдено');
+    }
+
     const [activeTokens, activeSessions] = await Promise.all([
       this.prisma.refreshToken.count({
-        where: {
-          userId,
-          revoked: false,
-        },
+        where: { userId, revoked: false },
       }),
       this.prisma.session.count({
-        where: {
-          userId,
-          isActive: true,
-        },
+        where: { userId, isActive: true },
       }),
     ]);
 
@@ -131,20 +130,12 @@ export class AuthService {
     }
 
     await this.prisma.refreshToken.updateMany({
-      where: {
-        userId,
-        revoked: false,
-      },
-      data: {
-        revoked: true,
-      },
+      where: { userId, revoked: false },
+      data: { revoked: true },
     });
 
     await this.prisma.session.updateMany({
-      where: {
-        userId,
-        isActive: true,
-      },
+      where: { userId, isActive: true },
       data: {
         isActive: false,
         endedAt: new Date(),
@@ -158,7 +149,7 @@ export class AuthService {
     userId: string,
     email: string,
     ip?: string,
-    userAgent?: string
+    userAgent?: string,
   ): Promise<Tokens> {
     const refreshTokenId = randomUUID();
     const user = await this.prisma.user.findUnique({ where: { id: userId } });

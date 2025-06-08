@@ -14,7 +14,7 @@ import { Request } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
-import { LogoutDto } from './dto/logout.dto';
+
 import { AuthService } from './auth.service';
 
 import {
@@ -125,7 +125,6 @@ export class AuthController {
   @ApiOperation({
     summary: 'Вихід користувача (очищення refresh токена та сесій)',
   })
-  @ApiBody({ type: LogoutDto })
   @ApiOkResponse({
     description: 'Користувач вийшов із системи',
     type: LogoutResponseDto,
