@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Role } from '@prisma/client';
 
 export class MeResponseDto {
   @ApiProperty({ example: 'clx123...', description: 'ID користувача' })
@@ -18,4 +19,16 @@ export class MeResponseDto {
     description: 'Дата створення',
   })
   createdAt: Date;
+
+  constructor(data: {
+    id: string;
+    email: string;
+    role: Role;
+    createdAt: Date;
+  }) {
+    this.id = data.id;
+    this.email = data.email;
+    this.role = data.role;
+    this.createdAt = data.createdAt;
+  }
 }

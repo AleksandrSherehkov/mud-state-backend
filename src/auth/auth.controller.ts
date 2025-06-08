@@ -49,7 +49,7 @@ import { RolesGuard } from './guards/roles.guard';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
 import { UserFromJwt } from './types/user-from-jwt';
-import { Role } from 'src/common/enums/role.enum';
+import { Role } from '@prisma/client';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -78,15 +78,7 @@ export class AuthController {
     const { ip, userAgent } = extractRequestInfo(req);
 
     const result = await this.authService.register(dto, ip, userAgent);
-    return {
-      id: result.id,
-      email: result.email,
-      role: result.role,
-      createdAt: result.createdAt,
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-      jti: result.jti,
-    };
+    return new RegisterResponseDto(result);
   }
 
   @Post('login')
@@ -159,12 +151,7 @@ export class AuthController {
       throw new NotFoundException('Користувача не знайдено');
     }
 
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      createdAt: user.createdAt,
-    };
+    return new MeResponseDto(user);
   }
 
   @Get(':userId/sessions')
