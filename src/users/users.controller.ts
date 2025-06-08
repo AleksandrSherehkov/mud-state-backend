@@ -25,9 +25,27 @@ import { Role } from 'src/common/enums/role.enum';
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
-  @Get(':email')
+  @Get('id/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.MODERATOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Отримати користувача за ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'UUID користувача',
+    example: 'clx1a2b3c0000n1m2o3p4q5r',
+  })
+  @ApiOkResponse({ description: 'Знайдений користувач', type: PublicUserDto })
+  @ApiQueryErrorResponses('Користувача не знайдено')
+  async getById(@Param('id') id: string) {
+    const user = await this.usersService.findById(id);
+    if (!user) throw new NotFoundException('Користувача не знайдено');
+    return new PublicUserDto(user); // ✅
+  }
+
+  @Get('email/:email')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Пошук користувача за email' })
   @ApiParam({
@@ -35,20 +53,11 @@ export class UsersController {
     description: 'Email користувача',
     example: 'user@example.com',
   })
-  @ApiOkResponse({
-    description: 'Знайдений користувач',
-    type: PublicUserDto,
-  })
-  @ApiOkResponse({ type: PublicUserDto })
+  @ApiOkResponse({ description: 'Знайдений користувач', type: PublicUserDto })
   @ApiQueryErrorResponses('Користувача не знайдено')
   async getByEmail(@Param('email') email: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user) throw new NotFoundException('Користувача не знайдено');
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      createdAt: user.createdAt,
-    };
+    return new PublicUserDto(user); // ✅
   }
 }

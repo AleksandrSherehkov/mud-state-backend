@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { User } from '@prisma/client';
 
 export class PublicUserDto {
   @ApiProperty({
@@ -21,4 +22,11 @@ export class PublicUserDto {
     description: 'Дата створення',
   })
   createdAt: Date;
+
+  constructor(user: User) {
+    this.id = user.id;
+    this.email = user.email;
+    this.role = user.role;
+    this.createdAt = user.createdAt;
+  }
 }

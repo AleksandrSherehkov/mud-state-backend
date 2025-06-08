@@ -56,7 +56,7 @@ import { Role } from 'src/common/enums/role.enum';
 export class AuthController {
   constructor(
     private authService: AuthService,
-    private prisma: PrismaService
+    private prisma: PrismaService,
   ) {}
 
   @Post('register')
@@ -73,7 +73,7 @@ export class AuthController {
   @ApiMutationErrorResponses()
   async register(
     @Body() dto: RegisterDto,
-    @Req() req: Request
+    @Req() req: Request,
   ): Promise<RegisterResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
 
@@ -117,7 +117,7 @@ export class AuthController {
       dto.userId,
       dto.refreshToken,
       ip,
-      userAgent
+      userAgent,
     );
   }
 
@@ -287,7 +287,7 @@ export class AuthController {
   async terminateSpecificSession(
     @CurrentUser('userId') userId: string,
     @Req() req: Request,
-    @Body() dto: TerminateSessionDto
+    @Body() dto: TerminateSessionDto,
   ) {
     const userAgent = req.headers['user-agent'] || '';
     const ip = dto.ip;
