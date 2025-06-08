@@ -49,13 +49,14 @@ import { RolesGuard } from './guards/roles.guard';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
 import { UserFromJwt } from './types/user-from-jwt';
+import { Role } from 'src/common/enums/role.enum';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
     private authService: AuthService,
-    private prisma: PrismaService,
+    private prisma: PrismaService
   ) {}
 
   @Post('register')
@@ -72,7 +73,7 @@ export class AuthController {
   @ApiMutationErrorResponses()
   async register(
     @Body() dto: RegisterDto,
-    @Req() req: Request,
+    @Req() req: Request
   ): Promise<RegisterResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
 
@@ -116,7 +117,7 @@ export class AuthController {
       dto.userId,
       dto.refreshToken,
       ip,
-      userAgent,
+      userAgent
     );
   }
 
@@ -168,7 +169,7 @@ export class AuthController {
 
   @Get(':userId/sessions')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'MODERATOR')
+  @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Список активних сесій користувача' })
   @ApiOkResponse({
@@ -190,7 +191,7 @@ export class AuthController {
 
   @Get('sessions/active')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'MODERATOR')
+  @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Список активних сесій поточного користувача' })
   @ApiOkResponse({
@@ -212,7 +213,7 @@ export class AuthController {
 
   @Post('sessions/terminate-others')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'MODERATOR')
+  @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Завершити всі інші сесії, крім поточної' })
   @ApiOkResponse({
@@ -250,7 +251,7 @@ export class AuthController {
 
   @Get('sessions/me')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'MODERATOR')
+  @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Список всіх сесій користувача' })
   @ApiOkResponse({
@@ -275,7 +276,7 @@ export class AuthController {
 
   @Post('sessions/terminate')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'MODERATOR')
+  @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Завершити конкретну сесію за IP та User-Agent' })
   @ApiOkResponse({
@@ -286,7 +287,7 @@ export class AuthController {
   async terminateSpecificSession(
     @CurrentUser('userId') userId: string,
     @Req() req: Request,
-    @Body() dto: TerminateSessionDto,
+    @Body() dto: TerminateSessionDto
   ) {
     const userAgent = req.headers['user-agent'] || '';
     const ip = dto.ip;
