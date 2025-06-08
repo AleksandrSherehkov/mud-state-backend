@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -121,16 +122,23 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(200)
-  @ApiOperation({ summary: 'Вихід користувача (очищення refresh токена)' })
+  @ApiOperation({
+    summary: 'Вихід користувача (очищення refresh токена та сесій)',
+  })
   @ApiBody({ type: LogoutDto })
   @ApiOkResponse({
     description: 'Користувач вийшов із системи',
     type: LogoutResponseDto,
   })
   @ApiMutationErrorResponses()
-  async logout(@Body() dto: LogoutDto) {
-    await this.authService.logout(dto.userId);
-    return { loggedOut: true, terminatedAt: new Date().toISOString() };
+  async logout(@CurrentUser('userId') userId: string) {
+    const result = await this.authService.logout(userId);
+
+    if (!result.loggedOut) {
+      throw new BadRequestException('Користувач вже вийшов із системи');
+    }
+
+    return result;
   }
 
   @Get('me')

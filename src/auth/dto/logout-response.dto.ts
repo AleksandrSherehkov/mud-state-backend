@@ -8,5 +8,5 @@ export class LogoutResponseDto {
     example: '2025-06-07T11:30:00.000Z',
     description: 'Час завершення сесій',
   })
-  terminatedAt: string;
+  terminatedAt: string | null;
 }

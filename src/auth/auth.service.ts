@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -8,6 +12,7 @@ import * as bcrypt from 'bcrypt';
 import { Tokens, JwtPayload } from './types/jwt.types';
 import { randomUUID } from 'crypto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { LogoutResponseDto } from './dto/logout-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -15,7 +20,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private config: ConfigService,
-    private prisma: PrismaService,
+    private prisma: PrismaService
   ) {}
 
   async register(dto: RegisterDto, ip?: string, userAgent?: string) {
@@ -24,7 +29,7 @@ export class AuthService {
       user.id,
       user.email,
       ip,
-      userAgent,
+      userAgent
     );
     return { ...user, ...tokens };
   }
@@ -64,7 +69,7 @@ export class AuthService {
     userId: string,
     refreshToken: string,
     ip?: string,
-    userAgent?: string,
+    userAgent?: string
   ): Promise<Tokens> {
     let payload: JwtPayload & { jti: string };
 
@@ -105,7 +110,26 @@ export class AuthService {
     return this.generateTokens(user.id, user.email, ip, userAgent);
   }
 
-  async logout(userId: string): Promise<void> {
+  async logout(userId: string): Promise<{ loggedOut: boolean }> {
+    const [activeTokens, activeSessions] = await Promise.all([
+      this.prisma.refreshToken.count({
+        where: {
+          userId,
+          revoked: false,
+        },
+      }),
+      this.prisma.session.count({
+        where: {
+          userId,
+          isActive: true,
+        },
+      }),
+    ]);
+
+    if (activeTokens === 0 && activeSessions === 0) {
+      throw new ConflictException('Користувач вже вийшов із системи');
+    }
+
     await this.prisma.refreshToken.updateMany({
       where: {
         userId,
@@ -126,16 +150,25 @@ export class AuthService {
         endedAt: new Date(),
       },
     });
+
+    return { loggedOut: true };
   }
 
   private async generateTokens(
     userId: string,
     email: string,
     ip?: string,
-    userAgent?: string,
+    userAgent?: string
   ): Promise<Tokens> {
     const refreshTokenId = randomUUID();
-    const payload: JwtPayload = { sub: userId, email, jti: refreshTokenId };
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+    const payload: JwtPayload = {
+      sub: userId,
+      email,
+      jti: refreshTokenId,
+      role: user.role,
+    };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
