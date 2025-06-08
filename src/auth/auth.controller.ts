@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Get,
   HttpCode,
@@ -47,6 +48,7 @@ import { Roles } from './decorators/roles.decorator';
 import { RolesGuard } from './guards/roles.guard';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
+import { UserFromJwt } from './types/user-from-jwt';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -218,29 +220,24 @@ export class AuthController {
     type: TerminateCountResponseDto,
   })
   @ApiMutationErrorResponses()
-  async terminateOtherSessions(
-    @CurrentUser('userId') userId: string,
-    @Req() req: Request,
-  ) {
-    const { ip, userAgent } = extractRequestInfo(req);
-
-    const session = await this.prisma.session.findFirst({
+  async terminateOtherSessions(@CurrentUser() user: UserFromJwt) {
+    const activeOtherSessions = await this.prisma.session.count({
       where: {
-        userId,
-        ip,
-        userAgent,
+        userId: user.userId,
         isActive: true,
+        NOT: { id: user.sid }, // виключаємо поточну
       },
-      orderBy: { startedAt: 'desc' },
     });
+
+    if (activeOtherSessions === 0) {
+      throw new ConflictException('Немає інших активних сесій');
+    }
 
     const result = await this.prisma.session.updateMany({
       where: {
-        userId,
+        userId: user.userId,
         isActive: true,
-        NOT: {
-          id: session?.id,
-        },
+        NOT: { id: user.sid },
       },
       data: {
         isActive: false,

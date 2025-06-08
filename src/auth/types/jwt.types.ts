@@ -9,4 +9,5 @@ export type JwtPayload = {
   email: string;
   jti: string;
   role: 'ADMIN' | 'MODERATOR' | 'USER';
+  sid: string;
 };

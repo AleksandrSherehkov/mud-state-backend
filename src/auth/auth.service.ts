@@ -154,11 +154,31 @@ export class AuthService {
     const refreshTokenId = randomUUID();
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
+
+    await this.prisma.refreshToken.create({
+      data: {
+        userId,
+        jti: refreshTokenId,
+        ip,
+        userAgent,
+      },
+    });
+
+    const session = await this.prisma.session.create({
+      data: {
+        userId,
+        refreshTokenId,
+        ip,
+        userAgent,
+      },
+    });
+
     const payload: JwtPayload = {
       sub: userId,
       email,
       jti: refreshTokenId,
       role: user.role,
+      sid: session.id,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -171,24 +191,6 @@ export class AuthService {
         expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
       }),
     ]);
-
-    await this.prisma.refreshToken.create({
-      data: {
-        userId,
-        jti: refreshTokenId,
-        ip,
-        userAgent,
-      },
-    });
-
-    await this.prisma.session.create({
-      data: {
-        userId,
-        refreshTokenId,
-        ip,
-        userAgent,
-      },
-    });
 
     return { accessToken, refreshToken, jti: refreshTokenId };
   }
