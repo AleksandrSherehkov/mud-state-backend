@@ -11,6 +11,13 @@ export class RefreshTokenService {
     });
   }
 
+  async getActiveTokens(userId: string) {
+    return this.prisma.refreshToken.findMany({
+      where: { userId, revoked: false },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async revokeAll(userId: string) {
     return this.prisma.refreshToken.updateMany({
       where: { userId, revoked: false },

@@ -50,6 +50,9 @@ import { LogoutResponseDto } from './dto/logout-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
 import { UserFromJwt } from './types/user-from-jwt';
 import { Role } from '@prisma/client';
+import { SessionService } from './session.service';
+import { RefreshTokenService } from './refresh-token.service';
+import { UsersService } from 'src/users/users.service';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -57,6 +60,9 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private prisma: PrismaService,
+    private sessionService: SessionService,
+    private refreshTokenService: RefreshTokenService,
+    private usersService: UsersService,
   ) {}
 
   @Post('register')
@@ -145,12 +151,10 @@ export class AuthController {
   })
   @ApiQueryErrorResponses('Користувача не знайдено')
   async getMe(@CurrentUser('userId') userId: string): Promise<MeResponseDto> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-
+    const user = await this.usersService.findById(userId);
     if (!user) {
       throw new NotFoundException('Користувача не знайдено');
     }
-
     return new MeResponseDto(user);
   }
 
@@ -164,16 +168,16 @@ export class AuthController {
     type: [RefreshTokenSessionDto],
   })
   @ApiQueryErrorResponses('Сесії користувача не знайдено')
-  getSessions(@Param('userId') userId: string) {
-    return this.prisma.refreshToken.findMany({
-      where: { userId, revoked: false },
-      select: {
-        jti: true,
-        ip: true,
-        userAgent: true,
-        createdAt: true,
-      },
-    });
+  async getSessions(
+    @Param('userId') userId: string,
+  ): Promise<RefreshTokenSessionDto[]> {
+    const tokens = await this.refreshTokenService.getActiveTokens(userId);
+    return tokens.map((token) => ({
+      jti: token.jti,
+      ip: token.ip ?? '',
+      userAgent: token.userAgent ?? '',
+      createdAt: token.createdAt.toISOString(),
+    }));
   }
 
   @Get('sessions/active')
@@ -186,16 +190,16 @@ export class AuthController {
     type: [ActiveSessionDto],
   })
   @ApiQueryErrorResponses('Активні сесії не знайдено')
-  getActiveSessions(@CurrentUser('userId') userId: string) {
-    return this.prisma.session.findMany({
-      where: { userId, isActive: true },
-      select: {
-        id: true,
-        ip: true,
-        userAgent: true,
-        startedAt: true,
-      },
-    });
+  async getActiveSessions(
+    @CurrentUser('userId') userId: string,
+  ): Promise<ActiveSessionDto[]> {
+    const sessions = await this.sessionService.getActiveUserSessions(userId);
+    return sessions.map((session) => ({
+      id: session.id,
+      ip: session.ip ?? '',
+      userAgent: session.userAgent ?? '',
+      startedAt: session.startedAt.toISOString(),
+    }));
   }
 
   @Post('sessions/terminate-others')
@@ -209,30 +213,13 @@ export class AuthController {
   })
   @ApiMutationErrorResponses()
   async terminateOtherSessions(@CurrentUser() user: UserFromJwt) {
-    const activeOtherSessions = await this.prisma.session.count({
-      where: {
-        userId: user.userId,
-        isActive: true,
-        NOT: { id: user.sid }, // виключаємо поточну
-      },
-    });
-
-    if (activeOtherSessions === 0) {
+    const result = await this.sessionService.terminateOtherSessions(
+      user.userId,
+      user.sid,
+    );
+    if (result.count === 0) {
       throw new ConflictException('Немає інших активних сесій');
     }
-
-    const result = await this.prisma.session.updateMany({
-      where: {
-        userId: user.userId,
-        isActive: true,
-        NOT: { id: user.sid },
-      },
-      data: {
-        isActive: false,
-        endedAt: new Date(),
-      },
-    });
-
     return { terminatedCount: result.count };
   }
 
@@ -246,19 +233,18 @@ export class AuthController {
     type: [FullSessionDto],
   })
   @ApiQueryErrorResponses('Сесії користувача не знайдено')
-  getMySessions(@CurrentUser('userId') userId: string) {
-    return this.prisma.session.findMany({
-      where: { userId },
-      orderBy: { startedAt: 'desc' },
-      select: {
-        id: true,
-        ip: true,
-        userAgent: true,
-        isActive: true,
-        startedAt: true,
-        endedAt: true,
-      },
-    });
+  async getMySessions(
+    @CurrentUser('userId') userId: string,
+  ): Promise<FullSessionDto[]> {
+    const sessions = await this.sessionService.getAllUserSessions(userId);
+    return sessions.map((session) => ({
+      id: session.id,
+      ip: session.ip ?? '',
+      userAgent: session.userAgent ?? '',
+      isActive: session.isActive,
+      startedAt: session.startedAt.toISOString(),
+      endedAt: session.endedAt ? session.endedAt.toISOString() : null,
+    }));
   }
 
   @Post('sessions/terminate')
@@ -279,27 +265,11 @@ export class AuthController {
     const userAgent = req.headers['user-agent'] || '';
     const ip = dto.ip;
 
-    const session = await this.prisma.session.findFirst({
-      where: {
-        userId,
-        ip,
-        userAgent,
-        isActive: true,
-      },
-    });
-
-    if (!session) {
-      return { terminated: false };
-    }
-
-    await this.prisma.session.update({
-      where: { id: session.id },
-      data: {
-        isActive: false,
-        endedAt: new Date(),
-      },
-    });
-
-    return { terminated: true };
+    const result = await this.sessionService.terminateSpecificSession(
+      userId,
+      ip,
+      userAgent,
+    );
+    return { terminated: result.count > 0 };
   }
 }
