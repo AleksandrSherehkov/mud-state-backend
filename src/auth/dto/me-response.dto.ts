@@ -12,7 +12,7 @@ export class MeResponseDto {
   email: string;
 
   @ApiProperty({ example: 'USER', enum: ['ADMIN', 'MODERATOR', 'USER'] })
-  role: 'ADMIN' | 'MODERATOR' | 'USER';
+  role: Role;
 
   @ApiProperty({
     example: '2025-05-31T14:16:08.682Z',

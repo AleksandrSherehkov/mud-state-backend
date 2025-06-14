@@ -1,3 +1,5 @@
+import { Role } from '@prisma/client';
+
 export type Tokens = {
   accessToken: string;
   refreshToken: string;
@@ -8,6 +10,6 @@ export type JwtPayload = {
   sub: string;
   email: string;
   jti: string;
-  role: 'ADMIN' | 'MODERATOR' | 'USER';
+  role: Role;
   sid: string;
 };

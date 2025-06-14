@@ -1,6 +1,8 @@
+import { Role } from '@prisma/client';
+
 export type UserFromJwt = {
   userId: string;
   email: string;
-  role: 'ADMIN' | 'MODERATOR' | 'USER';
+  role: Role;
   sid: string;
 };

@@ -13,12 +13,17 @@ import { Tokens, JwtPayload } from './types/jwt.types';
 import { randomUUID } from 'crypto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TokenService } from './token.service';
+import { RefreshTokenService } from './refresh-token.service';
+import { SessionService } from './session.service';
+import { Role } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
     private tokenService: TokenService,
+    private refreshTokenService: RefreshTokenService,
+    private sessionService: SessionService,
     private prisma: PrismaService,
   ) {}
 
@@ -27,6 +32,7 @@ export class AuthService {
     const tokens = await this.generateTokens(
       user.id,
       user.email,
+      user.role,
       ip,
       userAgent,
     );
@@ -40,28 +46,12 @@ export class AuthService {
     const isValid = await bcrypt.compare(dto.password, user.password);
     if (!isValid) throw new UnauthorizedException('Невірний email або пароль');
 
-    await this.prisma.refreshToken.updateMany({
-      where: {
-        userId: user.id,
-        revoked: false,
-      },
-      data: {
-        revoked: true,
-      },
-    });
+    await Promise.all([
+      this.refreshTokenService.revokeAll(user.id),
+      this.sessionService.terminateAll(user.id),
+    ]);
 
-    await this.prisma.session.updateMany({
-      where: {
-        userId: user.id,
-        isActive: true,
-      },
-      data: {
-        isActive: false,
-        endedAt: new Date(),
-      },
-    });
-
-    return this.generateTokens(user.id, user.email, ip, userAgent);
+    return this.generateTokens(user.id, user.email, user.role, ip, userAgent);
   }
 
   async refresh(
@@ -74,70 +64,37 @@ export class AuthService {
 
     try {
       payload = await this.tokenService.verifyRefreshToken(refreshToken);
-    } catch (err) {
+    } catch {
       throw new UnauthorizedException('Недійсний токен');
     }
 
-    const tokenInDb = await this.prisma.refreshToken.findUnique({
-      where: { jti: payload.jti },
-    });
-    if (!tokenInDb || tokenInDb.revoked || tokenInDb.userId !== userId) {
-      throw new UnauthorizedException('Токен відкликано або недійсний');
-    }
-
-    await this.prisma.refreshToken.update({
-      where: { jti: payload.jti },
-      data: { revoked: true },
-    });
-
-    await this.prisma.session.updateMany({
-      where: {
-        refreshTokenId: payload.jti,
-        endedAt: null,
-      },
-      data: {
-        endedAt: new Date(),
-        isActive: false,
-      },
-    });
+    await this.refreshTokenService.validate(payload.jti, userId);
+    await this.refreshTokenService.revokeByJti(payload.jti);
+    await this.sessionService.terminateByRefreshToken(payload.jti);
 
     const user = await this.usersService.findById(userId);
     if (!user) throw new UnauthorizedException('Користувача не знайдено');
 
-    return this.generateTokens(user.id, user.email, ip, userAgent);
+    return this.generateTokens(user.id, user.email, user.role, ip, userAgent);
   }
 
   async logout(userId: string): Promise<{ loggedOut: boolean }> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('Користувача не знайдено');
-    }
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new NotFoundException('Користувача не знайдено');
 
     const [activeTokens, activeSessions] = await Promise.all([
-      this.prisma.refreshToken.count({
-        where: { userId, revoked: false },
-      }),
-      this.prisma.session.count({
-        where: { userId, isActive: true },
-      }),
+      this.refreshTokenService.countActive(userId),
+      this.sessionService.countActive(userId),
     ]);
 
-    if (activeTokens === 0 && activeSessions === 0) {
+    if (!activeTokens && !activeSessions) {
       throw new ConflictException('Користувач вже вийшов із системи');
     }
 
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revoked: false },
-      data: { revoked: true },
-    });
-
-    await this.prisma.session.updateMany({
-      where: { userId, isActive: true },
-      data: {
-        isActive: false,
-        endedAt: new Date(),
-      },
-    });
+    await Promise.all([
+      this.refreshTokenService.revokeAll(userId),
+      this.sessionService.terminateAll(userId),
+    ]);
 
     return { loggedOut: true };
   }
@@ -145,36 +102,30 @@ export class AuthService {
   private async generateTokens(
     userId: string,
     email: string,
+    role: Role,
     ip?: string,
     userAgent?: string,
   ): Promise<Tokens> {
     const refreshTokenId = randomUUID();
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException();
 
-    await this.prisma.refreshToken.create({
-      data: {
-        userId,
-        jti: refreshTokenId,
-        ip,
-        userAgent,
-      },
-    });
-
-    const session = await this.prisma.session.create({
-      data: {
-        userId,
-        refreshTokenId,
-        ip,
-        userAgent,
-      },
-    });
+    await this.refreshTokenService.create(
+      userId,
+      refreshTokenId,
+      ip,
+      userAgent,
+    );
+    const session = await this.sessionService.create(
+      userId,
+      refreshTokenId,
+      ip,
+      userAgent,
+    );
 
     const payload: JwtPayload = {
       sub: userId,
       email,
       jti: refreshTokenId,
-      role: user.role,
+      role,
       sid: session.id,
     };
 
