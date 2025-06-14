@@ -7,19 +7,18 @@ import {
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
+
 import * as bcrypt from 'bcrypt';
 import { Tokens, JwtPayload } from './types/jwt.types';
 import { randomUUID } from 'crypto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { TokenService } from './token.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
-    private jwtService: JwtService,
-    private config: ConfigService,
+    private tokenService: TokenService,
     private prisma: PrismaService,
   ) {}
 
@@ -74,9 +73,7 @@ export class AuthService {
     let payload: JwtPayload & { jti: string };
 
     try {
-      payload = await this.jwtService.verifyAsync(refreshToken, {
-        secret: this.config.get<string>('JWT_REFRESH_SECRET'),
-      });
+      payload = await this.tokenService.verifyRefreshToken(refreshToken);
     } catch (err) {
       throw new UnauthorizedException('Недійсний токен');
     }
@@ -182,14 +179,8 @@ export class AuthService {
     };
 
     const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: this.config.get<string>('JWT_ACCESS_SECRET'),
-        expiresIn: this.config.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
-      }),
-      this.jwtService.signAsync(payload, {
-        secret: this.config.get<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
-      }),
+      this.tokenService.signAccessToken(payload),
+      this.tokenService.signRefreshToken(payload),
     ]);
 
     return { accessToken, refreshToken, jti: refreshTokenId };
