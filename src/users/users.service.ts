@@ -30,7 +30,8 @@ export class UsersService {
       where: { email: dto.email },
     });
 
-    if (existing) throw new ConflictException('Email already in use');
+    if (existing)
+      throw new ConflictException('Електронна адреса вже використовується');
 
     const hash = await this.hashPassword(dto.password);
 

@@ -10,18 +10,28 @@ export class TokenService {
     private config: ConfigService,
   ) {}
 
+  private async signToken(
+    payload: JwtPayload,
+    secret: string,
+    expiresIn: string,
+  ): Promise<string> {
+    return this.jwt.signAsync(payload, { secret, expiresIn });
+  }
+
   async signAccessToken(payload: JwtPayload): Promise<string> {
-    return this.jwt.signAsync(payload, {
-      secret: this.config.get<string>('JWT_ACCESS_SECRET'),
-      expiresIn: this.config.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
-    });
+    return this.signToken(
+      payload,
+      this.config.get<string>('JWT_ACCESS_SECRET')!,
+      this.config.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
+    );
   }
 
   async signRefreshToken(payload: JwtPayload): Promise<string> {
-    return this.jwt.signAsync(payload, {
-      secret: this.config.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
-    });
+    return this.signToken(
+      payload,
+      this.config.get<string>('JWT_REFRESH_SECRET')!,
+      this.config.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
+    );
   }
 
   async verifyRefreshToken(token: string): Promise<JwtPayload> {

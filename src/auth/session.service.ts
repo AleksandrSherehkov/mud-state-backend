@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -33,50 +34,42 @@ export class SessionService {
     });
   }
 
+  private async terminateSessions(where: Prisma.SessionWhereInput) {
+    return this.prisma.session.updateMany({
+      where: {
+        ...where,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+        endedAt: new Date(),
+      },
+    });
+  }
+
   async terminateSpecificSession(
     userId: string,
     ip: string,
     userAgent: string,
   ) {
-    return this.prisma.session.updateMany({
-      where: {
-        userId,
-        ip,
-        userAgent,
-        isActive: true,
-      },
-      data: {
-        isActive: false,
-        endedAt: new Date(),
-      },
-    });
+    return this.terminateSessions({ userId, ip, userAgent });
   }
 
   async terminateOtherSessions(userId: string, excludeSessionId: string) {
-    return this.prisma.session.updateMany({
-      where: {
-        userId,
-        isActive: true,
-        NOT: { id: excludeSessionId },
-      },
-      data: {
-        isActive: false,
-        endedAt: new Date(),
-      },
+    return this.terminateSessions({
+      userId,
+      NOT: { id: excludeSessionId },
     });
   }
 
   async terminateAll(userId: string) {
-    return this.prisma.session.updateMany({
-      where: { userId, isActive: true },
-      data: { isActive: false, endedAt: new Date() },
-    });
+    return this.terminateSessions({ userId });
   }
 
   async terminateByRefreshToken(jti: string) {
-    return this.prisma.session.updateMany({
-      where: { refreshTokenId: jti, endedAt: null },
-      data: { endedAt: new Date(), isActive: false },
+    return this.terminateSessions({
+      refreshTokenId: jti,
+      endedAt: null,
     });
   }
 
