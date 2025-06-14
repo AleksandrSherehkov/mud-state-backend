@@ -11,7 +11,6 @@ import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { Tokens, JwtPayload } from './types/jwt.types';
 import { randomUUID } from 'crypto';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { TokenService } from './token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SessionService } from './session.service';
@@ -24,12 +23,11 @@ export class AuthService {
     private tokenService: TokenService,
     private refreshTokenService: RefreshTokenService,
     private sessionService: SessionService,
-    private prisma: PrismaService,
   ) {}
 
   async register(dto: RegisterDto, ip?: string, userAgent?: string) {
     const user = await this.usersService.createUser(dto);
-    const tokens = await this.generateTokens(
+    const tokens = await this.issueTokens(
       user.id,
       user.email,
       user.role,
@@ -51,7 +49,7 @@ export class AuthService {
       this.sessionService.terminateAll(user.id),
     ]);
 
-    return this.generateTokens(user.id, user.email, user.role, ip, userAgent);
+    return this.issueTokens(user.id, user.email, user.role, ip, userAgent);
   }
 
   async refresh(
@@ -68,14 +66,28 @@ export class AuthService {
       throw new UnauthorizedException('Недійсний токен');
     }
 
-    await this.refreshTokenService.validate(payload.jti, userId);
-    await this.refreshTokenService.revokeByJti(payload.jti);
-    await this.sessionService.terminateByRefreshToken(payload.jti);
+    const token = await this.refreshTokenService.findValid(userId, payload.jti);
+    if (!token || token.userId !== userId) {
+      throw new UnauthorizedException(
+        'Підозрілий токен або невідповідність користувача',
+      );
+    }
 
     const user = await this.usersService.findById(userId);
     if (!user) throw new UnauthorizedException('Користувача не знайдено');
 
-    return this.generateTokens(user.id, user.email, user.role, ip, userAgent);
+    const tokens = await this.issueTokens(
+      user.id,
+      user.email,
+      user.role,
+      ip,
+      userAgent,
+    );
+
+    await this.refreshTokenService.revokeByJti(payload.jti);
+    await this.sessionService.terminateByRefreshToken(payload.jti);
+
+    return tokens;
   }
 
   async logout(userId: string): Promise<{ loggedOut: boolean }> {
@@ -99,7 +111,7 @@ export class AuthService {
     return { loggedOut: true };
   }
 
-  private async generateTokens(
+  private async issueTokens(
     userId: string,
     email: string,
     role: Role,

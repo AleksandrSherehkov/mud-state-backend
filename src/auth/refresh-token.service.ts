@@ -39,6 +39,16 @@ export class RefreshTokenService {
     }
   }
 
+  async findValid(userId: string, jti: string) {
+    return this.prisma.refreshToken.findFirst({
+      where: {
+        userId,
+        jti,
+        revoked: false,
+      },
+    });
+  }
+
   async countActive(userId: string) {
     return this.prisma.refreshToken.count({
       where: { userId, revoked: false },
