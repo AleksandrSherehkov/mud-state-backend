@@ -102,7 +102,6 @@ export class AuthController {
   }
 
   @Post('refresh')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(200)
   @ApiOperation({ summary: 'Оновлення токенів' })
