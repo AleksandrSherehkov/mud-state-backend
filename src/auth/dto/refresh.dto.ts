@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsJWT, IsNotEmpty, IsString } from 'class-validator';
+import { IsJWT, IsNotEmpty, IsUUID } from 'class-validator';
 
 export class RefreshDto {
   @ApiProperty({ example: 'clx123...', description: 'ID користувача' })
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
   userId: string;
 
