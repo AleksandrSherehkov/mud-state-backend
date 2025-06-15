@@ -35,6 +35,8 @@ This project provides the API and database layer for a Multi User Dungeon (MUD) 
   `TOKEN_CLEANUP_DAYS` setting which defines how old revoked tokens
   must be before removal.
 
+  Logging can be tuned with `LOG_DIR` (log directory), `LOG_MAX_SIZE` (rotate size), and `LOG_MAX_FILES` (retention period).
+
 3. Generate the Prisma client and apply database migrations:
 
    ```bash
