@@ -15,19 +15,16 @@ This project provides the API and database layer for a Multi User Dungeon (MUD) 
    npm install
    ```
 
-2. Create a `.env` file and define the required environment variables:
+2. Copy `.env.example` to `.env` and adjust the values as needed:
 
-   ```text
-   DATABASE_URL=postgres://user:password@localhost:5432/dbname
-   JWT_ACCESS_SECRET=accessSecret
-   JWT_REFRESH_SECRET=refreshSecret
-   # Optional overrides
-   PORT=3000
-   BASE_URL=http://localhost:3000
-   JWT_ACCESS_EXPIRES_IN=15m
-   JWT_REFRESH_EXPIRES_IN=7d
-   BCRYPT_SALT_ROUNDS=10
+   ```bash
+   cp .env.example .env
    ```
+
+   The example file lists all environment variables consumed by the
+   `ConfigService` such as `DATABASE_URL`, `JWT_ACCESS_SECRET`,
+   `JWT_REFRESH_SECRET`, `PORT`, `BASE_URL`, `JWT_ACCESS_EXPIRES_IN`,
+   `JWT_REFRESH_EXPIRES_IN`, and `BCRYPT_SALT_ROUNDS`.
 
 3. Generate the Prisma client and apply database migrations:
 
