@@ -47,6 +47,21 @@ npm run start:dev
 
 Swagger documentation will be available at `${BASE_URL}/api/docs` once the server starts.
 
+## Throttling
+
+The API enforces a global request rate limit controlled by `THROTTLE_TTL` and
+`THROTTLE_LIMIT`. Endpoints that require authentication are exempt from this
+limit. The following routes skip throttling:
+
+- `POST /auth/logout`
+- `GET /auth/me`
+- `GET /auth/:userId/sessions`
+- `GET /auth/sessions/active`
+- `POST /auth/sessions/terminate-others`
+- `GET /auth/sessions/me`
+- `POST /auth/sessions/terminate`
+- All routes under `/users/*`
+
 ## License
 
 This project is released under the MIT License.

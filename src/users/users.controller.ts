@@ -25,6 +25,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
+import { SkipThrottle } from '@nestjs/throttler';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 @ApiTags('users')
@@ -34,6 +35,7 @@ export class UsersController {
 
   @Get('id/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Отримати користувача за ID' })
@@ -52,6 +54,7 @@ export class UsersController {
 
   @Get('email/:email')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Пошук користувача за email' })
@@ -70,6 +73,7 @@ export class UsersController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @SkipThrottle()
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Оновити користувача' })
@@ -83,6 +87,7 @@ export class UsersController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @SkipThrottle()
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Видалити користувача' })
