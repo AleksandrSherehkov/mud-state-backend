@@ -49,7 +49,7 @@ export class UsersController {
   async getById(@Param('id') id: string) {
     const user = await this.usersService.findById(id);
     if (!user) throw new NotFoundException('Користувача не знайдено');
-    return new PublicUserDto(user); // ✅
+    return new PublicUserDto(user);
   }
 
   @Get('email/:email')
@@ -68,7 +68,7 @@ export class UsersController {
   async getByEmail(@Param('email') email: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user) throw new NotFoundException('Користувача не знайдено');
-    return new PublicUserDto(user); // ✅
+    return new PublicUserDto(user);
   }
 
   @Patch(':id')
