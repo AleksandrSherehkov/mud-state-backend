@@ -34,6 +34,7 @@ import {
 import { Tokens } from './types/jwt.types';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { SkipThrottle } from '@nestjs/throttler';
 
 import { TokenResponseDto } from './dto/token-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
@@ -121,6 +122,7 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
+  @SkipThrottle()
   @ApiBearerAuth()
   @HttpCode(200)
   @ApiOperation({
@@ -143,6 +145,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @SkipThrottle()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Отримати інформацію про себе' })
   @ApiOkResponse({
@@ -160,6 +163,7 @@ export class AuthController {
 
   @Get(':userId/sessions')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Список активних сесій користувача' })
@@ -182,6 +186,7 @@ export class AuthController {
 
   @Get('sessions/active')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Список активних сесій поточного користувача' })
@@ -204,6 +209,7 @@ export class AuthController {
 
   @Post('sessions/terminate-others')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Завершити всі інші сесії, крім поточної' })
@@ -229,6 +235,7 @@ export class AuthController {
 
   @Get('sessions/me')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Список всіх сесій користувача' })
@@ -253,6 +260,7 @@ export class AuthController {
 
   @Post('sessions/terminate')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Завершити конкретну сесію за IP та User-Agent' })
