@@ -1,16 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
+import { AppLogger } from 'src/logger/logger.service';
 
 @Injectable()
 export class TokenCleanupService {
-  private readonly logger = new Logger(TokenCleanupService.name);
-
   constructor(
     private usersService: UsersService,
     private config: ConfigService,
-  ) {}
+    private logger: AppLogger,
+  ) {
+    this.logger.setContext(TokenCleanupService.name);
+  }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCleanup() {
