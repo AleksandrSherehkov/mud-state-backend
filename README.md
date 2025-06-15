@@ -14,6 +14,9 @@ This project provides the API and database layer for a Multi User Dungeon (MUD) 
    ```bash
    npm install
    ```
+   > **Note**: Prisma requires internet access during installation to download
+   > its engine binaries. For offline environments, prebuild or cache the
+   > Prisma engines.
 
 2. Copy `.env.example` to `.env` and adjust the values as needed:
 
