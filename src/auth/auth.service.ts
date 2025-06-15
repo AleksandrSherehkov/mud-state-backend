@@ -1,5 +1,4 @@
 import {
-  ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -90,25 +89,22 @@ export class AuthService {
     return tokens;
   }
 
-  async logout(userId: string): Promise<{ loggedOut: boolean }> {
+  async logout(
+    userId: string,
+  ): Promise<{ loggedOut: true; terminatedAt: string } | null> {
     const user = await this.usersService.findById(userId);
     if (!user) throw new NotFoundException('Користувача не знайдено');
 
-    const [activeTokens, activeSessions] = await Promise.all([
-      this.refreshTokenService.countActive(userId),
-      this.sessionService.countActive(userId),
-    ]);
-
-    if (!activeTokens && !activeSessions) {
-      throw new ConflictException('Користувач вже вийшов із системи');
-    }
-
-    await Promise.all([
+    const [revokeResult, terminateResult] = await Promise.all([
       this.refreshTokenService.revokeAll(userId),
       this.sessionService.terminateAll(userId),
     ]);
 
-    return { loggedOut: true };
+    if (revokeResult.count === 0 && terminateResult.count === 0) {
+      return null;
+    }
+
+    return { loggedOut: true, terminatedAt: new Date().toISOString() };
   }
 
   private async issueTokens(

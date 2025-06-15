@@ -9,4 +9,9 @@ export class LogoutResponseDto {
     description: 'Час завершення сесій',
   })
   terminatedAt: string | null;
+
+  constructor(data: { loggedOut: boolean; terminatedAt: string | null }) {
+    this.loggedOut = data.loggedOut;
+    this.terminatedAt = data.terminatedAt;
+  }
 }

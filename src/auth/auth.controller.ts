@@ -133,14 +133,16 @@ export class AuthController {
     type: LogoutResponseDto,
   })
   @ApiMutationErrorResponses()
-  async logout(@CurrentUser('userId') userId: string) {
+  async logout(
+    @CurrentUser('userId') userId: string,
+  ): Promise<LogoutResponseDto> {
     const result = await this.authService.logout(userId);
 
-    if (!result.loggedOut) {
+    if (!result) {
       throw new BadRequestException('Користувач вже вийшов із системи');
     }
 
-    return result;
+    return new LogoutResponseDto(result);
   }
 
   @Get('me')
