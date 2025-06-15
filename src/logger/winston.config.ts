@@ -24,12 +24,12 @@ export const consoleTransport = new winston.transports.Console({
 });
 
 export const fileTransport = new winston.transports.DailyRotateFile({
-  dirname: 'logs',
+  dirname: process.env.LOG_DIR || 'logs',
   filename: '%DATE%.log',
   datePattern: 'YYYY-MM-DD',
   zippedArchive: true,
-  maxSize: '10m',
-  maxFiles: '14d',
+  maxSize: process.env.LOG_MAX_SIZE || '10m',
+  maxFiles: process.env.LOG_MAX_FILES || '14d',
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.json(),
