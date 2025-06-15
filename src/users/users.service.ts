@@ -43,14 +43,6 @@ export class UsersService {
     });
   }
 
-  async saveRefreshTokenEntry(userId: string, jti: string) {
-    await this.prisma.refreshToken.create({
-      data: {
-        userId,
-        jti,
-      },
-    });
-  }
 
   async findByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { email } });
