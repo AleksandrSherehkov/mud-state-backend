@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 
@@ -37,10 +37,10 @@ async function bootstrap() {
 
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
-  console.log(`🚀 Server running at ${baseUrl}/api`);
-  console.log(`📚 Swagger docs at ${baseUrl}/api/docs`);
+  Logger.log(`🚀 Server running at ${baseUrl}/api`);
+  Logger.log(`📚 Swagger docs at ${baseUrl}/api/docs`);
 }
 bootstrap().catch((err) => {
-  console.error('❌ Failed to start application:', err);
+  Logger.error('❌ Failed to start application:', err);
   process.exit(1);
 });
