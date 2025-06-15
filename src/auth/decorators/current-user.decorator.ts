@@ -5,7 +5,7 @@ export const CurrentUser = createParamDecorator(
   (
     data: keyof UserFromJwt | undefined,
     ctx: ExecutionContext,
-  ): UserFromJwt | undefined => {
+  ): UserFromJwt[keyof UserFromJwt] | UserFromJwt | undefined => {
     const request = ctx.switchToHttp().getRequest<Request>();
     const user = request.user as UserFromJwt | undefined;
 
