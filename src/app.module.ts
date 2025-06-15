@@ -28,6 +28,7 @@ import { ScheduleModule } from '@nestjs/schedule';
         BCRYPT_SALT_ROUNDS: Joi.number().default(10),
         THROTTLE_TTL: Joi.number().default(60),
         THROTTLE_LIMIT: Joi.number().default(10),
+        TOKEN_CLEANUP_DAYS: Joi.number().default(7),
       }),
     }),
     ThrottlerModule.forRootAsync({

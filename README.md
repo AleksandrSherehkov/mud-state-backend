@@ -28,7 +28,9 @@ This project provides the API and database layer for a Multi User Dungeon (MUD) 
   It now also includes throttling options `THROTTLE_TTL` and
   `THROTTLE_LIMIT` which control the request rate limit window (in
   seconds) and the maximum number of requests allowed within that
-  window.
+  window.  The cleanup schedule can be adjusted via the new
+  `TOKEN_CLEANUP_DAYS` setting which defines how old revoked tokens
+  must be before removal.
 
 3. Generate the Prisma client and apply database migrations:
 
