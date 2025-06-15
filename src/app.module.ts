@@ -26,9 +26,15 @@ import { LoggerModule } from './logger/logger.module';
         THROTTLE_TTL: Joi.number().default(60),
         THROTTLE_LIMIT: Joi.number().default(10),
         TOKEN_CLEANUP_DAYS: Joi.number().default(7),
-        LOG_DIR: Joi.string().default("logs"),
-        LOG_MAX_SIZE: Joi.string().default("10m"),
-        LOG_MAX_FILES: Joi.string().default("14d"),
+        LOG_DIR: Joi.string().default('logs'),
+        LOG_FILE_NAME: Joi.string().default('%DATE%.log'),
+        LOG_DATE_PATTERN: Joi.string().default('YYYY-MM-DD'),
+        LOG_ZIPPED_ARCHIVE: Joi.boolean().default(true),
+        LOG_MAX_SIZE: Joi.string().default('10m'),
+        LOG_MAX_FILES: Joi.string().default('14d'),
+        LOG_LEVEL: Joi.string()
+          .valid('error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly')
+          .default('debug'),
       }),
     }),
     ThrottlerModule.forRootAsync({

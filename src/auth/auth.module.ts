@@ -9,11 +9,13 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { TokenService } from './token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SessionService } from './session.service';
+import { LoggerModule } from 'src/logger/logger.module';
 
 @Module({
   imports: [
     UsersModule,
     PrismaModule,
+    LoggerModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
