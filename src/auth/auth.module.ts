@@ -20,7 +20,7 @@ import { SessionService } from './session.service';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_ACCESS_SECRET'),
         signOptions: {
-          expiresIn: '15m',
+          expiresIn: config.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
         },
       }),
     }),
