@@ -11,7 +11,9 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
-  constructor(private readonly logger: Logger) {
+  private readonly logger = new Logger(PrismaService.name);
+
+  constructor() {
     super();
   }
 
