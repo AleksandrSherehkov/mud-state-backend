@@ -4,7 +4,7 @@ This project provides the API and database layer for a Multi User Dungeon (MUD) 
 
 ## Requirements
 
-- Node.js **20.x**
+- Node.js **20 or higher** (tested with Node.js 22)
 - PostgreSQL instance available via `DATABASE_URL`
 
 ## Setup
