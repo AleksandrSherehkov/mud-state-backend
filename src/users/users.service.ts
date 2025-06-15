@@ -114,4 +114,18 @@ export class UsersService {
 
     return result.count;
   }
+
+  async cleanInactiveSessions(olderThanDays = 7): Promise<number> {
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - olderThanDays);
+
+    const result = await this.prisma.session.deleteMany({
+      where: {
+        isActive: false,
+        endedAt: { lt: dateThreshold },
+      },
+    });
+
+    return result.count;
+  }
 }
