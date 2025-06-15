@@ -38,7 +38,6 @@ import { SkipThrottle } from '@nestjs/throttler';
 
 import { TokenResponseDto } from './dto/token-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
-import { PrismaService } from '../prisma/prisma.service';
 import { extractRequestInfo } from 'src/common/helpers/request-info';
 import { TerminateSessionDto } from './dto/terminate-session.dto';
 import { ActiveSessionDto } from './dto/active-session.dto';
@@ -61,7 +60,6 @@ import { UsersService } from 'src/users/users.service';
 export class AuthController {
   constructor(
     private authService: AuthService,
-    private prisma: PrismaService,
     private sessionService: SessionService,
     private refreshTokenService: RefreshTokenService,
     private usersService: UsersService,
