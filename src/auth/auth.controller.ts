@@ -5,6 +5,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  UnauthorizedException,
   NotFoundException,
   Param,
   Post,
@@ -211,7 +212,11 @@ export class AuthController {
     type: TerminateCountResponseDto,
   })
   @ApiMutationErrorResponses()
-  async terminateOtherSessions(@CurrentUser() user: UserFromJwt) {
+  async terminateOtherSessions(@CurrentUser() user: UserFromJwt | undefined) {
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+
     const result = await this.sessionService.terminateOtherSessions(
       user.userId,
       user.sid,
