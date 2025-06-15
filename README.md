@@ -21,10 +21,14 @@ This project provides the API and database layer for a Multi User Dungeon (MUD) 
    cp .env.example .env
    ```
 
-   The example file lists all environment variables consumed by the
-   `ConfigService` such as `DATABASE_URL`, `JWT_ACCESS_SECRET`,
-   `JWT_REFRESH_SECRET`, `PORT`, `BASE_URL`, `JWT_ACCESS_EXPIRES_IN`,
-   `JWT_REFRESH_EXPIRES_IN`, and `BCRYPT_SALT_ROUNDS`.
+  The example file lists all environment variables consumed by the
+  `ConfigService` such as `DATABASE_URL`, `JWT_ACCESS_SECRET`,
+  `JWT_REFRESH_SECRET`, `PORT`, `BASE_URL`, `JWT_ACCESS_EXPIRES_IN`,
+  `JWT_REFRESH_EXPIRES_IN`, and `BCRYPT_SALT_ROUNDS`.
+  It now also includes throttling options `THROTTLE_TTL` and
+  `THROTTLE_LIMIT` which control the request rate limit window (in
+  seconds) and the maximum number of requests allowed within that
+  window.
 
 3. Generate the Prisma client and apply database migrations:
 
