@@ -258,11 +258,9 @@ export class AuthController {
   @ApiMutationErrorResponses()
   async terminateSpecificSession(
     @CurrentUser('userId') userId: string,
-    @Req() req: Request,
     @Body() dto: TerminateSessionDto,
   ) {
-    const userAgent = req.headers['user-agent'] || '';
-    const ip = dto.ip;
+    const { ip, userAgent } = dto;
 
     const result = await this.sessionService.terminateSpecificSession(
       userId,

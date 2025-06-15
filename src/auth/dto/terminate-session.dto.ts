@@ -6,4 +6,11 @@ export class TerminateSessionDto {
   @IsIP('4')
   @IsNotEmpty()
   ip: string;
+
+  @ApiProperty({
+    example: 'Mozilla/5.0...',
+    description: 'User-Agent сесії',
+  })
+  @IsNotEmpty()
+  userAgent: string;
 }
