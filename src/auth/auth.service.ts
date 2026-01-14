@@ -9,7 +9,7 @@ import { LoginDto } from './dto/login.dto';
 
 import * as bcrypt from 'bcrypt';
 import { Tokens, JwtPayload } from './types/jwt.types';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { TokenService } from './token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SessionService } from './session.service';
@@ -21,7 +21,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly tokenService: TokenService,
     private readonly refreshTokenService: RefreshTokenService,
-    private readonly sessionService: SessionService,
+    private readonly sessionService: SessionService
   ) {}
 
   async register(dto: RegisterDto, ip?: string, userAgent?: string) {
@@ -31,7 +31,7 @@ export class AuthService {
       user.email,
       user.role,
       ip,
-      userAgent,
+      userAgent
     );
     return { ...user, ...tokens };
   }
@@ -55,7 +55,7 @@ export class AuthService {
     userId: string,
     refreshToken: string,
     ip?: string,
-    userAgent?: string,
+    userAgent?: string
   ): Promise<Tokens> {
     let payload: JwtPayload & { jti: string };
 
@@ -71,7 +71,7 @@ export class AuthService {
 
     const claim = await this.refreshTokenService.revokeIfActive(
       payload.jti,
-      userId,
+      userId
     );
     if (claim.count === 0) {
       throw new UnauthorizedException('Токен відкликано або недійсний');
@@ -86,7 +86,7 @@ export class AuthService {
   }
 
   async logout(
-    userId: string,
+    userId: string
   ): Promise<{ loggedOut: true; terminatedAt: string } | null> {
     const user = await this.usersService.findById(userId);
     if (!user) throw new NotFoundException('Користувача не знайдено');
@@ -108,7 +108,7 @@ export class AuthService {
     email: string,
     role: Role,
     ip?: string,
-    userAgent?: string,
+    userAgent?: string
   ): Promise<Tokens> {
     const refreshTokenId = randomUUID();
 
@@ -116,13 +116,13 @@ export class AuthService {
       userId,
       refreshTokenId,
       ip,
-      userAgent,
+      userAgent
     );
     const session = await this.sessionService.create(
       userId,
       refreshTokenId,
       ip,
-      userAgent,
+      userAgent
     );
 
     const payload: JwtPayload = {
