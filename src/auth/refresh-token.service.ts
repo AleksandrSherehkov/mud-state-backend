@@ -3,7 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class RefreshTokenService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(userId: string, jti: string, ip?: string, userAgent?: string) {
     return this.prisma.refreshToken.create({
@@ -28,6 +28,13 @@ export class RefreshTokenService {
   async revokeByJti(jti: string) {
     return this.prisma.refreshToken.update({
       where: { jti },
+      data: { revoked: true },
+    });
+  }
+
+  async revokeIfActive(jti: string, userId: string) {
+    return this.prisma.refreshToken.updateMany({
+      where: { jti, userId, revoked: false },
       data: { revoked: true },
     });
   }

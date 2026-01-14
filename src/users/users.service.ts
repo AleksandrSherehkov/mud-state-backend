@@ -13,16 +13,17 @@ import { UpdateUserDto } from './dto/update-user.dto';
 @Injectable()
 export class UsersService {
   constructor(
-    private prisma: PrismaService,
-    private config: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
   ) {}
 
   private async hashPassword(password: string): Promise<string> {
-    const saltRounds = parseInt(
-      this.config.get('BCRYPT_SALT_ROUNDS') || '10',
-      10,
-    );
-    return bcrypt.hash(password, saltRounds);
+    const roundsStr = this.config.get<string>('BCRYPT_SALT_ROUNDS') ?? '10';
+    const saltRounds = Number.parseInt(roundsStr, 10);
+
+    const safeRounds = Number.isFinite(saltRounds) ? saltRounds : 10;
+
+    return bcrypt.hash(password, safeRounds);
   }
 
   async createUser(dto: CreateUserDto): Promise<User> {
@@ -42,7 +43,6 @@ export class UsersService {
       },
     });
   }
-
 
   async findByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { email } });

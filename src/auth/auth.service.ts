@@ -18,10 +18,10 @@ import { Role } from '@prisma/client';
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UsersService,
-    private tokenService: TokenService,
-    private refreshTokenService: RefreshTokenService,
-    private sessionService: SessionService,
+    private readonly usersService: UsersService,
+    private readonly tokenService: TokenService,
+    private readonly refreshTokenService: RefreshTokenService,
+    private readonly sessionService: SessionService,
   ) {}
 
   async register(dto: RegisterDto, ip?: string, userAgent?: string) {
@@ -65,28 +65,24 @@ export class AuthService {
       throw new UnauthorizedException('Недійсний токен');
     }
 
-    const token = await this.refreshTokenService.findValid(userId, payload.jti);
-    if (!token || token.userId !== userId) {
-      throw new UnauthorizedException(
-        'Підозрілий токен або невідповідність користувача',
-      );
+    if (payload.sub !== userId) {
+      throw new UnauthorizedException('Невідповідність користувача');
     }
+
+    const claim = await this.refreshTokenService.revokeIfActive(
+      payload.jti,
+      userId,
+    );
+    if (claim.count === 0) {
+      throw new UnauthorizedException('Токен відкликано або недійсний');
+    }
+
+    await this.sessionService.terminateByRefreshToken(payload.jti);
 
     const user = await this.usersService.findById(userId);
     if (!user) throw new UnauthorizedException('Користувача не знайдено');
 
-    const tokens = await this.issueTokens(
-      user.id,
-      user.email,
-      user.role,
-      ip,
-      userAgent,
-    );
-
-    await this.refreshTokenService.revokeByJti(payload.jti);
-    await this.sessionService.terminateByRefreshToken(payload.jti);
-
-    return tokens;
+    return this.issueTokens(user.id, user.email, user.role, ip, userAgent);
   }
 
   async logout(
