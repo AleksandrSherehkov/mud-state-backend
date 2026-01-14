@@ -14,6 +14,8 @@ import { TokenService } from './token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SessionService } from './session.service';
 import { Role } from '@prisma/client';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { normalizeIp } from 'src/common/helpers/ip-normalize';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +24,7 @@ export class AuthService {
     private readonly tokenService: TokenService,
     private readonly refreshTokenService: RefreshTokenService,
     private readonly sessionService: SessionService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async register(dto: RegisterDto, ip?: string, userAgent?: string) {
@@ -112,19 +115,18 @@ export class AuthService {
   ): Promise<Tokens> {
     const refreshTokenId = randomUUID();
 
-    await this.refreshTokenService.create(
-      userId,
-      refreshTokenId,
-      ip,
-      userAgent,
-    );
-    const session = await this.sessionService.create(
-      userId,
-      refreshTokenId,
-      ip,
-      userAgent,
-    );
+    const nip: string | null = ip ? normalizeIp(ip) : null;
+    const ua: string | null = userAgent ? userAgent.trim() : null;
 
+    const session = await this.prisma.$transaction(async (tx) => {
+      await tx.refreshToken.create({
+        data: { userId, jti: refreshTokenId, ip: nip, userAgent: ua },
+      });
+
+      return tx.session.create({
+        data: { userId, refreshTokenId, ip: nip, userAgent: ua },
+      });
+    });
     const payload: JwtPayload = {
       sub: userId,
       email,

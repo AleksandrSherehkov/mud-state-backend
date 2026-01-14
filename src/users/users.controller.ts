@@ -29,9 +29,12 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 @ApiTags('users')
-@Controller('users')
+@Controller({
+  path: 'users',
+  version: '1',
+})
 export class UsersController {
-  constructor(private usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) {}
 
   @Get('id/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)

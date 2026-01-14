@@ -11,6 +11,7 @@ import {
   Post,
   Req,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { RegisterDto } from './dto/register.dto';
@@ -25,16 +26,16 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import {
   ApiMutationErrorResponses,
   ApiQueryErrorResponses,
 } from 'src/common/swagger/api-exceptions';
-import { Tokens } from './types/jwt.types';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { SkipThrottle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 
 import { TokenResponseDto } from './dto/token-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
@@ -56,13 +57,16 @@ import { RefreshTokenService } from './refresh-token.service';
 import { UsersService } from 'src/users/users.service';
 
 @ApiTags('auth')
-@Controller('auth')
+@Controller({
+  path: 'auth',
+  version: '1',
+})
 export class AuthController {
   constructor(
-    private authService: AuthService,
-    private sessionService: SessionService,
-    private refreshTokenService: RefreshTokenService,
-    private usersService: UsersService,
+    private readonly authService: AuthService,
+    private readonly sessionService: SessionService,
+    private readonly refreshTokenService: RefreshTokenService,
+    private readonly usersService: UsersService,
   ) {}
 
   @Post('register')
@@ -96,26 +100,43 @@ export class AuthController {
     type: TokenResponseDto,
   })
   @ApiMutationErrorResponses()
-  async login(@Body() dto: LoginDto, @Req() req: Request): Promise<Tokens> {
+  async login(
+    @Body() dto: LoginDto,
+    @Req() req: Request,
+  ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
-    return this.authService.login(dto, ip, userAgent);
+    const result = await this.authService.login(dto, ip, userAgent);
+    return {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      jti: result.jti,
+    };
   }
 
   @Post('refresh')
-  @ApiBearerAuth()
   @HttpCode(200)
   @ApiOperation({ summary: 'Оновлення токенів' })
   @ApiBody({ type: RefreshDto })
   @ApiOkResponse({ type: TokenResponseDto })
   @ApiMutationErrorResponses()
-  async refresh(@Body() dto: RefreshDto, @Req() req: Request): Promise<Tokens> {
+  @SkipThrottle()
+  @Throttle({ default: { limit: 10, ttl: 60 } })
+  async refresh(
+    @Body() dto: RefreshDto,
+    @Req() req: Request,
+  ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
-    return this.authService.refresh(
+    const result = await this.authService.refresh(
       dto.userId,
       dto.refreshToken,
       ip,
       userAgent,
     );
+    return {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      jti: result.jti,
+    };
   }
 
   @Post('logout')
@@ -185,6 +206,12 @@ export class AuthController {
   }
 
   @Get('sessions/active')
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Максимальна кількість сесій',
+    example: 50,
+  })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
@@ -197,8 +224,13 @@ export class AuthController {
   @ApiQueryErrorResponses('Активні сесії не знайдено')
   async getActiveSessions(
     @CurrentUser('userId') userId: string,
+    @Query('limit') limit?: string,
   ): Promise<ActiveSessionDto[]> {
-    const sessions = await this.sessionService.getActiveUserSessions(userId);
+    const take = Math.max(1, Math.min(Number(limit) || 50, 100));
+    const sessions = await this.sessionService.getActiveUserSessions(
+      userId,
+      take,
+    );
     return sessions.map((session) => ({
       id: session.id,
       ip: session.ip ?? '',

@@ -1,17 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppLogger } from './logger/logger.service';
 import * as morgan from 'morgan';
 import { bootstrapLogger } from './logger/bootstrap-logger';
+import { RequestIdInterceptor } from './common/request-context/request-id.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const logger = await app.resolve(AppLogger);
   logger.setContext('Bootstrap');
+
+  app.useGlobalInterceptors(new RequestIdInterceptor());
+
   app.useLogger(logger);
 
   app.use(
@@ -24,8 +28,6 @@ async function bootstrap() {
 
   app.set('trust proxy', true);
 
-  app.setGlobalPrefix('api');
-
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -35,24 +37,37 @@ async function bootstrap() {
   );
 
   const configService = app.get(ConfigService);
-  const baseUrl =
-    configService.get<string>('BASE_URL') ?? 'http://localhost:3000';
+  const baseUrl = configService.get<string>(
+    'BASE_URL',
+    'http://localhost:3000',
+  );
+  const apiPrefix = configService.get<string>('API_PREFIX', 'api');
+  const apiVersion = configService.get<string>('API_VERSION', '1');
+
+  app.setGlobalPrefix(apiPrefix);
+
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: apiVersion,
+  });
+
+  const apiBase = `${baseUrl}/${apiPrefix}/v${apiVersion}`;
 
   const config = new DocumentBuilder()
     .setTitle('MUD-State API')
     .setDescription('API for the MUD simulation state backend')
     .setVersion('1.0')
     .addBearerAuth()
-    .addServer(baseUrl, 'Local server')
+    .addServer(apiBase, `API v${apiVersion}`)
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
 
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
-  logger.log(`🚀 Server running at ${baseUrl}/api`);
-  logger.log(`📚 Swagger docs at ${baseUrl}/api/docs`);
+  logger.log(`🚀 Server running at ${apiBase}`);
+  logger.log(`📚 Swagger docs at ${baseUrl}/${apiPrefix}/docs`);
 }
 bootstrap().catch((err: unknown) => {
   bootstrapLogger.error(

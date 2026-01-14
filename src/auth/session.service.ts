@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class SessionService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(
     userId: string,
@@ -13,7 +14,12 @@ export class SessionService {
     userAgent?: string,
   ) {
     return this.prisma.session.create({
-      data: { userId, refreshTokenId, ip, userAgent },
+      data: {
+        userId,
+        refreshTokenId,
+        ip: ip ? normalizeIp(ip) : null,
+        userAgent: userAgent?.trim() || null,
+      },
     });
   }
 
@@ -21,9 +27,11 @@ export class SessionService {
     return this.prisma.session.findMany({ where: { userId } });
   }
 
-  async getActiveUserSessions(userId: string) {
+  async getActiveUserSessions(userId: string, take = 50) {
     return this.prisma.session.findMany({
       where: { userId, isActive: true },
+      orderBy: { startedAt: 'desc' },
+      take,
     });
   }
 
@@ -52,7 +60,11 @@ export class SessionService {
     ip: string,
     userAgent: string,
   ) {
-    return this.terminateSessions({ userId, ip, userAgent });
+    return this.terminateSessions({
+      userId,
+      ip: normalizeIp(ip),
+      userAgent: userAgent.trim(),
+    });
   }
 
   async terminateOtherSessions(userId: string, excludeSessionId: string) {
@@ -69,7 +81,6 @@ export class SessionService {
   async terminateByRefreshToken(jti: string) {
     return this.terminateSessions({
       refreshTokenId: jti,
-      endedAt: null,
     });
   }
 

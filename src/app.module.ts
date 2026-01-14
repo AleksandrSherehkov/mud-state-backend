@@ -15,7 +15,12 @@ import { LoggerModule } from './logger/logger.module';
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: Joi.object({
+        APP_ENV: Joi.string()
+          .valid('development', 'production', 'test')
+          .default('development'),
         DATABASE_URL: Joi.string().required(),
+        API_PREFIX: Joi.string().default('api'),
+        API_VERSION: Joi.string().pattern(/^\d+$/).default('1'),
         JWT_ACCESS_SECRET: Joi.string().required(),
         JWT_REFRESH_SECRET: Joi.string().required(),
         PORT: Joi.number().default(3000),
@@ -40,12 +45,14 @@ import { LoggerModule } from './logger/logger.module';
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => [
-        {
-          ttl: config.get<number>('THROTTLE_TTL', 60),
-          limit: config.get<number>('THROTTLE_LIMIT', 10),
-        },
-      ],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            ttl: Number(config.get('THROTTLE_TTL') ?? 60),
+            limit: Number(config.get('THROTTLE_LIMIT') ?? 10),
+          },
+        ],
+      }),
     }),
     ScheduleModule.forRoot(),
     LoggerModule,

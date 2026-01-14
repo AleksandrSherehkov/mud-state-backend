@@ -17,6 +17,10 @@ export class UsersService {
     private readonly config: ConfigService,
   ) {}
 
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
   private async hashPassword(password: string): Promise<string> {
     const roundsStr = this.config.get<string>('BCRYPT_SALT_ROUNDS') ?? '10';
     const saltRounds = Number.parseInt(roundsStr, 10);
@@ -27,8 +31,9 @@ export class UsersService {
   }
 
   async createUser(dto: CreateUserDto): Promise<User> {
+    const email = this.normalizeEmail(dto.email);
     const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: { email },
     });
 
     if (existing)
@@ -38,14 +43,16 @@ export class UsersService {
 
     return this.prisma.user.create({
       data: {
-        email: dto.email,
+        email,
         password: hash,
       },
     });
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { email } });
+    return this.prisma.user.findUnique({
+      where: { email: this.normalizeEmail(email) },
+    });
   }
 
   async findById(id: string): Promise<User | null> {
@@ -56,7 +63,7 @@ export class UsersService {
     const { email, password, role } = dto;
     const data: Partial<User> = {};
 
-    if (email) data.email = email;
+    if (email) data.email = this.normalizeEmail(email);
     if (role) data.role = role;
 
     if (password) data.password = await this.hashPassword(password);

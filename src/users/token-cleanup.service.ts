@@ -7,9 +7,9 @@ import { AppLogger } from 'src/logger/logger.service';
 @Injectable()
 export class TokenCleanupService {
   constructor(
-    private usersService: UsersService,
-    private config: ConfigService,
-    private logger: AppLogger,
+    private readonly usersService: UsersService,
+    private readonly config: ConfigService,
+    private readonly logger: AppLogger,
   ) {
     this.logger.setContext(TokenCleanupService.name);
   }
@@ -17,14 +17,24 @@ export class TokenCleanupService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCleanup() {
     const days = this.config.get<number>('TOKEN_CLEANUP_DAYS', 7);
-    const deletedTokens = await this.usersService.cleanRevokedTokens(days);
-    if (deletedTokens > 0) {
-      this.logger.log(`🧹 Видалено ${deletedTokens} відкликаних токенів`);
-    }
 
-    const deletedSessions = await this.usersService.cleanInactiveSessions(days);
-    if (deletedSessions > 0) {
-      this.logger.log(`🧹 Видалено ${deletedSessions} неактивних сесій`);
+    try {
+      const [deletedTokens, deletedSessions] = await Promise.all([
+        this.usersService.cleanRevokedTokens(days),
+        this.usersService.cleanInactiveSessions(days),
+      ]);
+
+      if (deletedTokens > 0) {
+        this.logger.log(`🧹 Видалено ${deletedTokens} відкликаних токенів`);
+      }
+      if (deletedSessions > 0) {
+        this.logger.log(`🧹 Видалено ${deletedSessions} неактивних сесій`);
+      }
+    } catch (err: unknown) {
+      this.logger.error(
+        `❌ Cleanup failed`,
+        err instanceof Error ? err.stack : String(err),
+      );
     }
   }
 }

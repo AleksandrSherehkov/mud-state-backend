@@ -11,10 +11,11 @@ export class RefreshTokenService {
     });
   }
 
-  async getActiveTokens(userId: string) {
+  async getActiveTokens(userId: string, take = 50) {
     return this.prisma.refreshToken.findMany({
       where: { userId, revoked: false },
       orderBy: { createdAt: 'desc' },
+      take,
     });
   }
 
