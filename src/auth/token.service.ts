@@ -2,18 +2,19 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from './types/jwt.types';
+import type { StringValue } from 'ms';
 
 @Injectable()
 export class TokenService {
   constructor(
-    private jwt: JwtService,
-    private config: ConfigService,
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService,
   ) {}
 
   private async signToken(
     payload: JwtPayload,
     secret: string,
-    expiresIn: string,
+    expiresIn: StringValue | number,
   ): Promise<string> {
     return this.jwt.signAsync(payload, { secret, expiresIn });
   }
@@ -22,7 +23,10 @@ export class TokenService {
     return this.signToken(
       payload,
       this.config.get<string>('JWT_ACCESS_SECRET')!,
-      this.config.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
+      this.config.get<StringValue>(
+        'JWT_ACCESS_EXPIRES_IN',
+        '15m' as StringValue,
+      ),
     );
   }
 
@@ -30,7 +34,10 @@ export class TokenService {
     return this.signToken(
       payload,
       this.config.get<string>('JWT_REFRESH_SECRET')!,
-      this.config.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
+      this.config.get<StringValue>(
+        'JWT_REFRESH_EXPIRES_IN',
+        '7d' as StringValue,
+      ),
     );
   }
 
@@ -39,7 +46,7 @@ export class TokenService {
       return await this.jwt.verifyAsync(token, {
         secret: this.config.get<string>('JWT_REFRESH_SECRET'),
       });
-    } catch (err) {
+    } catch {
       throw new UnauthorizedException('Недійсний refresh токен');
     }
   }

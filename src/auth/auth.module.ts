@@ -10,6 +10,7 @@ import { TokenService } from './token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SessionService } from './session.service';
 import { LoggerModule } from 'src/logger/logger.module';
+import type { StringValue } from 'ms';
 
 @Module({
   imports: [
@@ -22,7 +23,10 @@ import { LoggerModule } from 'src/logger/logger.module';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_ACCESS_SECRET'),
         signOptions: {
-          expiresIn: config.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
+          expiresIn: config.get<StringValue>(
+            'JWT_ACCESS_EXPIRES_IN',
+            '15m' as StringValue,
+          ),
         },
       }),
     }),

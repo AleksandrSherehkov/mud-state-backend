@@ -11,7 +11,10 @@ export class MeResponseDto {
   })
   email: string;
 
-  @ApiProperty({ example: 'USER', enum: ['ADMIN', 'MODERATOR', 'USER'] })
+  @ApiProperty({
+    example: Role.USER,
+    enum: Role,
+  })
   role: Role;
 
   @ApiProperty({

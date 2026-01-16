@@ -10,7 +10,6 @@ import { Observable } from 'rxjs';
 import { requestContext } from './request-context';
 
 function getHeader(req: Request, name: string): string | undefined {
-  // Express: req.get() всегда строка | undefined
   const v = req.get(name);
   return typeof v === 'string' && v.trim() ? v.trim() : undefined;
 }
@@ -28,10 +27,8 @@ export class RequestIdInterceptor implements NestInterceptor {
 
     const requestId = incoming ?? randomUUID();
 
-    // отдаём клиенту
     res.setHeader('x-request-id', requestId);
 
-    // кладём в AsyncLocalStorage
     return requestContext.run({ requestId }, () => next.handle());
   }
 }
