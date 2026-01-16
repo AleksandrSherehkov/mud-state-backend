@@ -240,6 +240,7 @@ export class AuthController {
   }
 
   @Post('sessions/terminate-others')
+  @HttpCode(200)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
@@ -291,6 +292,7 @@ export class AuthController {
   }
 
   @Post('sessions/terminate')
+  @HttpCode(200)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)

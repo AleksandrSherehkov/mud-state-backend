@@ -132,7 +132,7 @@ describe('TokenCleanupService', () => {
 
     const error = new Error('failure');
     usersService.cleanRevokedTokens.mockRejectedValue(error);
-    usersService.cleanInactiveSessions.mockResolvedValue(1); // не важно, Promise.all упадёт
+    usersService.cleanInactiveSessions.mockResolvedValue(1);
 
     await service.handleCleanup();
 

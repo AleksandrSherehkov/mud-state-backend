@@ -1,25 +1,48 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
+import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { AppModule } from '../src/app.module';
 
-describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+describe('App (e2e) smoke', () => {
+  let app: INestApplication;
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+  const API_PREFIX = process.env.API_PREFIX ?? 'api';
+  const API_VERSION = process.env.API_VERSION ?? '1';
+  const basePath = `/${API_PREFIX}/v${API_VERSION}`;
+
+  beforeAll(async () => {
+    const moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
+
+    app.setGlobalPrefix(API_PREFIX);
+    app.enableVersioning({
+      type: VersioningType.URI,
+      defaultVersion: API_VERSION,
+    });
+
+    app.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
+
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('GET /auth/me без токена -> 401', async () => {
+    await request(app.getHttpServer()).get(`${basePath}/auth/me`).expect(401);
   });
 });
