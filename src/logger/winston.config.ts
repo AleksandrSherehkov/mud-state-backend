@@ -10,7 +10,7 @@ type LogInfo = winston.Logform.TransformableInfo & {
 };
 
 function stringifyMessage(msg: unknown): string {
-  if (msg === null || typeof msg === 'undefined') return '';
+  if (msg === null || msg === 'undefined') return '';
 
   if (msg instanceof Error) {
     return msg.stack ?? msg.message;
