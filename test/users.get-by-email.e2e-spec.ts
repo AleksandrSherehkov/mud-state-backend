@@ -7,7 +7,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from 'src/app.module';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
-import { RequestIdInterceptor } from 'src/common/request-context/request-id.interceptor';
+
 import { Role } from '@prisma/client';
 
 type RegisterResponse = {
@@ -93,7 +93,6 @@ describe('Users E2E — GET /users/email/:email', () => {
 
     app = moduleRef.createNestApplication();
 
-    app.useGlobalInterceptors(new RequestIdInterceptor());
     app.setGlobalPrefix(API_PREFIX);
     app.enableVersioning({
       type: VersioningType.URI,

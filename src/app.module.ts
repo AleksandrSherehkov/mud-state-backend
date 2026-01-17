@@ -9,9 +9,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as Joi from 'joi';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from './logger/logger.module';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { RequestContextModule } from './common/request-context/request-context.module';
 
 @Module({
   imports: [
+    RequestContextModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: Joi.object({
@@ -40,6 +45,8 @@ import { LoggerModule } from './logger/logger.module';
         LOG_LEVEL: Joi.string()
           .valid('error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly')
           .default('debug'),
+        PRISMA_LOG_QUERIES: Joi.boolean().default(false),
+        PRISMA_QUERY_SAMPLE_RATE: Joi.number().min(0).max(1).default(0.05),
       }),
     }),
     ThrottlerModule.forRootAsync({
@@ -64,6 +71,14 @@ import { LoggerModule } from './logger/logger.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: HttpLoggingInterceptor,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
     },
   ],
 })

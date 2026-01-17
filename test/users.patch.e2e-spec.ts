@@ -7,7 +7,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from 'src/app.module';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
-import { RequestIdInterceptor } from 'src/common/request-context/request-id.interceptor';
+
 import * as bcrypt from 'bcrypt';
 import { Role } from '@prisma/client';
 
@@ -89,7 +89,6 @@ describe('Users E2E — PATCH /users/:id', () => {
 
     app = moduleRef.createNestApplication();
 
-    app.useGlobalInterceptors(new RequestIdInterceptor());
     app.setGlobalPrefix(API_PREFIX);
     app.enableVersioning({
       type: VersioningType.URI,

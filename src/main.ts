@@ -5,26 +5,14 @@ import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppLogger } from './logger/logger.service';
-import * as morgan from 'morgan';
+
 import { bootstrapLogger } from './logger/bootstrap-logger';
-import { RequestIdInterceptor } from './common/request-context/request-id.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const logger = await app.resolve(AppLogger);
-  logger.setContext('Bootstrap');
-
-  app.useGlobalInterceptors(new RequestIdInterceptor());
 
   app.useLogger(logger);
-
-  app.use(
-    morgan('combined', {
-      stream: {
-        write: (message) => logger.log(message.trim(), 'HTTP'),
-      },
-    }),
-  );
 
   app.set('trust proxy', true);
 
@@ -66,8 +54,8 @@ async function bootstrap() {
 
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
-  logger.log(`🚀 Server running at ${apiBase}`);
-  logger.log(`📚 Swagger docs at ${baseUrl}/${apiPrefix}/docs`);
+  logger.log(`🚀 Server running at ${apiBase}`, 'Bootstrap');
+  logger.log(`📚 Swagger docs at ${baseUrl}/${apiPrefix}/docs`, 'Bootstrap');
 }
 bootstrap().catch((err: unknown) => {
   bootstrapLogger.error(

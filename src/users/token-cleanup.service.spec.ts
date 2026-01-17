@@ -13,15 +13,9 @@ describe('TokenCleanupService', () => {
     get: jest.Mock<number, [key: string, defaultValue: number]>;
   };
 
-  let logger: {
-    setContext: jest.Mock<void, [context: string]>;
-    log: jest.Mock<void, [message: string, context?: string]>;
-    error: jest.Mock<void, [message: string, trace?: string, context?: string]>;
-    warn: jest.Mock<void, [message: string, context?: string]>;
-    debug: jest.Mock<void, [message: string, context?: string]>;
-    verbose: jest.Mock<void, [message: string, context?: string]>;
-    silly: jest.Mock<void, [message: string, context?: string]>;
-  };
+  let logger: jest.Mocked<
+    Pick<AppLogger, 'setContext' | 'log' | 'error' | 'debug'>
+  >;
 
   let service: TokenCleanupService;
 
@@ -41,16 +35,10 @@ describe('TokenCleanupService', () => {
     };
 
     logger = {
-      setContext: jest.fn<void, [string]>(),
-      log: jest.fn<void, [string, (string | undefined)?]>(),
-      error: jest.fn<
-        void,
-        [string, (string | undefined)?, (string | undefined)?]
-      >(),
-      warn: jest.fn<void, [string, (string | undefined)?]>(),
-      debug: jest.fn<void, [string, (string | undefined)?]>(),
-      verbose: jest.fn<void, [string, (string | undefined)?]>(),
-      silly: jest.fn<void, [string, (string | undefined)?]>(),
+      setContext: jest.fn(),
+      log: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
     };
 
     service = new TokenCleanupService(
@@ -74,57 +62,63 @@ describe('TokenCleanupService', () => {
     expect(config.get).toHaveBeenCalledWith('TOKEN_CLEANUP_DAYS', 7);
     expect(usersService.cleanRevokedTokens).toHaveBeenCalledWith(7);
     expect(usersService.cleanInactiveSessions).toHaveBeenCalledWith(7);
+
+    expect(logger.debug).toHaveBeenCalledWith(
+      'Token cleanup start',
+      TokenCleanupService.name,
+      { event: 'cleanup.start', days: 7 },
+    );
+
+    expect(logger.debug).toHaveBeenCalledWith(
+      'Token cleanup finished',
+      TokenCleanupService.name,
+      { event: 'cleanup.done', days: 7, deletedTokens: 0, deletedSessions: 0 },
+    );
+
+    expect(logger.debug).toHaveBeenCalledWith(
+      'Token cleanup noop',
+      TokenCleanupService.name,
+      {
+        event: 'cleanup.noop',
+        days: 7,
+      },
+    );
   });
 
-  it('logs deleted tokens and sessions when counts are positive', async () => {
+  it('logs finished with counts when counts are positive', async () => {
     config.get.mockReturnValue(5);
     usersService.cleanRevokedTokens.mockResolvedValue(2);
     usersService.cleanInactiveSessions.mockResolvedValue(3);
 
     await service.handleCleanup();
 
-    expect(usersService.cleanRevokedTokens).toHaveBeenCalledWith(5);
-    expect(usersService.cleanInactiveSessions).toHaveBeenCalledWith(5);
+    expect(logger.debug).toHaveBeenCalledWith(
+      'Token cleanup finished',
+      TokenCleanupService.name,
+      {
+        event: 'cleanup.done',
+        days: 5,
+        deletedTokens: 2,
+        deletedSessions: 3,
+      },
+    );
 
     expect(logger.log).toHaveBeenCalledWith(
-      '🧹 Видалено 2 відкликаних токенів',
+      'Token cleanup deleted records',
+      TokenCleanupService.name,
+      {
+        event: 'cleanup.deleted',
+        days: 5,
+        deletedTokens: 2,
+        deletedSessions: 3,
+      },
     );
-    expect(logger.log).toHaveBeenCalledWith('🧹 Видалено 3 неактивних сесій');
-  });
 
-  it('does not log when counts are zero', async () => {
-    config.get.mockReturnValue(7);
-    usersService.cleanRevokedTokens.mockResolvedValue(0);
-    usersService.cleanInactiveSessions.mockResolvedValue(0);
-
-    await service.handleCleanup();
-
-    expect(logger.log).not.toHaveBeenCalled();
-    expect(logger.error).not.toHaveBeenCalled();
-  });
-
-  it('logs only token message when only tokens are deleted', async () => {
-    config.get.mockReturnValue(7);
-    usersService.cleanRevokedTokens.mockResolvedValue(2);
-    usersService.cleanInactiveSessions.mockResolvedValue(0);
-
-    await service.handleCleanup();
-
-    expect(logger.log).toHaveBeenCalledTimes(1);
-    expect(logger.log).toHaveBeenCalledWith(
-      '🧹 Видалено 2 відкликаних токенів',
+    expect(logger.debug).not.toHaveBeenCalledWith(
+      'Token cleanup noop',
+      TokenCleanupService.name,
+      expect.anything(),
     );
-  });
-
-  it('logs only session message when only sessions are deleted', async () => {
-    config.get.mockReturnValue(7);
-    usersService.cleanRevokedTokens.mockResolvedValue(0);
-    usersService.cleanInactiveSessions.mockResolvedValue(4);
-
-    await service.handleCleanup();
-
-    expect(logger.log).toHaveBeenCalledTimes(1);
-    expect(logger.log).toHaveBeenCalledWith('🧹 Видалено 4 неактивних сесій');
   });
 
   it('logs error when cleanup fails (Error)', async () => {
@@ -136,8 +130,17 @@ describe('TokenCleanupService', () => {
 
     await service.handleCleanup();
 
-    expect(logger.error).toHaveBeenCalledWith('❌ Cleanup failed', error.stack);
-    expect(logger.log).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      'Token cleanup failed',
+      error.stack,
+      TokenCleanupService.name,
+      expect.objectContaining({
+        event: 'cleanup.fail',
+        days: 7,
+        errorName: 'Error',
+        errorMessage: 'failure',
+      }),
+    );
   });
 
   it('logs error when cleanup fails (non-Error)', async () => {
@@ -148,7 +151,16 @@ describe('TokenCleanupService', () => {
 
     await service.handleCleanup();
 
-    expect(logger.error).toHaveBeenCalledWith('❌ Cleanup failed', 'boom');
-    expect(logger.log).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      'Token cleanup failed',
+      undefined,
+      TokenCleanupService.name,
+      expect.objectContaining({
+        event: 'cleanup.fail',
+        days: 7,
+        errorName: 'UnknownError',
+        errorMessage: 'boom',
+      }),
+    );
   });
 });

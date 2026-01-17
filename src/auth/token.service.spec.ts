@@ -6,10 +6,18 @@ import { Role } from '@prisma/client';
 import { TokenService } from './token.service';
 import type { JwtPayload } from './types/jwt.types';
 import type { StringValue } from 'ms';
+import { AppLogger } from 'src/logger/logger.service';
 
 describe('TokenService', () => {
   let jwt: jest.Mocked<Pick<JwtService, 'signAsync' | 'verifyAsync'>>;
   let config: jest.Mocked<Pick<ConfigService, 'get'>>;
+  let logger: jest.Mocked<
+    Pick<
+      AppLogger,
+      'setContext' | 'log' | 'warn' | 'error' | 'debug' | 'verbose' | 'silly'
+    >
+  >;
+
   let service: TokenService;
 
   beforeEach(() => {
@@ -22,10 +30,23 @@ describe('TokenService', () => {
       get: jest.fn(),
     };
 
+    logger = {
+      setContext: jest.fn(),
+      log: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+      verbose: jest.fn(),
+      silly: jest.fn(),
+    };
+
     service = new TokenService(
       jwt as unknown as JwtService,
       config as unknown as ConfigService,
+      logger as unknown as AppLogger,
     );
+
+    expect(logger.setContext).toHaveBeenCalledWith('TokenService');
   });
 
   describe('signAccessToken', () => {
@@ -159,17 +180,19 @@ describe('TokenService', () => {
       expect(result).toEqual(payload);
     });
 
-    it('throws UnauthorizedException when verification fails', async () => {
+    it('throws UnauthorizedException when verification fails and logs warn', async () => {
       config.get.mockImplementation((key: string) => {
         if (key === 'JWT_REFRESH_SECRET') return 'secR';
         return undefined;
       });
 
-      jwt.verifyAsync.mockRejectedValue(new Error('bad token'));
+      jwt.verifyAsync.mockRejectedValue(new Error('jwt expired'));
 
       await expect(service.verifyRefreshToken('bad')).rejects.toThrow(
         new UnauthorizedException('Недійсний refresh токен'),
       );
+
+      expect(logger.warn).toHaveBeenCalled();
     });
   });
 });

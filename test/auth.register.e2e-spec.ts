@@ -7,7 +7,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from 'src/app.module';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
-import { RequestIdInterceptor } from 'src/common/request-context/request-id.interceptor';
+
 import { Role } from '@prisma/client';
 
 type RegisterResponse = {
@@ -59,8 +59,6 @@ describe('Auth E2E — full flow', () => {
 
     app = moduleRef.createNestApplication();
 
-    app.useGlobalInterceptors(new RequestIdInterceptor());
-
     app.setGlobalPrefix(API_PREFIX);
     app.enableVersioning({
       type: VersioningType.URI,
@@ -93,7 +91,6 @@ describe('Auth E2E — full flow', () => {
     const email = `flow_${Date.now()}@e2e.local`;
     const password = 'strongPassword123';
 
-    // 1) REGISTER
     const registerRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
       .send({ email, password })
@@ -124,7 +121,6 @@ describe('Auth E2E — full flow', () => {
     const refreshToken1 = reg.refreshToken;
     const jti1 = reg.jti;
 
-    // 2) ME with accessToken1
     const me1Res = await request(app.getHttpServer())
       .get(`${basePath}/auth/me`)
       .set('Authorization', `Bearer ${accessToken1}`)
@@ -137,7 +133,6 @@ describe('Auth E2E — full flow', () => {
     expect(me1.role).toBe('USER');
     expect(Number.isNaN(Date.parse(me1.createdAt))).toBe(false);
 
-    // 3) REFRESH -> tokens2
     const refreshRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/refresh`)
       .send({ userId, refreshToken: refreshToken1 })
@@ -154,14 +149,12 @@ describe('Auth E2E — full flow', () => {
     expect(typeof tokens2.jti).toBe('string');
     expect(tokens2.jti.length).toBeGreaterThan(10);
 
-    // refresh must rotate
     expect(tokens2.refreshToken).not.toBe(refreshToken1);
     expect(tokens2.jti).not.toBe(jti1);
 
     const accessToken2 = tokens2.accessToken;
     const refreshToken2 = tokens2.refreshToken;
 
-    // 4) ME with accessToken2
     const me2Res = await request(app.getHttpServer())
       .get(`${basePath}/auth/me`)
       .set('Authorization', `Bearer ${accessToken2}`)
@@ -170,7 +163,6 @@ describe('Auth E2E — full flow', () => {
     const me2 = me2Res.body as MeResponse;
     expect(me2.id).toBe(userId);
 
-    // 5) LOGOUT
     const logoutRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/logout`)
       .set('Authorization', `Bearer ${accessToken2}`)
@@ -184,7 +176,6 @@ describe('Auth E2E — full flow', () => {
         typeof logoutBody.terminatedAt === 'string',
     ).toBe(true);
 
-    // 6) REFRESH after logout must fail
     const refreshAfterLogoutRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/refresh`)
       .send({ userId, refreshToken: refreshToken2 })

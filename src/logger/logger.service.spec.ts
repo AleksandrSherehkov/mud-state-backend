@@ -48,11 +48,11 @@ describe('AppLogger', () => {
     });
   });
 
-  it('log passes undefined context when neither stored nor explicit is provided', () => {
+  it('log uses default context "App" when neither stored nor explicit is provided', () => {
     logger.log('msg');
 
     expect(winstonLogger.info).toHaveBeenCalledWith('msg', {
-      context: undefined,
+      context: 'App',
     });
   });
 

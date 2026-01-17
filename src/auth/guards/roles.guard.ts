@@ -3,12 +3,18 @@ import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import type { Request } from 'express';
 import { Role } from '@prisma/client';
+import { AppLogger } from 'src/logger/logger.service';
 
-type RequestUserWithRole = { role: Role };
+type RequestUserWithRole = { userId?: string; role: Role; sid?: string };
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(RolesGuard.name);
+  }
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
@@ -21,8 +27,28 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const user = request.user as RequestUserWithRole | undefined;
 
-    if (!user) return false;
+    if (!user) {
+      this.logger.warn('Forbidden: missing user in request', RolesGuard.name, {
+        event: 'authz.deny',
+        reason: 'missing_user',
+        requiredRoles,
+      });
+      return false;
+    }
 
-    return requiredRoles.includes(user.role);
+    const allowed = requiredRoles.includes(user.role);
+
+    if (!allowed) {
+      this.logger.warn('Forbidden: insufficient role', RolesGuard.name, {
+        event: 'authz.deny',
+        reason: 'role_mismatch',
+        requiredRoles,
+        role: user.role,
+        userId: user.userId,
+        sid: user.sid,
+      });
+    }
+
+    return allowed;
   }
 }

@@ -5,6 +5,11 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from './users.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { ConfigService } from '@nestjs/config';
+import type { AppLogger } from 'src/logger/logger.service';
+
+jest.mock('src/common/helpers/log-sanitize', () => ({
+  hashId: jest.fn(() => 'hash'),
+}));
 
 type UserFindUniqueArgs = { where: { email?: string; id?: string } };
 type UserCreateArgs = { data: { email: string; password: string } };
@@ -46,6 +51,10 @@ describe('UsersService', () => {
     get: jest.Mock<string | undefined, [key: string]>;
   };
 
+  let logger: jest.Mocked<
+    Pick<AppLogger, 'setContext' | 'log' | 'warn' | 'error' | 'debug'>
+  >;
+
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -74,10 +83,23 @@ describe('UsersService', () => {
       get: jest.fn<string | undefined, [key: string]>(),
     };
 
+    logger = {
+      setContext: jest.fn(),
+      log: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+    };
+
     service = new UsersService(
       prisma as unknown as PrismaService,
       config as unknown as ConfigService,
+      logger as unknown as AppLogger,
     );
+  });
+
+  it('sets logger context', () => {
+    expect(logger.setContext).toHaveBeenCalledWith(UsersService.name);
   });
 
   describe('createUser', () => {
@@ -93,6 +115,9 @@ describe('UsersService', () => {
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { email: 'test@example.com' },
       });
+
+      expect(logger.log).toHaveBeenCalled(); // start
+      expect(logger.warn).toHaveBeenCalled(); // conflict
     });
 
     it('creates user with normalized email and hashed password', async () => {
@@ -127,6 +152,9 @@ describe('UsersService', () => {
         data: { email: 'test@example.com', password: 'hashedPW' },
       });
       expect(result).toEqual(created);
+
+      expect(logger.debug).toHaveBeenCalled(); // hashing start
+      expect(logger.log).toHaveBeenCalled(); // start + success
     });
 
     it('uses safeRounds=10 when BCRYPT_SALT_ROUNDS is invalid', async () => {
@@ -149,6 +177,7 @@ describe('UsersService', () => {
       await service.createUser({ email: 'x@y.com', password: 'pw' });
 
       expect(bcrypt.hash).toHaveBeenCalledWith('pw', 10);
+      expect(logger.debug).toHaveBeenCalled(); // hashing
     });
   });
 
@@ -162,6 +191,8 @@ describe('UsersService', () => {
         where: { email: 'some@mail.com' },
       });
       expect(result).toEqual({ id: 'u2' });
+
+      expect(logger.debug).toHaveBeenCalled(); // find_by_email
     });
   });
 
@@ -175,6 +206,8 @@ describe('UsersService', () => {
         where: { id: 'u3' },
       });
       expect(res).toEqual({ id: 'u3' });
+
+      expect(logger.debug).toHaveBeenCalled(); // find_by_id
     });
   });
 
@@ -208,6 +241,9 @@ describe('UsersService', () => {
         data: { email: 'upd@mail.com', password: 'newHash', role: Role.ADMIN },
       });
       expect(res).toEqual(updated);
+
+      expect(logger.log).toHaveBeenCalled(); // start + success
+      expect(logger.debug).toHaveBeenCalled(); // hashing
     });
 
     it('allows empty dto (updates with empty data object)', async () => {
@@ -225,9 +261,11 @@ describe('UsersService', () => {
         where: { id: 'u4' },
         data: {},
       });
+
+      expect(logger.log).toHaveBeenCalled(); // start + success
     });
 
-    it('maps P2002 error to ConflictException', async () => {
+    it('maps P2002 error to ConflictException and logs warn', async () => {
       const err = new Prisma.PrismaClientKnownRequestError('dup', {
         code: 'P2002',
         clientVersion: 'test',
@@ -238,9 +276,11 @@ describe('UsersService', () => {
       await expect(service.updateUser('id', {})).rejects.toThrow(
         new ConflictException('Email вже використовується'),
       );
+
+      expect(logger.warn).toHaveBeenCalled();
     });
 
-    it('maps P2025 error to NotFoundException', async () => {
+    it('maps P2025 error to NotFoundException and logs warn', async () => {
       const err = new Prisma.PrismaClientKnownRequestError('missing', {
         code: 'P2025',
         clientVersion: 'test',
@@ -251,12 +291,22 @@ describe('UsersService', () => {
       await expect(service.updateUser('id', {})).rejects.toThrow(
         new NotFoundException('Користувача не знайдено'),
       );
+
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it('logs error and rethrows unknown error', async () => {
+      prisma.user.update.mockRejectedValue(new Error('boom'));
+
+      await expect(service.updateUser('id', {})).rejects.toThrow('boom');
+
+      expect(logger.error).toHaveBeenCalled();
     });
   });
 
   describe('deleteUser', () => {
     it('deletes and returns user', async () => {
-      const user = { id: 'u5' } as User;
+      const user = { id: 'u5', email: 'x@y.com' } as User;
       prisma.user.delete.mockResolvedValue(user);
 
       const res = await service.deleteUser('u5');
@@ -265,9 +315,11 @@ describe('UsersService', () => {
         where: { id: 'u5' },
       });
       expect(res).toEqual(user);
+
+      expect(logger.log).toHaveBeenCalled(); // start + success
     });
 
-    it('maps P2025 error to NotFoundException', async () => {
+    it('maps P2025 error to NotFoundException and logs warn', async () => {
       const err = new Prisma.PrismaClientKnownRequestError('missing', {
         code: 'P2025',
         clientVersion: 'test',
@@ -278,6 +330,16 @@ describe('UsersService', () => {
       await expect(service.deleteUser('u6')).rejects.toThrow(
         new NotFoundException('Користувача не знайдено'),
       );
+
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it('logs error and rethrows unknown error', async () => {
+      prisma.user.delete.mockRejectedValue(new Error('boom'));
+
+      await expect(service.deleteUser('u6')).rejects.toThrow('boom');
+
+      expect(logger.error).toHaveBeenCalled();
     });
   });
 
@@ -298,6 +360,8 @@ describe('UsersService', () => {
       });
       expect(count).toBe(3);
 
+      expect(logger.log).toHaveBeenCalled(); // start + done
+
       jest.useRealTimers();
     });
 
@@ -316,6 +380,8 @@ describe('UsersService', () => {
         where: { isActive: false, endedAt: { lt: threshold } },
       });
       expect(count).toBe(2);
+
+      expect(logger.log).toHaveBeenCalled(); // start + done
 
       jest.useRealTimers();
     });

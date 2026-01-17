@@ -16,20 +16,31 @@ import { TokenService } from './token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SessionService } from './session.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { AppLogger } from 'src/logger/logger.service';
 
 import type { RegisterDto } from './dto/register.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { Tokens, JwtPayload } from './types/jwt.types';
+import { normalizeIp } from 'src/common/helpers/ip-normalize';
+import { randomUUID } from 'node:crypto';
+
+jest.mock('src/common/helpers/log-sanitize', () => ({
+  hashId: jest.fn(() => 'email-hash'),
+  maskIp: jest.fn(() => 'ip-masked'),
+}));
 
 jest.mock('src/common/helpers/ip-normalize', () => ({
   normalizeIp: jest.fn(),
 }));
-import { normalizeIp } from 'src/common/helpers/ip-normalize';
 
-jest.mock('node:crypto', () => ({
-  randomUUID: jest.fn(),
-}));
-import { randomUUID } from 'node:crypto';
+jest.mock('node:crypto', () => {
+  const actual = jest.requireActual('node:crypto');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return {
+    ...actual,
+    randomUUID: jest.fn(),
+  };
+});
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -54,6 +65,14 @@ describe('AuthService', () => {
   >;
 
   let prisma: { $transaction: jest.Mock };
+
+  // ✅ добавили логгер
+  let logger: jest.Mocked<
+    Pick<
+      AppLogger,
+      'setContext' | 'log' | 'warn' | 'error' | 'debug' | 'verbose' | 'silly'
+    >
+  >;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -84,13 +103,27 @@ describe('AuthService', () => {
       $transaction: jest.fn(),
     };
 
+    logger = {
+      setContext: jest.fn(),
+      log: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+      verbose: jest.fn(),
+      silly: jest.fn(),
+    };
+
     service = new AuthService(
       usersService as unknown as UsersService,
       tokenService as unknown as TokenService,
       refreshTokenService as unknown as RefreshTokenService,
       sessionService as unknown as SessionService,
       prisma as unknown as PrismaService,
+      logger as unknown as AppLogger, // ✅ 6-й аргумент
     );
+
+    // ✅ конструктор должен выставить контекст
+    expect(logger.setContext).toHaveBeenCalledWith('AuthService');
   });
 
   describe('register', () => {
@@ -123,6 +156,9 @@ describe('AuthService', () => {
         'UA',
       );
       expect(result).toEqual({ ...createdUser, ...tokens });
+
+      // лог есть, но мы не фиксируем hashId чтобы тест не был хрупким
+      expect(logger.log).toHaveBeenCalled();
     });
   });
 
@@ -136,6 +172,7 @@ describe('AuthService', () => {
         new UnauthorizedException('Невірний email або пароль'),
       );
       expect(usersService.findByEmail).toHaveBeenCalledWith(dto.email);
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it('throws UnauthorizedException when password invalid', async () => {
@@ -155,6 +192,7 @@ describe('AuthService', () => {
       );
 
       expect(bcrypt.compare).toHaveBeenCalledWith(dto.password, 'hash');
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it('revokes all tokens/sessions and issues new tokens', async () => {
@@ -194,6 +232,7 @@ describe('AuthService', () => {
       );
 
       expect(result).toEqual(tokens);
+      expect(logger.log).toHaveBeenCalled();
     });
   });
 
@@ -217,6 +256,8 @@ describe('AuthService', () => {
       await expect(
         service.refresh(userId, refreshToken, ip, userAgent),
       ).rejects.toThrow(new UnauthorizedException('Недійсний токен'));
+
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it('throws UnauthorizedException when userId mismatch', async () => {
@@ -230,6 +271,8 @@ describe('AuthService', () => {
       ).rejects.toThrow(
         new UnauthorizedException('Невідповідність користувача'),
       );
+
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it('throws UnauthorizedException when revokeIfActive returns count=0', async () => {
@@ -241,6 +284,8 @@ describe('AuthService', () => {
       ).rejects.toThrow(
         new UnauthorizedException('Токен відкликано або недійсний'),
       );
+
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it('terminates session by refreshToken jti and issues new tokens', async () => {
@@ -288,6 +333,7 @@ describe('AuthService', () => {
       );
 
       expect(result).toEqual(tokens);
+      expect(logger.log).toHaveBeenCalled();
     });
 
     it('throws UnauthorizedException when user not found after token claim', async () => {
@@ -302,6 +348,8 @@ describe('AuthService', () => {
       await expect(
         service.refresh(userId, refreshToken, ip, userAgent),
       ).rejects.toThrow(new UnauthorizedException('Користувача не знайдено'));
+
+      expect(logger.warn).toHaveBeenCalled();
     });
   });
 
@@ -322,6 +370,7 @@ describe('AuthService', () => {
       const result = await service.logout('u1');
 
       expect(result).toBeNull();
+      expect(logger.log).toHaveBeenCalled();
     });
 
     it('returns loggedOut=true and terminatedAt when something changed', async () => {
@@ -338,6 +387,8 @@ describe('AuthService', () => {
         loggedOut: true,
         terminatedAt: fixed.toISOString(),
       });
+
+      expect(logger.log).toHaveBeenCalled();
 
       jest.useRealTimers();
     });

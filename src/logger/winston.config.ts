@@ -10,19 +10,17 @@ type LogInfo = winston.Logform.TransformableInfo & {
 };
 
 function stringifyMessage(msg: unknown): string {
-  if (msg === null || msg === 'undefined') return '';
-
-  if (msg instanceof Error) {
-    return msg.stack ?? msg.message;
-  }
+  if (msg === null || typeof msg === 'undefined') return '';
+  if (msg instanceof Error) return msg.stack ?? msg.message;
 
   if (typeof msg === 'string') return msg;
   if (
     typeof msg === 'number' ||
     typeof msg === 'boolean' ||
     typeof msg === 'bigint'
-  )
+  ) {
     return String(msg);
+  }
 
   return util.inspect(msg, { depth: 10, colors: false, compact: true });
 }
@@ -37,14 +35,26 @@ const consoleFormat = winston.format.combine(
   winston.format.colorize(),
   winston.format.timestamp(),
   winston.format.printf((info: LogInfo) => {
-    const timestamp = info.timestamp?.toString() ?? '';
-    const level = info.level?.toString() ?? '';
-    const ctx = String(info.context ?? 'App');
-    const rid = info.requestId ? ` rid=${info.requestId}` : '';
+    const {
+      timestamp: ts,
+      level: lvl,
+      message: msg,
+      context,
+      requestId,
+      ...meta
+    } = info as unknown as Record<string, unknown>;
 
-    const message = stringifyMessage(info.message);
+    const timestamp = stringifyMessage(ts) || '';
+    const level = stringifyMessage(lvl) || '';
+    const ctx = typeof context === 'string' ? context : 'App';
+    const rid = typeof requestId === 'string' ? ` rid=${requestId}` : '';
 
-    return `[${timestamp}] ${level} [${ctx}]${rid} ${message}`.trim();
+    const message = stringifyMessage(msg);
+
+    const metaStr =
+      meta && Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : '';
+
+    return `[${timestamp}] ${level} [${ctx}]${rid} ${message}${metaStr}`.trim();
   }),
 );
 
