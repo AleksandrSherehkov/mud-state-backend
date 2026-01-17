@@ -16,12 +16,22 @@ describe('PrismaService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
+    // ✅ REQUIRED FOR PRISMA 7
+    process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/testdb';
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PrismaService, { provide: AppLogger, useValue: loggerMock }],
+      providers: [
+        PrismaService,
+        {
+          provide: AppLogger,
+          useValue: loggerMock,
+        },
+      ],
     }).compile();
 
     service = module.get(PrismaService);
 
+    // ✅ mock real connection calls
     connectSpy = jest.spyOn(service, '$connect').mockResolvedValue(undefined);
     disconnectSpy = jest
       .spyOn(service, '$disconnect')
