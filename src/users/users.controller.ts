@@ -41,11 +41,17 @@ export class UsersController {
   @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Отримати користувача за ID' })
+  @ApiOperation({
+    summary: 'Отримати користувача за ID',
+    description:
+      'Повертає публічні дані користувача за його UUID. Доступ: ADMIN, MODERATOR.',
+    operationId: 'users_getById',
+  })
   @ApiParam({
     name: 'id',
     description: 'UUID користувача',
-    example: 'clx1a2b3c0000n1m2o3p4q5r',
+    schema: { type: 'string', format: 'uuid' },
+    example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @ApiOkResponse({ description: 'Знайдений користувач', type: PublicUserDto })
   @ApiQueryErrorResponses('Користувача не знайдено')

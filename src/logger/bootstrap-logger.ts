@@ -56,11 +56,15 @@ const consoleFormat = winston.format.combine(
   }),
 );
 
+const isTest = process.env.NODE_ENV === 'test';
+
 export const bootstrapLogger = winston.createLogger({
   level: 'debug',
-  transports: [
-    new winston.transports.Console({
-      format: consoleFormat,
-    }),
-  ],
+  transports: isTest
+    ? []
+    : [
+        new winston.transports.Console({
+          format: consoleFormat,
+        }),
+      ],
 });

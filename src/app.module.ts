@@ -49,6 +49,10 @@ import { JobsModule } from './jobs/jobs.module';
         TOKEN_CLEANUP_DAYS: Joi.number().min(1).max(365).default(7),
         TOKEN_CLEANUP_CRON: Joi.string().default('0 0 * * *'),
       }),
+      envFilePath:
+        process.env.APP_ENV === 'test' || process.env.NODE_ENV === 'test'
+          ? '.env.test'
+          : '.env',
     }),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],

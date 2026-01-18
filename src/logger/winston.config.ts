@@ -67,6 +67,12 @@ const fileFormat = winston.format.combine(
 export const createWinstonTransports = (
   config: ConfigService,
 ): winston.transport[] => {
+  const env = (
+    config.get<string>('APP_ENV', 'development') || 'development'
+  ).toLowerCase();
+
+  const isTest = env === 'test' || process.env.NODE_ENV === 'test';
+
   const consoleTransport = new winston.transports.Console({
     format: consoleFormat,
   });
@@ -80,6 +86,8 @@ export const createWinstonTransports = (
     maxFiles: config.get('LOG_MAX_FILES', '14d'),
     format: fileFormat,
   });
+
+  if (isTest) return [fileTransport];
 
   return [consoleTransport, fileTransport];
 };

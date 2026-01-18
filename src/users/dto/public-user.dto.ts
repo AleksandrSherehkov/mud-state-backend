@@ -3,7 +3,7 @@ import { Role } from '@prisma/client';
 
 export class PublicUserDto {
   @ApiProperty({
-    example: 'clx1a2b3c0000n1m2o3p4q5r',
+    example: '550e8400-e29b-41d4-a716-446655440000',
     description: 'Унікальний ID користувача',
   })
   id: string;
