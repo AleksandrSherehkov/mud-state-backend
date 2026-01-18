@@ -75,8 +75,16 @@ export function sanitizeMeta(value: unknown): unknown {
 
     for (const [k, v] of Object.entries(obj)) {
       const lk = k.toLowerCase();
-      if (SENSITIVE_KEY_SUBSTRINGS.some((s) => lk.includes(s))) {
-        out[k] = '[REDACTED]';
+      const isSensitiveKey = SENSITIVE_KEY_SUBSTRINGS.some((s) =>
+        lk.includes(s),
+      );
+
+      if (isSensitiveKey) {
+        if (typeof v === 'number' || typeof v === 'boolean') {
+          out[k] = v;
+        } else {
+          out[k] = '[REDACTED]';
+        }
       } else {
         out[k] = sanitizeMeta(v);
       }
