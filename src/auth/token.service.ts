@@ -37,7 +37,6 @@ export class TokenService {
     secret: string,
     expiresIn: StringValue | number,
   ): Promise<string> {
-    // Не логируем — слишком шумно и потенциально рискованно.
     return this.jwt.signAsync(payload, { secret, expiresIn });
   }
 
@@ -69,14 +68,13 @@ export class TokenService {
         secret: this.getRequired('JWT_REFRESH_SECRET'),
       });
     } catch (err: unknown) {
-      // Никаких токенов в логах. Только причина.
       const name = err instanceof Error ? err.name : 'UnknownError';
       const msg = err instanceof Error ? err.message : String(err);
 
       this.logger.warn('Refresh token verification failed', TokenService.name, {
         event: 'token.refresh.verify_failed',
         errorName: name,
-        // message может содержать "jwt expired" и т.п. — ок. токена там не будет.
+
         errorMessage: msg,
       });
 

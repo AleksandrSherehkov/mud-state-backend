@@ -55,7 +55,6 @@ export class TokenCleanupService {
           },
         );
       } else {
-        // 3) Ничего не удалили — отдельный debug (не обязательно, но полезно)
         this.logger.debug('Token cleanup noop', TokenCleanupService.name, {
           event: 'cleanup.noop',
           days,

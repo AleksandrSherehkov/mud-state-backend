@@ -45,7 +45,6 @@ export class PrismaService
     const dev = isDevEnv();
     const enableQueries = dev && envBool('PRISMA_LOG_QUERIES');
 
-    // КЛЮЧЕВОЕ: log emit:'event' включает типы this.$on(...)
     const log: Prisma.LogDefinition[] = [
       { emit: 'event', level: 'warn' },
       { emit: 'event', level: 'error' },

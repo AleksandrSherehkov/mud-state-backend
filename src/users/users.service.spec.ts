@@ -116,8 +116,8 @@ describe('UsersService', () => {
         where: { email: 'test@example.com' },
       });
 
-      expect(logger.log).toHaveBeenCalled(); // start
-      expect(logger.warn).toHaveBeenCalled(); // conflict
+      expect(logger.log).toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it('creates user with normalized email and hashed password', async () => {
@@ -153,8 +153,8 @@ describe('UsersService', () => {
       });
       expect(result).toEqual(created);
 
-      expect(logger.debug).toHaveBeenCalled(); // hashing start
-      expect(logger.log).toHaveBeenCalled(); // start + success
+      expect(logger.debug).toHaveBeenCalled();
+      expect(logger.log).toHaveBeenCalled();
     });
 
     it('uses safeRounds=10 when BCRYPT_SALT_ROUNDS is invalid', async () => {
@@ -177,7 +177,7 @@ describe('UsersService', () => {
       await service.createUser({ email: 'x@y.com', password: 'pw' });
 
       expect(bcrypt.hash).toHaveBeenCalledWith('pw', 10);
-      expect(logger.debug).toHaveBeenCalled(); // hashing
+      expect(logger.debug).toHaveBeenCalled();
     });
   });
 
@@ -192,7 +192,7 @@ describe('UsersService', () => {
       });
       expect(result).toEqual({ id: 'u2' });
 
-      expect(logger.debug).toHaveBeenCalled(); // find_by_email
+      expect(logger.debug).toHaveBeenCalled();
     });
   });
 
@@ -207,7 +207,7 @@ describe('UsersService', () => {
       });
       expect(res).toEqual({ id: 'u3' });
 
-      expect(logger.debug).toHaveBeenCalled(); // find_by_id
+      expect(logger.debug).toHaveBeenCalled();
     });
   });
 
@@ -242,8 +242,8 @@ describe('UsersService', () => {
       });
       expect(res).toEqual(updated);
 
-      expect(logger.log).toHaveBeenCalled(); // start + success
-      expect(logger.debug).toHaveBeenCalled(); // hashing
+      expect(logger.log).toHaveBeenCalled();
+      expect(logger.debug).toHaveBeenCalled();
     });
 
     it('allows empty dto (updates with empty data object)', async () => {
@@ -262,7 +262,7 @@ describe('UsersService', () => {
         data: {},
       });
 
-      expect(logger.log).toHaveBeenCalled(); // start + success
+      expect(logger.log).toHaveBeenCalled();
     });
 
     it('maps P2002 error to ConflictException and logs warn', async () => {
@@ -316,7 +316,7 @@ describe('UsersService', () => {
       });
       expect(res).toEqual(user);
 
-      expect(logger.log).toHaveBeenCalled(); // start + success
+      expect(logger.log).toHaveBeenCalled();
     });
 
     it('maps P2025 error to NotFoundException and logs warn', async () => {
@@ -360,8 +360,7 @@ describe('UsersService', () => {
       });
       expect(count).toBe(3);
 
-      expect(logger.log).toHaveBeenCalled(); // start + done
-
+      expect(logger.log).toHaveBeenCalled();
       jest.useRealTimers();
     });
 
@@ -381,7 +380,7 @@ describe('UsersService', () => {
       });
       expect(count).toBe(2);
 
-      expect(logger.log).toHaveBeenCalled(); // start + done
+      expect(logger.log).toHaveBeenCalled();
 
       jest.useRealTimers();
     });

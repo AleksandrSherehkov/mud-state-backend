@@ -138,7 +138,6 @@ export class AuthService {
       userId,
     );
     if (claim.count === 0) {
-      // Это важный security-сигнал (reuse/withdrawn)
       this.logger.warn(
         'Refresh failed: token revoked or reuse detected',
         AuthService.name,
@@ -236,7 +235,6 @@ export class AuthService {
       });
     });
 
-    // ✅ ВОТ СЮДА (после транзакции, до подписи JWT)
     this.logger.log('Tokens issued', AuthService.name, {
       event: 'auth.tokens.issued',
       userId,

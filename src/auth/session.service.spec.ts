@@ -6,7 +6,6 @@ import { SessionService } from './session.service';
 import type { PrismaService } from 'src/prisma/prisma.service';
 import type { AppLogger } from 'src/logger/logger.service';
 
-// ---- mocks for helpers used inside SessionService ----
 jest.mock('src/common/helpers/ip-normalize', () => ({
   normalizeIp: jest.fn(),
 }));
@@ -18,7 +17,6 @@ jest.mock('src/common/helpers/log-sanitize', () => ({
 }));
 import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 
-// ---- minimal Prisma mocks ----
 type PrismaSessionModel = {
   create: jest.Mock<Promise<{ id: string }>, [args: any]>;
   findMany: jest.Mock<Promise<any[]>, [args: any]>;
@@ -30,7 +28,6 @@ type PrismaMock = {
   session: PrismaSessionModel;
 };
 
-// ---- logger mocks (your AppLogger methods, including meta arg) ----
 type LoggerMock = jest.Mocked<Pick<AppLogger, 'setContext' | 'log' | 'debug'>>;
 
 describe('SessionService', () => {

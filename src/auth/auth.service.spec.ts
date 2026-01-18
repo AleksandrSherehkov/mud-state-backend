@@ -66,7 +66,6 @@ describe('AuthService', () => {
 
   let prisma: { $transaction: jest.Mock };
 
-  // ✅ добавили логгер
   let logger: jest.Mocked<
     Pick<
       AppLogger,
@@ -119,10 +118,9 @@ describe('AuthService', () => {
       refreshTokenService as unknown as RefreshTokenService,
       sessionService as unknown as SessionService,
       prisma as unknown as PrismaService,
-      logger as unknown as AppLogger, // ✅ 6-й аргумент
+      logger as unknown as AppLogger,
     );
 
-    // ✅ конструктор должен выставить контекст
     expect(logger.setContext).toHaveBeenCalledWith('AuthService');
   });
 
@@ -157,7 +155,6 @@ describe('AuthService', () => {
       );
       expect(result).toEqual({ ...createdUser, ...tokens });
 
-      // лог есть, но мы не фиксируем hashId чтобы тест не был хрупким
       expect(logger.log).toHaveBeenCalled();
     });
   });
