@@ -4,6 +4,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { PublicUserDto } from './dto/public-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { GetUserByEmailQueryDto } from './dto/get-user-by-email.query';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -53,12 +54,13 @@ describe('UsersController', () => {
     });
   });
 
-  describe('getByEmail', () => {
+  describe('getByEmail (GET /users/by-email?email=...)', () => {
     it('returns PublicUserDto when the user exists', async () => {
       const user = makeUser({ email: 'another@example.com', role: Role.ADMIN });
       usersService.findByEmail.mockResolvedValue(user);
 
-      const result = await controller.getByEmail('another@example.com');
+      const query: GetUserByEmailQueryDto = { email: 'another@example.com' };
+      const result = await controller.getByEmail(query);
 
       expect(usersService.findByEmail).toHaveBeenCalledWith(
         'another@example.com',
@@ -66,12 +68,27 @@ describe('UsersController', () => {
       expect(result).toEqual(new PublicUserDto(user));
     });
 
+    it('passes email as-is to service (normalization is done in service)', async () => {
+      const user = makeUser({ email: 'target@e2e.local' });
+      usersService.findByEmail.mockResolvedValue(user);
+
+      const raw = '  TARGET@e2e.local  ';
+      const query: GetUserByEmailQueryDto = { email: raw };
+      const result = await controller.getByEmail(query);
+
+      // контроллер передаёт как есть, нормализация внутри UsersService.findByEmail()
+      expect(usersService.findByEmail).toHaveBeenCalledWith(raw);
+      expect(result).toEqual(new PublicUserDto(user));
+    });
+
     it('throws NotFoundException when the user does not exist', async () => {
       usersService.findByEmail.mockResolvedValue(null);
 
-      await expect(
-        controller.getByEmail('missing@example.com'),
-      ).rejects.toThrow(NotFoundException);
+      const query: GetUserByEmailQueryDto = { email: 'missing@example.com' };
+
+      await expect(controller.getByEmail(query)).rejects.toThrow(
+        NotFoundException,
+      );
 
       expect(usersService.findByEmail).toHaveBeenCalledWith(
         'missing@example.com',

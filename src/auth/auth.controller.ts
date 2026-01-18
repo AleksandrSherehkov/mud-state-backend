@@ -26,10 +26,12 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import {
+  ApiListErrorResponses,
   ApiMutationErrorResponses,
   ApiQueryErrorResponses,
 } from 'src/common/swagger/api-exceptions';
@@ -73,14 +75,22 @@ export class AuthController {
   @HttpCode(201)
   @ApiOperation({
     summary: 'Реєстрація нового користувача',
-    description: `Створює нового користувача, одразу авторизує його і повертає токени доступу (accessToken, refreshToken), а також створює відповідну сесію і refreshToken у базі даних.`,
+    description:
+      'Створює нового користувача, одразу видає access/refresh токени та створює сесію.',
+    operationId: 'auth_register',
   })
   @ApiBody({ type: RegisterDto })
   @ApiCreatedResponse({
-    description: 'Користувач успішно створений',
+    description: 'Користувач створений',
     type: RegisterResponseDto,
   })
-  @ApiMutationErrorResponses()
+  @ApiMutationErrorResponses({
+    includeUnauthorized: false,
+    includeForbidden: false,
+    includeConflict: true,
+    conflictDescription: 'Email вже використовується',
+    conflictMessageExample: 'Електронна адреса вже використовується',
+  })
   async register(
     @Body() dto: RegisterDto,
     @Req() req: Request,
@@ -93,19 +103,24 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Вхід користувача' })
+  @ApiOperation({ summary: 'Вхід користувача', operationId: 'auth_login' })
   @ApiBody({ type: LoginDto })
   @ApiOkResponse({
     description: 'Успішний логін',
     type: TokenResponseDto,
   })
-  @ApiMutationErrorResponses()
+  @ApiMutationErrorResponses({
+    includeForbidden: false,
+    includeConflict: false,
+    unauthorizedDescription: 'Невірний email або пароль',
+    unauthorizedMessageExample: 'Невірний email або пароль',
+  })
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
   ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
-    const result = await this.authService.login(dto, ip, userAgent);
+    const result = await this.authService.login(dto, ip ?? '', userAgent ?? '');
     return {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
@@ -115,10 +130,16 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Оновлення токенів' })
+  @ApiOperation({ summary: 'Оновлення токенів', operationId: 'auth_refresh' })
   @ApiBody({ type: RefreshDto })
-  @ApiOkResponse({ type: TokenResponseDto })
-  @ApiMutationErrorResponses()
+  @ApiOkResponse({ description: 'Нові токени', type: TokenResponseDto })
+  @ApiMutationErrorResponses({
+    includeForbidden: false,
+    includeConflict: false,
+    unauthorizedDescription:
+      'Refresh токен недійсний / відкликаний / reuse detected',
+    unauthorizedMessageExample: 'Токен відкликано або недійсний',
+  })
   @SkipThrottle()
   @Throttle({ default: { limit: 10, ttl: 60 } })
   async refresh(
@@ -145,13 +166,16 @@ export class AuthController {
   @ApiBearerAuth()
   @HttpCode(200)
   @ApiOperation({
-    summary: 'Вихід користувача (очищення refresh токена та сесій)',
+    summary: 'Вихід користувача (ревок refresh токенів + завершення сесій)',
+    operationId: 'auth_logout',
   })
-  @ApiOkResponse({
-    description: 'Користувач вийшов із системи',
-    type: LogoutResponseDto,
+  @ApiOkResponse({ description: 'Користувач вийшов', type: LogoutResponseDto })
+  @ApiMutationErrorResponses({
+    includeConflict: false,
+    notFoundMessage: 'Користувача не знайдено',
+    badRequestDescription: 'Користувач вже вийшов із системи',
+    badRequestMessageExample: 'Користувач вже вийшов із системи',
   })
-  @ApiMutationErrorResponses()
   async logout(
     @CurrentUser('userId') userId: string,
   ): Promise<LogoutResponseDto> {
@@ -168,12 +192,15 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @SkipThrottle()
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Отримати інформацію про себе' })
-  @ApiOkResponse({
-    description: 'Повертає ID, email та роль користувача з бази',
-    type: MeResponseDto,
+  @ApiOperation({
+    summary: 'Отримати інформацію про себе',
+    operationId: 'auth_me',
   })
-  @ApiQueryErrorResponses('Користувача не знайдено')
+  @ApiOkResponse({ description: 'Профіль користувача', type: MeResponseDto })
+  @ApiQueryErrorResponses({
+    notFoundMessage: 'Користувача не знайдено',
+    includeBadRequest: false,
+  })
   async getMe(@CurrentUser('userId') userId: string): Promise<MeResponseDto> {
     const user = await this.usersService.findById(userId);
     if (!user) {
@@ -187,12 +214,20 @@ export class AuthController {
   @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Список активних сесій користувача' })
+  @ApiOperation({
+    summary: 'Активні refresh токени (сесії) користувача за userId',
+    operationId: 'auth_user_sessions',
+  })
   @ApiOkResponse({
-    description: 'Список сесій з IP та User-Agent',
+    description: 'Активні токени',
     type: [RefreshTokenSessionDto],
   })
-  @ApiQueryErrorResponses('Сесії користувача не знайдено')
+  @ApiListErrorResponses({ includeBadRequest: false })
+  @ApiParam({
+    name: 'userId',
+    description: 'UUID користувача',
+    schema: { type: 'string', format: 'uuid' },
+  })
   async getSessions(
     @Param('userId') userId: string,
   ): Promise<RefreshTokenSessionDto[]> {
@@ -209,24 +244,35 @@ export class AuthController {
   @ApiQuery({
     name: 'limit',
     required: false,
-    description: 'Максимальна кількість сесій',
+    description: '1..100 (default 50)',
     example: 50,
   })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Список активних сесій поточного користувача' })
+  @ApiOperation({
+    summary: 'Активні сесії поточного користувача',
+    operationId: 'auth_sessions_active',
+  })
   @ApiOkResponse({
     description: 'Список активних сесій з IP, User-Agent і часом старту',
     type: [ActiveSessionDto],
   })
-  @ApiQueryErrorResponses('Активні сесії не знайдено')
+  @ApiListErrorResponses({
+    includeBadRequest: false,
+  })
   async getActiveSessions(
     @CurrentUser('userId') userId: string,
     @Query('limit') limit?: string,
   ): Promise<ActiveSessionDto[]> {
-    const take = Math.max(1, Math.min(Number(limit) || 50, 100));
+    const raw = limit?.trim();
+    const parsed = raw ? Number(raw) : Number.NaN;
+
+    const take =
+      Number.isFinite(parsed) && parsed > 0
+        ? Math.min(Math.trunc(parsed), 100)
+        : 50;
     const sessions = await this.sessionService.getActiveUserSessions(
       userId,
       take,
@@ -245,12 +291,20 @@ export class AuthController {
   @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Завершити всі інші сесії, крім поточної' })
+  @ApiOperation({
+    summary: 'Завершити всі інші сесії, крім поточної',
+    operationId: 'auth_sessions_terminate_others',
+  })
   @ApiOkResponse({
     description: 'Інші сесії завершено',
     type: TerminateCountResponseDto,
   })
-  @ApiMutationErrorResponses()
+  @ApiMutationErrorResponses({
+    includeBadRequest: false,
+    includeConflict: true,
+    conflictDescription: 'Немає інших активних сесій',
+    conflictMessageExample: 'Немає інших активних сесій для завершення',
+  })
   async terminateOtherSessions(@CurrentUser() user: UserFromJwt | undefined) {
     if (!user) {
       throw new UnauthorizedException();
@@ -271,12 +325,15 @@ export class AuthController {
   @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Список всіх сесій користувача' })
+  @ApiOperation({
+    summary: 'Усі сесії поточного користувача',
+    operationId: 'auth_sessions_me',
+  })
   @ApiOkResponse({
     description: 'Усі сесії поточного користувача',
     type: [FullSessionDto],
   })
-  @ApiQueryErrorResponses('Сесії користувача не знайдено')
+  @ApiListErrorResponses({ includeBadRequest: false })
   async getMySessions(
     @CurrentUser('userId') userId: string,
   ): Promise<FullSessionDto[]> {
@@ -297,12 +354,18 @@ export class AuthController {
   @SkipThrottle()
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Завершити конкретну сесію за IP та User-Agent' })
+  @ApiOperation({
+    summary: 'Завершити конкретну сесію за IP та User-Agent',
+    operationId: 'auth_sessions_terminate',
+  })
   @ApiOkResponse({
     description: 'Сесію завершено',
     type: TerminateResultDto,
   })
-  @ApiMutationErrorResponses()
+  @ApiMutationErrorResponses({
+    includeConflict: false,
+    includeBadRequest: true,
+  })
   async terminateSpecificSession(
     @CurrentUser('userId') userId: string,
     @Body() dto: TerminateSessionDto,

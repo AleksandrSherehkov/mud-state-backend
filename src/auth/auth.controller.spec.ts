@@ -341,7 +341,7 @@ describe('AuthController', () => {
       await controller.getActiveSessions('u1', '-5');
       expect(sessionService.getActiveUserSessions).toHaveBeenLastCalledWith(
         'u1',
-        1,
+        50,
       );
 
       await controller.getActiveSessions('u1', '200');

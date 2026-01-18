@@ -78,7 +78,7 @@ function expectPublicUserShape(
   expect('password' in v).toBe(false);
 }
 
-describe('Users E2E — GET /users/email/:email', () => {
+describe('Users E2E — GET /users/by-email?email=...', () => {
   let app: INestApplication;
   let prisma: PrismaService;
 
@@ -122,7 +122,8 @@ describe('Users E2E — GET /users/email/:email', () => {
 
   it('401: without token -> Unauthorized', async () => {
     const res = await request(app.getHttpServer())
-      .get(`${basePath}/users/email/user@e2e.local`)
+      .get(`${basePath}/users/by-email`)
+      .query({ email: 'user@e2e.local' })
       .expect(401);
 
     const body = res.body as HttpErrorResponse;
@@ -143,7 +144,8 @@ describe('Users E2E — GET /users/email/:email', () => {
     const reg: RegisterResponse = regUnknown;
 
     const res = await request(app.getHttpServer())
-      .get(`${basePath}/users/email/${encodeURIComponent(email)}`)
+      .get(`${basePath}/users/by-email`)
+      .query({ email })
       .set('Authorization', `Bearer ${reg.accessToken}`)
       .expect(403);
 
@@ -178,7 +180,8 @@ describe('Users E2E — GET /users/email/:email', () => {
     expect(typeof token.accessToken).toBe('string');
 
     const res = await request(app.getHttpServer())
-      .get(`${basePath}/users/email/${encodeURIComponent('missing@e2e.local')}`)
+      .get(`${basePath}/users/by-email`)
+      .query({ email: 'missing@e2e.local' })
       .set('Authorization', `Bearer ${token.accessToken}`)
       .expect(404);
 
@@ -224,7 +227,8 @@ describe('Users E2E — GET /users/email/:email', () => {
 
     const queryEmail = `  ${rawEmail.toUpperCase()}  `;
     const res = await request(app.getHttpServer())
-      .get(`${basePath}/users/email/${encodeURIComponent(queryEmail)}`)
+      .get(`${basePath}/users/by-email`)
+      .query({ email: queryEmail })
       .set('Authorization', `Bearer ${adminToken.accessToken}`)
       .expect(200);
 
