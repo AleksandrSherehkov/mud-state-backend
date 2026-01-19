@@ -76,7 +76,6 @@ describe('UsersController', () => {
       const query: GetUserByEmailQueryDto = { email: raw };
       const result = await controller.getByEmail(query);
 
-      // контроллер передаёт как есть, нормализация внутри UsersService.findByEmail()
       expect(usersService.findByEmail).toHaveBeenCalledWith(raw);
       expect(result).toEqual(new PublicUserDto(user));
     });

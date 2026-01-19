@@ -24,7 +24,7 @@ export const ApiUsersLinks = {
             description: 'Далі: видалити користувача (ADMIN)',
           },
         },
-      })
+      }),
     );
   },
 
@@ -48,7 +48,7 @@ export const ApiUsersLinks = {
             description: 'Далі: видалити користувача (ADMIN)',
           },
         },
-      })
+      }),
     );
   },
 
@@ -72,7 +72,7 @@ export const ApiUsersLinks = {
             description: 'Далі: видалити користувача (ADMIN)',
           },
         },
-      })
+      }),
     );
   },
 
@@ -92,7 +92,7 @@ export const ApiUsersLinks = {
             description: 'Далі: перевірити, що користувача немає',
           },
         },
-      })
+      }),
     );
   },
 } as const;

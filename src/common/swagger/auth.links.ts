@@ -22,7 +22,7 @@ export const ApiAuthLinks = {
         RegisterResponseDto,
         MeResponseDto,
         FullSessionDto,
-        ActiveSessionDto
+        ActiveSessionDto,
       ),
       ApiCreatedResponse({
         description: 'Користувач створений',
@@ -42,7 +42,7 @@ export const ApiAuthLinks = {
               'Далі: активні сесії (requires Bearer, ADMIN/MODERATOR)',
           },
         },
-      })
+      }),
     );
   },
 
@@ -66,7 +66,7 @@ export const ApiAuthLinks = {
             description: 'Далі: logout (requires Bearer)',
           },
         },
-      })
+      }),
     );
   },
 
@@ -86,7 +86,7 @@ export const ApiAuthLinks = {
             description: 'Далі: logout (requires Bearer)',
           },
         },
-      })
+      }),
     );
   },
 
@@ -106,7 +106,7 @@ export const ApiAuthLinks = {
             description: 'Або: створити нового користувача',
           },
         },
-      })
+      }),
     );
   },
 
@@ -127,7 +127,7 @@ export const ApiAuthLinks = {
             description: 'Далі: logout',
           },
         },
-      })
+      }),
     );
   },
 
@@ -147,7 +147,7 @@ export const ApiAuthLinks = {
             description: 'Далі: мої сесії (ADMIN/MODERATOR)',
           },
         },
-      })
+      }),
     );
   },
 
@@ -167,7 +167,7 @@ export const ApiAuthLinks = {
             description: 'Далі: завершити всі інші сесії',
           },
         },
-      })
+      }),
     );
   },
 
@@ -187,7 +187,7 @@ export const ApiAuthLinks = {
             description: 'Далі: завершити конкретну сесію',
           },
         },
-      })
+      }),
     );
   },
 
@@ -203,7 +203,7 @@ export const ApiAuthLinks = {
             description: 'Далі: перевірити свої сесії',
           },
         },
-      })
+      }),
     );
   },
 
@@ -219,7 +219,7 @@ export const ApiAuthLinks = {
             description: 'Далі: перевірити свої сесії',
           },
         },
-      })
+      }),
     );
   },
 } as const;
