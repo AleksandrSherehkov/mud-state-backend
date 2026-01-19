@@ -14,7 +14,6 @@ import {
   ApiTags,
   ApiOperation,
   ApiParam,
-  ApiOkResponse,
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
@@ -32,6 +31,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { GetUserByEmailQueryDto } from './dto/get-user-by-email.query';
 import { USERS_SIDE_EFFECTS } from 'src/common/swagger/users.swagger';
 import { ApiRolesAccess } from 'src/common/swagger/api-roles';
+import { ApiUsersLinks } from 'src/common/swagger/users.links';
 
 @ApiTags('users')
 @Controller({
@@ -63,7 +63,7 @@ export class UsersController {
     schema: { type: 'string', format: 'uuid' },
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
-  @ApiOkResponse({ description: 'Знайдений користувач', type: PublicUserDto })
+  @ApiUsersLinks.getById200()
   @ApiQueryErrorResponses('Користувача не знайдено')
   async getById(@Param('id') id: string) {
     const user = await this.usersService.findById(id);
@@ -96,7 +96,7 @@ export class UsersController {
       example: { value: 'user@example.com' },
     },
   })
-  @ApiOkResponse({ description: 'Знайдений користувач', type: PublicUserDto })
+  @ApiUsersLinks.getByEmail200()
   @ApiQueryErrorResponses('Користувача не знайдено')
   async getByEmail(@Query() query: GetUserByEmailQueryDto) {
     const user = await this.usersService.findByEmail(query.email);
@@ -126,7 +126,7 @@ export class UsersController {
     schema: { type: 'string', format: 'uuid' },
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
-  @ApiOkResponse({ description: 'Користувача оновлено', type: PublicUserDto })
+  @ApiUsersLinks.update200()
   @ApiMutationErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
     conflictDescription: 'Email вже використовується',
@@ -159,7 +159,7 @@ export class UsersController {
     schema: { type: 'string', format: 'uuid' },
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
-  @ApiOkResponse({ description: 'Користувача видалено', type: PublicUserDto })
+  @ApiUsersLinks.delete200()
   @ApiMutationErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
     includeConflict: false,

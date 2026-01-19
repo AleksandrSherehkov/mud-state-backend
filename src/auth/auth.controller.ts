@@ -23,8 +23,6 @@ import { AuthService } from './auth.service';
 import {
   ApiBearerAuth,
   ApiBody,
-  ApiCreatedResponse,
-  ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -45,8 +43,6 @@ import { extractRequestInfo } from 'src/common/helpers/request-info';
 import { TerminateSessionDto } from './dto/terminate-session.dto';
 import { ActiveSessionDto } from './dto/active-session.dto';
 import { RefreshTokenSessionDto } from './dto/refresh-token-session.dto';
-import { TerminateCountResponseDto } from './dto/terminate-count-response.dto';
-import { TerminateResultDto } from './dto/terminate-result.dto';
 import { FullSessionDto } from './dto/full-session.dto';
 import { Roles } from './decorators/roles.decorator';
 import { RolesGuard } from './guards/roles.guard';
@@ -59,6 +55,7 @@ import { RefreshTokenService } from './refresh-token.service';
 import { UsersService } from 'src/users/users.service';
 import { ApiRolesAccess } from 'src/common/swagger/api-roles';
 import { AUTH_SIDE_EFFECTS } from 'src/common/swagger/auth.swagger';
+import { ApiAuthLinks } from 'src/common/swagger/auth.links';
 
 @ApiTags('auth')
 @Controller({
@@ -84,10 +81,7 @@ export class AuthController {
     notes: ['Створює першу сесію та refresh-токен для нового користувача.'],
   })
   @ApiBody({ type: RegisterDto })
-  @ApiCreatedResponse({
-    description: 'Користувач створений',
-    type: RegisterResponseDto,
-  })
+  @ApiAuthLinks.register201()
   @ApiMutationErrorResponses({
     includeUnauthorized: false,
     includeForbidden: false,
@@ -115,10 +109,7 @@ export class AuthController {
     ],
   })
   @ApiBody({ type: LoginDto })
-  @ApiOkResponse({
-    description: 'Успішний логін',
-    type: TokenResponseDto,
-  })
+  @ApiAuthLinks.login200()
   @ApiMutationErrorResponses({
     includeForbidden: false,
     includeConflict: false,
@@ -150,7 +141,7 @@ export class AuthController {
     ],
   })
   @ApiBody({ type: RefreshDto })
-  @ApiOkResponse({ description: 'Нові токени', type: TokenResponseDto })
+  @ApiAuthLinks.refresh200()
   @ApiMutationErrorResponses({
     includeForbidden: false,
     includeConflict: false,
@@ -193,7 +184,7 @@ export class AuthController {
       'Якщо немає активних токенів/сесій для завершення — контролер повертає 400 (вже вийшов).',
     ],
   })
-  @ApiOkResponse({ description: 'Користувач вийшов', type: LogoutResponseDto })
+  @ApiAuthLinks.logout200()
   @ApiMutationErrorResponses({
     includeConflict: false,
     notFoundMessage: 'Користувача не знайдено',
@@ -224,7 +215,7 @@ export class AuthController {
     sideEffects: AUTH_SIDE_EFFECTS.getMe,
     notes: ['Повертає профіль користувача з БД за userId із access token.'],
   })
-  @ApiOkResponse({ description: 'Профіль користувача', type: MeResponseDto })
+  @ApiAuthLinks.me200()
   @ApiQueryErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
     includeBadRequest: false,
@@ -252,10 +243,7 @@ export class AuthController {
       'Адмінський endpoint: читає активні refresh-токени іншого користувача.',
     ],
   })
-  @ApiOkResponse({
-    description: 'Активні токени',
-    type: [RefreshTokenSessionDto],
-  })
+  @ApiAuthLinks.userSessions200()
   @ApiListErrorResponses({ includeBadRequest: false })
   @ApiParam({
     name: 'userId',
@@ -301,10 +289,7 @@ export class AuthController {
       'Query param: limit (1..100), default 50. Некоректне значення → 50.',
     ],
   })
-  @ApiOkResponse({
-    description: 'Список активних сесій з IP, User-Agent і часом старту',
-    type: [ActiveSessionDto],
-  })
+  @ApiAuthLinks.activeSessions200()
   @ApiListErrorResponses({
     includeBadRequest: false,
   })
@@ -348,10 +333,7 @@ export class AuthController {
       'Refresh-токени не відкликає (тільки session.isActive=false).',
     ],
   })
-  @ApiOkResponse({
-    description: 'Інші сесії завершено',
-    type: TerminateCountResponseDto,
-  })
+  @ApiAuthLinks.terminateOthers200()
   @ApiMutationErrorResponses({
     includeBadRequest: false,
     includeConflict: true,
@@ -388,10 +370,7 @@ export class AuthController {
       'Повертає всі сесії (isActive=true/false) для поточного користувача.',
     ],
   })
-  @ApiOkResponse({
-    description: 'Усі сесії поточного користувача',
-    type: [FullSessionDto],
-  })
+  @ApiAuthLinks.mySessions200()
   @ApiListErrorResponses({ includeBadRequest: false })
   async getMySessions(
     @CurrentUser('userId') userId: string,
@@ -424,10 +403,7 @@ export class AuthController {
       'Refresh-токени не відкликає (тільки session.isActive=false).',
     ],
   })
-  @ApiOkResponse({
-    description: 'Сесію завершено',
-    type: TerminateResultDto,
-  })
+  @ApiAuthLinks.terminateSpecific200()
   @ApiMutationErrorResponses({
     includeConflict: false,
     includeBadRequest: true,
