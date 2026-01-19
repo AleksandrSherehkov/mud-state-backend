@@ -21,13 +21,13 @@ async function bootstrap() {
       transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
-    })
+    }),
   );
 
   const configService = app.get(ConfigService);
   const baseUrl = configService.get<string>(
     'BASE_URL',
-    'http://localhost:3000'
+    'http://localhost:3000',
   );
   const apiPrefix = configService.get<string>('API_PREFIX', 'api');
   const apiVersion = configService.get<string>('API_VERSION', '1');
@@ -62,7 +62,7 @@ async function bootstrap() {
 }
 bootstrap().catch((err: unknown) => {
   bootstrapLogger.error(
-    `❌ Failed to start application: ${err instanceof Error ? err.stack : String(err)}`
+    `❌ Failed to start application: ${err instanceof Error ? err.stack : String(err)}`,
   );
   process.exit(1);
 });
