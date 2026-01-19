@@ -21,13 +21,13 @@ async function bootstrap() {
       transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
-    }),
+    })
   );
 
   const configService = app.get(ConfigService);
   const baseUrl = configService.get<string>(
     'BASE_URL',
-    'http://localhost:3000',
+    'http://localhost:3000'
   );
   const apiPrefix = configService.get<string>('API_PREFIX', 'api');
   const apiVersion = configService.get<string>('API_VERSION', '1');
@@ -46,7 +46,7 @@ async function bootstrap() {
     .setDescription('API for the MUD simulation state backend')
     .setVersion('1.0')
     .addBearerAuth()
-    .addServer(apiBase, `API v${apiVersion}`)
+    .addServer(baseUrl, 'Base server')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -54,12 +54,15 @@ async function bootstrap() {
 
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
-  logger.log(`🚀 Server running at ${apiBase}`, 'Bootstrap');
-  logger.log(`📚 Swagger docs at ${baseUrl}/${apiPrefix}/docs`, 'Bootstrap');
+  logger.log('==============================', 'Bootstrap');
+  logger.log('✅ APP STARTED', 'Bootstrap');
+  logger.log(`🚀 Server: ${apiBase}`, 'Bootstrap');
+  logger.log(`📚 Swagger: ${baseUrl}/${apiPrefix}/docs`, 'Bootstrap');
+  logger.log('==============================', 'Bootstrap');
 }
 bootstrap().catch((err: unknown) => {
   bootstrapLogger.error(
-    `❌ Failed to start application: ${err instanceof Error ? err.stack : String(err)}`,
+    `❌ Failed to start application: ${err instanceof Error ? err.stack : String(err)}`
   );
   process.exit(1);
 });
