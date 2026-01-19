@@ -48,6 +48,30 @@ describe('TokenService', () => {
 
     expect(logger.setContext).toHaveBeenCalledWith('TokenService');
   });
+  describe('hashRefreshToken', () => {
+    it('returns deterministic HMAC-SHA256 hex (64 chars) using REFRESH_TOKEN_PEPPER', () => {
+      config.get.mockImplementation((key: string) => {
+        if (key === 'REFRESH_TOKEN_PEPPER') return 'pepper123';
+        return undefined;
+      });
+
+      const h1 = service.hashRefreshToken('tokenA');
+      const h2 = service.hashRefreshToken('tokenA');
+
+      expect(h1).toBe(h2);
+      expect(h1).toHaveLength(64);
+    });
+
+    it('throws when REFRESH_TOKEN_PEPPER is missing', () => {
+      config.get.mockImplementation(() => undefined);
+
+      expect(() => service.hashRefreshToken('tokenA')).toThrow(
+        /REFRESH_TOKEN_PEPPER/i,
+      );
+
+      expect(logger.error).toHaveBeenCalled();
+    });
+  });
 
   describe('signAccessToken', () => {
     it('signs payload with access secret and expiry from config', async () => {

@@ -12,9 +12,15 @@ export class RefreshTokenService {
     this.logger.setContext(RefreshTokenService.name);
   }
 
-  async create(userId: string, jti: string, ip?: string, userAgent?: string) {
+  async create(
+    userId: string,
+    jti: string,
+    tokenHash: string,
+    ip?: string,
+    userAgent?: string,
+  ) {
     const token = await this.prisma.refreshToken.create({
-      data: { userId, jti, ip, userAgent },
+      data: { userId, jti, tokenHash, ip, userAgent },
     });
 
     this.logger.log('Refresh token created', RefreshTokenService.name, {
@@ -47,6 +53,30 @@ export class RefreshTokenService {
     );
 
     return tokens;
+  }
+
+  async revokeIfActiveByHash(jti: string, userId: string, tokenHash: string) {
+    const result = await this.prisma.refreshToken.updateMany({
+      where: { jti, userId, tokenHash, revoked: false },
+      data: { revoked: true },
+    });
+
+    if (result.count === 1) {
+      this.logger.log('Refresh token claimed', RefreshTokenService.name, {
+        event: 'refresh_token.claimed',
+        userId,
+        jti,
+      });
+    } else {
+      this.logger.warn('Refresh token claim failed', RefreshTokenService.name, {
+        event: 'refresh_token.claim_failed',
+        userId,
+        jti,
+        count: result.count,
+      });
+    }
+
+    return result;
   }
 
   async revokeAll(userId: string) {
@@ -89,34 +119,6 @@ export class RefreshTokenService {
     });
 
     return token;
-  }
-
-  async revokeIfActive(jti: string, userId: string) {
-    const result = await this.prisma.refreshToken.updateMany({
-      where: { jti, userId, revoked: false },
-      data: { revoked: true },
-    });
-
-    if (result.count === 1) {
-      this.logger.log('Refresh token claimed', RefreshTokenService.name, {
-        event: 'refresh_token.claimed',
-        userId,
-        jti,
-      });
-    } else {
-      this.logger.warn(
-        'Refresh token claim failed (revoked/reuse/mismatch)',
-        RefreshTokenService.name,
-        {
-          event: 'refresh_token.claim_failed',
-          userId,
-          jti,
-          count: result.count,
-        },
-      );
-    }
-
-    return result;
   }
 
   async validate(jti: string, userId: string) {

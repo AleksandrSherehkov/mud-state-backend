@@ -52,12 +52,15 @@ describe('AuthService', () => {
   let tokenService: jest.Mocked<
     Pick<
       TokenService,
-      'signAccessToken' | 'signRefreshToken' | 'verifyRefreshToken'
+      | 'signAccessToken'
+      | 'signRefreshToken'
+      | 'verifyRefreshToken'
+      | 'hashRefreshToken'
     >
   >;
 
   let refreshTokenService: jest.Mocked<
-    Pick<RefreshTokenService, 'revokeAll' | 'revokeIfActive'>
+    Pick<RefreshTokenService, 'revokeAll' | 'revokeIfActiveByHash'>
   >;
 
   let sessionService: jest.Mocked<
@@ -86,11 +89,12 @@ describe('AuthService', () => {
       signAccessToken: jest.fn(),
       signRefreshToken: jest.fn(),
       verifyRefreshToken: jest.fn(),
+      hashRefreshToken: jest.fn(),
     };
 
     refreshTokenService = {
       revokeAll: jest.fn(),
-      revokeIfActive: jest.fn(),
+      revokeIfActiveByHash: jest.fn(),
     };
 
     sessionService = {
@@ -272,9 +276,12 @@ describe('AuthService', () => {
       expect(logger.warn).toHaveBeenCalled();
     });
 
-    it('throws UnauthorizedException when revokeIfActive returns count=0', async () => {
+    it('throws UnauthorizedException when revokeIfActiveByHash returns count=0', async () => {
       tokenService.verifyRefreshToken.mockResolvedValue(payload as any);
-      refreshTokenService.revokeIfActive.mockResolvedValue({ count: 0 } as any);
+      tokenService.hashRefreshToken.mockReturnValue('hash-r');
+      refreshTokenService.revokeIfActiveByHash.mockResolvedValue({
+        count: 0,
+      } as any);
 
       await expect(
         service.refresh(userId, refreshToken, ip, userAgent),
@@ -282,12 +289,22 @@ describe('AuthService', () => {
         new UnauthorizedException('Токен відкликано або недійсний'),
       );
 
+      expect(refreshTokenService.revokeIfActiveByHash).toHaveBeenCalledWith(
+        payload.jti,
+        userId,
+        'hash-r',
+      );
+
       expect(logger.warn).toHaveBeenCalled();
     });
 
     it('terminates session by refreshToken jti and issues new tokens', async () => {
       tokenService.verifyRefreshToken.mockResolvedValue(payload as any);
-      refreshTokenService.revokeIfActive.mockResolvedValue({ count: 1 } as any);
+      tokenService.hashRefreshToken.mockReturnValue('hash-r');
+      refreshTokenService.revokeIfActiveByHash.mockResolvedValue({
+        count: 1,
+      } as any);
+
       sessionService.terminateByRefreshToken.mockResolvedValue({
         count: 1,
       } as any);
@@ -312,10 +329,14 @@ describe('AuthService', () => {
       expect(tokenService.verifyRefreshToken).toHaveBeenCalledWith(
         refreshToken,
       );
-      expect(refreshTokenService.revokeIfActive).toHaveBeenCalledWith(
+      expect(tokenService.hashRefreshToken).toHaveBeenCalledWith(refreshToken);
+
+      expect(refreshTokenService.revokeIfActiveByHash).toHaveBeenCalledWith(
         payload.jti,
         userId,
+        'hash-r',
       );
+
       expect(sessionService.terminateByRefreshToken).toHaveBeenCalledWith(
         payload.jti,
       );
@@ -335,11 +356,14 @@ describe('AuthService', () => {
 
     it('throws UnauthorizedException when user not found after token claim', async () => {
       tokenService.verifyRefreshToken.mockResolvedValue(payload as any);
-      refreshTokenService.revokeIfActive.mockResolvedValue({ count: 1 } as any);
-      sessionService.terminateByRefreshToken.mockResolvedValue({
+      tokenService.hashRefreshToken.mockReturnValue('hash-r');
+      refreshTokenService.revokeIfActiveByHash.mockResolvedValue({
         count: 1,
       } as any);
 
+      sessionService.terminateByRefreshToken.mockResolvedValue({
+        count: 1,
+      } as any);
       usersService.findById.mockResolvedValue(null);
 
       await expect(
@@ -393,24 +417,28 @@ describe('AuthService', () => {
 
   describe('issueTokens (private)', () => {
     it('creates refreshToken + session via transaction, signs tokens, returns Tokens', async () => {
-      (randomUUID as unknown as jest.Mock).mockReturnValue('uuid-123');
+      // 1st call -> refreshTokenId (jti), 2nd call -> sessionId (sid)
+      (randomUUID as unknown as jest.Mock)
+        .mockReturnValueOnce('jti-uuid')
+        .mockReturnValueOnce('sid-uuid');
+
       (normalizeIp as unknown as jest.Mock).mockReturnValue('nip');
 
       const refreshCreate = jest.fn().mockResolvedValue(undefined);
-      const sessionCreate = jest.fn().mockResolvedValue({ id: 'sid-999' });
+      const sessionCreate = jest.fn().mockResolvedValue(undefined);
 
       prisma.$transaction.mockImplementation(async (cb: any) => {
         const tx = {
           refreshToken: { create: refreshCreate },
           session: { create: sessionCreate },
         };
-
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return await cb(tx);
       });
 
       tokenService.signAccessToken.mockResolvedValue('access-signed');
       tokenService.signRefreshToken.mockResolvedValue('refresh-signed');
+      tokenService.hashRefreshToken.mockReturnValue('hash-refresh-signed');
 
       const result: Tokens = await (service as any).issueTokens(
         'u1',
@@ -425,7 +453,8 @@ describe('AuthService', () => {
       expect(refreshCreate).toHaveBeenCalledWith({
         data: {
           userId: 'u1',
-          jti: 'uuid-123',
+          jti: 'jti-uuid',
+          tokenHash: 'hash-refresh-signed',
           ip: 'nip',
           userAgent: 'TestUA',
         },
@@ -433,8 +462,9 @@ describe('AuthService', () => {
 
       expect(sessionCreate).toHaveBeenCalledWith({
         data: {
+          id: 'sid-uuid',
           userId: 'u1',
-          refreshTokenId: 'uuid-123',
+          refreshTokenId: 'jti-uuid',
           ip: 'nip',
           userAgent: 'TestUA',
         },
@@ -443,23 +473,27 @@ describe('AuthService', () => {
       expect(tokenService.signAccessToken).toHaveBeenCalledWith({
         sub: 'u1',
         email: 'user@ex.com',
-        jti: 'uuid-123',
+        jti: 'jti-uuid',
         role: Role.USER,
-        sid: 'sid-999',
+        sid: 'sid-uuid',
       });
 
       expect(tokenService.signRefreshToken).toHaveBeenCalledWith({
         sub: 'u1',
         email: 'user@ex.com',
-        jti: 'uuid-123',
+        jti: 'jti-uuid',
         role: Role.USER,
-        sid: 'sid-999',
+        sid: 'sid-uuid',
       });
+
+      expect(tokenService.hashRefreshToken).toHaveBeenCalledWith(
+        'refresh-signed',
+      );
 
       expect(result).toEqual({
         accessToken: 'access-signed',
         refreshToken: 'refresh-signed',
-        jti: 'uuid-123',
+        jti: 'jti-uuid',
       });
     });
   });

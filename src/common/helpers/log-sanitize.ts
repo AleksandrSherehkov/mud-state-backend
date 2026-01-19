@@ -16,6 +16,9 @@ const SENSITIVE_KEY_SUBSTRINGS = [
   'privatekey',
   'refresh',
   'access',
+  'tokenhash',
+  'refresh_token',
+  'refreshtoken',
 ];
 
 const JWT_LIKE = /eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g;

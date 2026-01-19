@@ -67,10 +67,16 @@ describe('RefreshTokenService', () => {
     it('creates refresh token with provided params', async () => {
       prisma.refreshToken.create.mockResolvedValue({ id: 't1', userId: 'u1' });
 
-      await service.create('u1', 'jti1', 'ip', 'ua');
+      await service.create('u1', 'jti1', 'hash1', 'ip', 'ua');
 
       expect(prisma.refreshToken.create).toHaveBeenCalledWith({
-        data: { userId: 'u1', jti: 'jti1', ip: 'ip', userAgent: 'ua' },
+        data: {
+          userId: 'u1',
+          jti: 'jti1',
+          tokenHash: 'hash1',
+          ip: 'ip',
+          userAgent: 'ua',
+        },
       });
 
       expect(logger.log).toHaveBeenCalled();
@@ -79,12 +85,13 @@ describe('RefreshTokenService', () => {
     it('allows optional ip/userAgent', async () => {
       prisma.refreshToken.create.mockResolvedValue({ id: 't2', userId: 'u2' });
 
-      await service.create('u2', 'jti2');
+      await service.create('u2', 'jti2', 'hash2');
 
       expect(prisma.refreshToken.create).toHaveBeenCalledWith({
         data: {
           userId: 'u2',
           jti: 'jti2',
+          tokenHash: 'hash2',
           ip: undefined,
           userAgent: undefined,
         },
@@ -158,14 +165,19 @@ describe('RefreshTokenService', () => {
     });
   });
 
-  describe('revokeIfActive', () => {
-    it('revokes only active token for user (count=1) and logs success', async () => {
+  describe('revokeIfActiveByHash', () => {
+    it('claims only active token for user+hash (count=1) and logs success', async () => {
       prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
 
-      await service.revokeIfActive('jti4', 'u6');
+      await service.revokeIfActiveByHash('jti4', 'u6', 'hash-4');
 
       expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
-        where: { jti: 'jti4', userId: 'u6', revoked: false },
+        where: {
+          jti: 'jti4',
+          userId: 'u6',
+          tokenHash: 'hash-4',
+          revoked: false,
+        },
         data: { revoked: true },
       });
 
@@ -175,7 +187,7 @@ describe('RefreshTokenService', () => {
     it('logs warn when claim failed (count=0)', async () => {
       prisma.refreshToken.updateMany.mockResolvedValue({ count: 0 });
 
-      await service.revokeIfActive('jti4', 'u6');
+      await service.revokeIfActiveByHash('jti4', 'u6', 'hash-4');
 
       expect(logger.warn).toHaveBeenCalled();
     });

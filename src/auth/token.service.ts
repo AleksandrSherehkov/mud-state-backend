@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from './types/jwt.types';
 import type { StringValue } from 'ms';
 import { AppLogger } from 'src/logger/logger.service';
+import { createHmac } from 'node:crypto';
 
 @Injectable()
 export class TokenService {
@@ -38,6 +39,11 @@ export class TokenService {
     expiresIn: StringValue | number,
   ): Promise<string> {
     return this.jwt.signAsync(payload, { secret, expiresIn });
+  }
+  hashRefreshToken(token: string): string {
+    const pepper = this.getRequired('REFRESH_TOKEN_PEPPER');
+
+    return createHmac('sha256', pepper).update(token).digest('hex');
   }
 
   async signAccessToken(payload: JwtPayload): Promise<string> {

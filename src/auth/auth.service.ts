@@ -132,11 +132,14 @@ export class AuthService {
       });
       throw new UnauthorizedException('Невідповідність користувача');
     }
+    const tokenHash = this.tokenService.hashRefreshToken(refreshToken);
 
-    const claim = await this.refreshTokenService.revokeIfActive(
+    const claim = await this.refreshTokenService.revokeIfActiveByHash(
       payload.jti,
       userId,
+      tokenHash,
     );
+
     if (claim.count === 0) {
       this.logger.warn(
         'Refresh failed: token revoked or reuse detected',
@@ -220,18 +223,40 @@ export class AuthService {
     ip?: string,
     userAgent?: string,
   ): Promise<Tokens> {
-    const refreshTokenId = randomUUID();
+    const refreshTokenId = randomUUID(); // jti
+    const sessionId = randomUUID(); // sid (явный id сессии)
 
     const nip: string | null = ip ? normalizeIp(ip) : null;
     const ua: string | null = userAgent ? userAgent.trim() : null;
 
-    const session = await this.prisma.$transaction(async (tx) => {
+    const payload: JwtPayload = {
+      sub: userId,
+      email,
+      jti: refreshTokenId,
+      role,
+      sid: sessionId,
+    };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.tokenService.signAccessToken(payload),
+      this.tokenService.signRefreshToken(payload),
+    ]);
+
+    const tokenHash = this.tokenService.hashRefreshToken(refreshToken);
+
+    await this.prisma.$transaction(async (tx) => {
       await tx.refreshToken.create({
-        data: { userId, jti: refreshTokenId, ip: nip, userAgent: ua },
+        data: {
+          userId,
+          jti: refreshTokenId,
+          tokenHash,
+          ip: nip,
+          userAgent: ua,
+        },
       });
 
-      return tx.session.create({
-        data: { userId, refreshTokenId, ip: nip, userAgent: ua },
+      await tx.session.create({
+        data: { id: sessionId, userId, refreshTokenId, ip: nip, userAgent: ua },
       });
     });
 
@@ -240,23 +265,10 @@ export class AuthService {
       userId,
       role,
       jti: refreshTokenId,
-      sid: session.id,
+      sid: sessionId,
       ipMasked: nip ? maskIp(nip) : undefined,
       uaHash: ua ? hashId(ua) : undefined,
     });
-
-    const payload: JwtPayload = {
-      sub: userId,
-      email,
-      jti: refreshTokenId,
-      role,
-      sid: session.id,
-    };
-
-    const [accessToken, refreshToken] = await Promise.all([
-      this.tokenService.signAccessToken(payload),
-      this.tokenService.signRefreshToken(payload),
-    ]);
 
     return { accessToken, refreshToken, jti: refreshTokenId };
   }

@@ -48,6 +48,7 @@ import { JobsModule } from './jobs/jobs.module';
         PRISMA_QUERY_SAMPLE_RATE: Joi.number().min(0).max(1).default(0.05),
         TOKEN_CLEANUP_DAYS: Joi.number().min(1).max(365).default(7),
         TOKEN_CLEANUP_CRON: Joi.string().default('0 0 * * *'),
+        REFRESH_TOKEN_PEPPER: Joi.string().length(64).hex().required(),
       }),
       envFilePath:
         process.env.APP_ENV === 'test' || process.env.NODE_ENV === 'test'

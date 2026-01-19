@@ -1,7 +1,7 @@
 export const AUTH_SIDE_EFFECTS = {
   register: [
     'Створює нового користувача в БД.',
-    'Створює refresh-токен (RefreshToken) з новим jti.',
+    'Створює refresh-токен (RefreshToken) з новим jti та зберігає tokenHash (refresh JWT у БД не зберігається).',
     'Створює сесію (Session) та прив’язує її до refreshTokenId=jti.',
     'Повертає accessToken + refreshToken + jti.',
   ].join('\n'),
@@ -10,14 +10,14 @@ export const AUTH_SIDE_EFFECTS = {
     'Перевіряє email/password.',
     'Відкликає всі активні refresh-токени користувача (revokeAll).',
     'Завершує всі активні сесії користувача (terminateAll).',
-    'Створює новий refresh-токен (RefreshToken) з новим jti.',
+    'Створює refresh-токен (RefreshToken) з новим jti та зберігає tokenHash (refresh JWT у БД не зберігається).',
     'Створює нову сесію (Session) та прив’язує її до refreshTokenId=jti.',
     'Повертає accessToken + refreshToken + jti.',
   ].join('\n'),
 
   refresh: [
     'Верифікує refresh JWT (підпис/exp) та перевіряє відповідність userId (sub).',
-    'Atomically “claim”: відкликає refresh-токен по jti (revokeIfActive). Якщо токен уже відкликаний/повторно використаний — 401.',
+    'Atomically “claim”: відкликає refresh-токен по (jti + userId + tokenHash), де tokenHash = SHA256(pepper + refreshToken). Якщо hash не співпав або токен уже відкликаний/повторно використаний — 401.',
     'Завершує сесію, пов’язану з попереднім jti (terminateByRefreshToken).',
     'Створює новий refresh-токен (новий jti) та нову сесію (Session) з прив’язкою до refreshTokenId=jti.',
     'Повертає нові accessToken + refreshToken + jti.',
