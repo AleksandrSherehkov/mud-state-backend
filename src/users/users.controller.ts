@@ -30,6 +30,8 @@ import { Role } from '@prisma/client';
 import { SkipThrottle } from '@nestjs/throttler';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { GetUserByEmailQueryDto } from './dto/get-user-by-email.query';
+import { USERS_SIDE_EFFECTS } from 'src/common/swagger/users.swagger';
+import { ApiRolesAccess } from 'src/common/swagger/api-roles';
 
 @ApiTags('users')
 @Controller({
@@ -46,9 +48,14 @@ export class UsersController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Отримати користувача за ID',
-    description:
-      'Повертає публічні дані користувача за його UUID. Доступ: ADMIN, MODERATOR.',
     operationId: 'users_getById',
+  })
+  @ApiRolesAccess([Role.ADMIN, Role.MODERATOR], {
+    sideEffects: USERS_SIDE_EFFECTS.getById,
+    notes: [
+      'Потрібна авторизація (Bearer access token).',
+      'Повертає лише публічні поля (без password).',
+    ],
   })
   @ApiParam({
     name: 'id',
@@ -71,13 +78,26 @@ export class UsersController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Пошук користувача за email',
-    description:
-      'Повертає публічні дані користувача за email. Email нормалізується (trim + lowercase). Доступ: ADMIN, MODERATOR.',
     operationId: 'users_getByEmail',
+  })
+  @ApiRolesAccess([Role.ADMIN, Role.MODERATOR], {
+    sideEffects: USERS_SIDE_EFFECTS.getByEmail,
+    notes: [
+      'Потрібна авторизація (Bearer access token).',
+      'Email у query обов’язковий.',
+    ],
+  })
+  @ApiQuery({
+    name: 'email',
+    required: true,
+    description: 'Email користувача (trim у DTO, normalizeEmail у сервісі)',
+    schema: { type: 'string', format: 'email' },
+    examples: {
+      example: { value: 'user@example.com' },
+    },
   })
   @ApiOkResponse({ description: 'Знайдений користувач', type: PublicUserDto })
   @ApiQueryErrorResponses('Користувача не знайдено')
-  @ApiQuery({ name: 'email', required: true, example: 'user@example.com' })
   async getByEmail(@Query() query: GetUserByEmailQueryDto) {
     const user = await this.usersService.findByEmail(query.email);
     if (!user) throw new NotFoundException('Користувача не знайдено');
@@ -91,9 +111,14 @@ export class UsersController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Оновити користувача',
-    description:
-      'Оновлює email/password/role користувача. Доступ: тільки ADMIN. Пароль буде перехешовано. Email нормалізується (trim + lowercase).',
     operationId: 'users_update',
+  })
+  @ApiRolesAccess([Role.ADMIN], {
+    sideEffects: USERS_SIDE_EFFECTS.update,
+    notes: [
+      'Потрібна авторизація (Bearer access token).',
+      'Передавай лише поля, які треба змінити (partial update).',
+    ],
   })
   @ApiParam({
     name: 'id',
@@ -119,9 +144,14 @@ export class UsersController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Видалити користувача',
-    description:
-      'Видаляє користувача за UUID. Доступ: тільки ADMIN. Повертає публічні дані видаленого користувача.',
     operationId: 'users_delete',
+  })
+  @ApiRolesAccess([Role.ADMIN], {
+    sideEffects: USERS_SIDE_EFFECTS.delete,
+    notes: [
+      'Потрібна авторизація (Bearer access token).',
+      'Операція незворотна.',
+    ],
   })
   @ApiParam({
     name: 'id',
