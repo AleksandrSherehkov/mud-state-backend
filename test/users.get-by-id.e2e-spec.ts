@@ -9,6 +9,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
 
 import { Role } from '@prisma/client';
+import { buildValidPassword } from './helpers/password';
+import { useContainer } from 'class-validator';
 
 type RegisterResponse = {
   id: string;
@@ -106,7 +108,7 @@ describe('Users E2E — GET /users/id/:id', () => {
         forbidNonWhitelisted: true,
       }),
     );
-
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -132,7 +134,7 @@ describe('Users E2E — GET /users/id/:id', () => {
 
   it('403: USER token -> Forbidden (RolesGuard)', async () => {
     const email = `user_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const regRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
@@ -154,7 +156,7 @@ describe('Users E2E — GET /users/id/:id', () => {
 
   it('404: ADMIN token -> Not Found when user does not exist', async () => {
     const email = `admin_nf_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const regRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
@@ -188,7 +190,7 @@ describe('Users E2E — GET /users/id/:id', () => {
   });
 
   it('200: ADMIN token -> returns PublicUserDto by id', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const adminEmail = `admin_${Date.now()}@e2e.local`;
     const adminRegRes = await request(app.getHttpServer())

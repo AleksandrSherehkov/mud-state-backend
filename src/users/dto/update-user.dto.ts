@@ -1,6 +1,13 @@
-import { IsEmail, IsEnum, IsOptional, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Validate,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
+import { PasswordPolicyValidator } from 'src/common/validators/password-policy.validator';
 
 export class UpdateUserDto {
   @ApiPropertyOptional({ example: 'user@example.com' })
@@ -8,9 +15,14 @@ export class UpdateUserDto {
   @IsOptional()
   email?: string;
 
-  @ApiPropertyOptional({ example: 'newPassword123' })
-  @MinLength(6)
+  @ApiPropertyOptional({
+    example: 'StrongPassword123',
+    description:
+      'Пароль згідно політики безпеки (довжина/вимоги задаються через ENV)',
+  })
+  @IsString()
   @IsOptional()
+  @Validate(PasswordPolicyValidator)
   password?: string;
 
   @ApiPropertyOptional({ example: 'MODERATOR', enum: Role })

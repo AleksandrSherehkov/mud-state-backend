@@ -18,6 +18,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { AppLogger } from 'src/logger/logger.service';
 import { hashId, maskIp } from 'src/common/helpers/log-sanitize';
+import { AuthSecurityService } from './auth-security.service';
 
 @Injectable()
 export class AuthService {
@@ -28,6 +29,7 @@ export class AuthService {
     private readonly sessionService: SessionService,
     private readonly prisma: PrismaService,
     private readonly logger: AppLogger,
+    private readonly authSecurity: AuthSecurityService,
   ) {
     this.logger.setContext(AuthService.name);
   }
@@ -73,16 +75,19 @@ export class AuthService {
       throw new UnauthorizedException('Невірний email або пароль');
     }
 
+    await this.authSecurity.assertNotLocked(user.id);
+
     const isValid = await bcrypt.compare(dto.password, user.password);
     if (!isValid) {
-      this.logger.warn('Login failed: invalid password', AuthService.name, {
-        event: 'auth.login.fail',
-        reason: 'invalid_password',
+      // ВАЖНО: не раскрываем "пароль неверный"
+      return this.authSecurity.onLoginFailed({
         userId: user.id,
-        emailHash,
-      });
-      throw new UnauthorizedException('Невірний email або пароль');
+        ip,
+        userAgent,
+      }) as never;
     }
+
+    await this.authSecurity.onLoginSuccess(user.id);
 
     await Promise.all([
       this.refreshTokenService.revokeAll(user.id),

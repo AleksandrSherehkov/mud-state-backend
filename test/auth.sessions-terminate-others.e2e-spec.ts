@@ -9,6 +9,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
 
 import { Role } from '@prisma/client';
+import { buildValidPassword } from './helpers/password';
+import { useContainer } from 'class-validator';
 
 type RegisterResponse = {
   id: string;
@@ -91,7 +93,7 @@ describe('Auth E2E — POST /auth/sessions/terminate-others', () => {
         forbidNonWhitelisted: true,
       }),
     );
-
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -117,7 +119,7 @@ describe('Auth E2E — POST /auth/sessions/terminate-others', () => {
 
   it('403: USER token -> Forbidden (RolesGuard)', async () => {
     const email = `user_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const regRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
@@ -138,7 +140,7 @@ describe('Auth E2E — POST /auth/sessions/terminate-others', () => {
   });
 
   it('409: ADMIN with only current session -> Conflict "Немає інших активних сесій"', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const adminEmail = `admin_${Date.now()}@e2e.local`;
     const regRes = await request(app.getHttpServer())
@@ -173,7 +175,7 @@ describe('Auth E2E — POST /auth/sessions/terminate-others', () => {
   });
 
   it('200: ADMIN with 2 active sessions -> terminates others, keeps current sid active', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const adminEmail = `admin2_${Date.now()}@e2e.local`;
     const regRes = await request(app.getHttpServer())

@@ -11,12 +11,15 @@ import { RefreshTokenService } from './refresh-token.service';
 import { SessionService } from './session.service';
 import { LoggerModule } from 'src/logger/logger.module';
 import type { StringValue } from 'ms';
+import { AuthSecurityService } from './auth-security.service';
+import { ValidatorsModule } from 'src/common/validators/validators.module';
 
 @Module({
   imports: [
     UsersModule,
     PrismaModule,
     LoggerModule,
+    ValidatorsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -33,6 +36,7 @@ import type { StringValue } from 'ms';
   ],
   providers: [
     AuthService,
+    AuthSecurityService,
     JwtStrategy,
     TokenService,
     RefreshTokenService,

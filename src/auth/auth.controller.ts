@@ -72,6 +72,7 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(201)
+  @Throttle({ default: { limit: 3, ttl: 60 } })
   @ApiOperation({
     summary: 'Реєстрація нового користувача',
     operationId: 'auth_register',
@@ -101,6 +102,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60 } })
   @ApiOperation({ summary: 'Вхід користувача', operationId: 'auth_login' })
   @ApiRolesAccess('PUBLIC', {
     sideEffects: AUTH_SIDE_EFFECTS.login,
@@ -149,7 +151,6 @@ export class AuthController {
       'Refresh токен недійсний / відкликаний / reuse detected',
     unauthorizedMessageExample: 'Токен відкликано або недійсний',
   })
-  @SkipThrottle()
   @Throttle({ default: { limit: 10, ttl: 60 } })
   async refresh(
     @Body() dto: RefreshDto,

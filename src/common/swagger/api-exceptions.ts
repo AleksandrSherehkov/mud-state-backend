@@ -66,7 +66,10 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
     options?.badRequestDescription ?? 'Некоректні вхідні дані';
   const badRequestMessageExample =
     options?.badRequestMessageExample ??
-    (['email має бути валідним', 'password обов’язковий'] as string[]);
+    ([
+      'email має бути валідним',
+      'Пароль має містити: від 8 до 72 символів, щонайменше 1 велика літера (A-Z), щонайменше 1 цифра (0-9).',
+    ] as string[]);
 
   const unauthorizedDescription =
     options?.unauthorizedDescription ?? 'Неавторизований доступ';

@@ -9,6 +9,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
 
 import { Role } from '@prisma/client';
+import { buildValidPassword } from './helpers/password';
+import { useContainer } from 'class-validator';
 
 type RegisterResponse = {
   id: string;
@@ -88,7 +90,7 @@ describe('Auth E2E — POST /auth/sessions/terminate', () => {
         forbidNonWhitelisted: true,
       }),
     );
-
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -115,7 +117,7 @@ describe('Auth E2E — POST /auth/sessions/terminate', () => {
 
   it('403: USER token -> Forbidden (RolesGuard)', async () => {
     const email = `user_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const regRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
@@ -137,7 +139,7 @@ describe('Auth E2E — POST /auth/sessions/terminate', () => {
   });
 
   it('200: ADMIN -> terminates matching active session by ip+userAgent', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
     const adminEmail = `admin_term_${Date.now()}@e2e.local`;
 
     const regRes = await request(app.getHttpServer())
@@ -215,7 +217,7 @@ describe('Auth E2E — POST /auth/sessions/terminate', () => {
   });
 
   it('200: ADMIN -> returns terminated=false when no matching active session', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
     const adminEmail = `admin_term_none_${Date.now()}@e2e.local`;
 
     const regRes = await request(app.getHttpServer())

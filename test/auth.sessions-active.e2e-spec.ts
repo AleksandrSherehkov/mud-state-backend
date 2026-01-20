@@ -9,6 +9,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
 
 import { Role } from '@prisma/client';
+import { buildValidPassword } from './helpers/password';
+import { useContainer } from 'class-validator';
 
 type RegisterResponse = {
   id: string;
@@ -112,7 +114,7 @@ describe('Auth E2E — GET /auth/sessions/active', () => {
         forbidNonWhitelisted: true,
       }),
     );
-
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -138,7 +140,7 @@ describe('Auth E2E — GET /auth/sessions/active', () => {
 
   it('403: USER token -> Forbidden (RolesGuard)', async () => {
     const email = `user_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const regRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
@@ -159,7 +161,7 @@ describe('Auth E2E — GET /auth/sessions/active', () => {
   });
 
   it('200: ADMIN token -> returns ONLY admin active sessions, sorted desc', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const adminEmail = `admin_${Date.now()}@e2e.local`;
     const adminRegRes = await request(app.getHttpServer())
@@ -217,7 +219,7 @@ describe('Auth E2E — GET /auth/sessions/active', () => {
   });
 
   it('200: ADMIN token + limit=1 -> at most 1 item', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
     const adminEmail = `admin_limit_${Date.now()}@e2e.local`;
 
     const regRes = await request(app.getHttpServer())
@@ -254,7 +256,7 @@ describe('Auth E2E — GET /auth/sessions/active', () => {
   });
 
   it('200: ADMIN token + limit=9999 -> clamped to <= 100', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
     const adminEmail = `admin_cap_${Date.now()}@e2e.local`;
 
     const regRes = await request(app.getHttpServer())

@@ -7,6 +7,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from 'src/app.module';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
+import { useContainer } from 'class-validator';
 
 import { Role } from '@prisma/client';
 
@@ -40,10 +41,6 @@ function expectTokenResponseShape(
 
   const v = value as Record<string, unknown>;
 
-  expect('accessToken' in v).toBe(true);
-  expect('refreshToken' in v).toBe(true);
-  expect('jti' in v).toBe(true);
-
   expect(typeof v.accessToken).toBe('string');
   expect((v.accessToken as string).length).toBeGreaterThan(10);
 
@@ -52,6 +49,39 @@ function expectTokenResponseShape(
 
   expect(typeof v.jti).toBe('string');
   expect((v.jti as string).length).toBeGreaterThan(10);
+}
+
+function envBool(v: unknown, def = false): boolean {
+  if (typeof v !== 'string') return def;
+  const s = v.trim().toLowerCase();
+  if (s === 'true') return true;
+  if (s === 'false') return false;
+  return def;
+}
+
+function envInt(v: unknown, def: number): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
+}
+
+// пароль под текущую policy из ENV
+function buildValidPassword(): string {
+  const min = envInt(process.env.PASSWORD_MIN_LENGTH, 8);
+  const max = envInt(process.env.PASSWORD_MAX_LENGTH, 72);
+
+  const requireUpper = envBool(process.env.PASSWORD_REQUIRE_UPPERCASE, true);
+  const requireDigit = envBool(process.env.PASSWORD_REQUIRE_DIGIT, true);
+  const requireSpecial = envBool(process.env.PASSWORD_REQUIRE_SPECIAL, false);
+
+  let pwd = 'a';
+  if (requireUpper) pwd += 'A';
+  if (requireDigit) pwd += '1';
+  if (requireSpecial) pwd += '!';
+
+  while (pwd.length < min) pwd += 'x';
+  if (pwd.length > max) pwd = pwd.slice(0, max);
+
+  return pwd;
 }
 
 describe('Auth E2E — login', () => {
@@ -83,6 +113,9 @@ describe('Auth E2E — login', () => {
       }),
     );
 
+    // ВАЖНО: DI для class-validator constraints (PasswordPolicyValidator)
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
+
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -99,7 +132,7 @@ describe('Auth E2E — login', () => {
 
   it('200: login existing user -> returns tokens + jti', async () => {
     const email = `login_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const regRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
@@ -125,7 +158,7 @@ describe('Auth E2E — login', () => {
 
   it('401: wrong password -> Unauthorized', async () => {
     const email = `wrongpw_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
@@ -134,7 +167,7 @@ describe('Auth E2E — login', () => {
 
     const res = await request(app.getHttpServer())
       .post(`${basePath}/auth/login`)
-      .send({ email, password: 'wrongPassword123' })
+      .send({ email, password: 'wrongPassword123' }) // намеренно не по policy
       .expect(401);
 
     const body = res.body as HttpErrorResponse;
@@ -147,7 +180,7 @@ describe('Auth E2E — login', () => {
   it('400: invalid email -> Bad Request (validation)', async () => {
     const res = await request(app.getHttpServer())
       .post(`${basePath}/auth/login`)
-      .send({ email: 'not-an-email', password: 'strongPassword123' })
+      .send({ email: 'not-an-email', password: buildValidPassword() })
       .expect(400);
 
     const body = res.body as HttpErrorResponse;
@@ -160,7 +193,7 @@ describe('Auth E2E — login', () => {
       .post(`${basePath}/auth/login`)
       .send({
         email: `extra_${Date.now()}@e2e.local`,
-        password: 'strongPassword123',
+        password: buildValidPassword(),
         role: Role.ADMIN,
       })
       .expect(400);

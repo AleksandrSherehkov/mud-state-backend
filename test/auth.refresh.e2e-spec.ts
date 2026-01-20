@@ -9,6 +9,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
 
 import { Role } from '@prisma/client';
+import { buildValidPassword } from './helpers/password';
+import { useContainer } from 'class-validator';
 
 type TokenResponse = {
   accessToken: string;
@@ -82,7 +84,7 @@ describe('Auth E2E — login', () => {
         forbidNonWhitelisted: true,
       }),
     );
-
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -99,7 +101,7 @@ describe('Auth E2E — login', () => {
 
   it('200: login existing user -> returns tokens + jti', async () => {
     const email = `login_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const regRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
@@ -125,7 +127,7 @@ describe('Auth E2E — login', () => {
 
   it('401: wrong password -> Unauthorized', async () => {
     const email = `wrongpw_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)

@@ -17,7 +17,8 @@ export const AUTH_SIDE_EFFECTS = {
 
   refresh: [
     'Верифікує refresh JWT (підпис/exp) та перевіряє відповідність userId (sub).',
-    'Atomically “claim”: відкликає refresh-токен по (jti + userId + tokenHash), де tokenHash = SHA256(pepper + refreshToken). Якщо hash не співпав або токен уже відкликаний/повторно використаний — 401.',
+    'Atomically “claim”: відкликає refresh-токен по (jti + userId + tokenHash), де tokenHash = HMAC-SHA256(key=REFRESH_TOKEN_PEPPER, message=refreshToken). Якщо hash не співпав або токен уже відкликаний/повторно використаний — 401.',
+
     'Завершує сесію, пов’язану з попереднім jti (terminateByRefreshToken).',
     'Створює новий refresh-токен (новий jti) та нову сесію (Session) з прив’язкою до refreshTokenId=jti.',
     'Повертає нові accessToken + refreshToken + jti.',

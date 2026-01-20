@@ -10,6 +10,8 @@ import * as request from 'supertest';
 
 import * as bcrypt from 'bcrypt';
 import { Role } from '@prisma/client';
+import { buildValidPassword } from './helpers/password';
+import { useContainer } from 'class-validator';
 
 type PublicUserResponse = {
   id: string;
@@ -59,7 +61,11 @@ describe('Users E2E — DELETE /users/:id', () => {
     password: string,
     role: Role = Role.USER,
   ) {
-    const hash = await bcrypt.hash(password, 10);
+    const rounds = Number(process.env.BCRYPT_SALT_ROUNDS ?? 10);
+    const hash = await bcrypt.hash(
+      password,
+      Number.isFinite(rounds) ? rounds : 10,
+    );
     return prisma.user.create({
       data: {
         email: email.trim().toLowerCase(),
@@ -101,7 +107,7 @@ describe('Users E2E — DELETE /users/:id', () => {
         forbidNonWhitelisted: true,
       }),
     );
-
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -126,7 +132,7 @@ describe('Users E2E — DELETE /users/:id', () => {
   });
 
   it('403: USER token -> Forbidden (ADMIN only)', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
     const user = await seedUser(
       `user_${Date.now()}@e2e.local`,
       password,
@@ -145,7 +151,7 @@ describe('Users E2E — DELETE /users/:id', () => {
   });
 
   it('404: ADMIN token -> user not found', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
     const admin = await seedUser(
       `admin_${Date.now()}@e2e.local`,
       password,
@@ -163,7 +169,7 @@ describe('Users E2E — DELETE /users/:id', () => {
   });
 
   it('200: ADMIN -> deletes user and returns PublicUserDto', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const admin = await seedUser(
       `admin_${Date.now()}@e2e.local`,

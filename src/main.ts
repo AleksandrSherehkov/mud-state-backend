@@ -7,9 +7,11 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppLogger } from './logger/logger.service';
 
 import { bootstrapLogger } from './logger/bootstrap-logger';
+import { useContainer } from 'class-validator';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  useContainer(app.select(AppModule), { fallbackOnErrors: true });
   const logger = await app.resolve(AppLogger);
 
   app.useLogger(logger);

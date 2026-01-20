@@ -7,6 +7,8 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from 'src/app.module';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
+import { useContainer } from 'class-validator';
+import { buildValidPassword } from './helpers/password';
 
 import { Role } from '@prisma/client';
 
@@ -106,7 +108,7 @@ describe('Auth E2E — GET /auth/:userId/sessions', () => {
         forbidNonWhitelisted: true,
       }),
     );
-
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -132,7 +134,7 @@ describe('Auth E2E — GET /auth/:userId/sessions', () => {
 
   it('403: USER token -> Forbidden (RolesGuard)', async () => {
     const email = `user_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const regRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
@@ -153,7 +155,7 @@ describe('Auth E2E — GET /auth/:userId/sessions', () => {
   });
 
   it('200: ADMIN token can read sessions of target user -> returns array of RefreshTokenSessionDto', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const targetEmail = `target_${Date.now()}@e2e.local`;
     const targetRegRes = await request(app.getHttpServer())
@@ -213,7 +215,7 @@ describe('Auth E2E — GET /auth/:userId/sessions', () => {
   });
 
   it('200: ADMIN запрос к несуществующему userId -> returns [] (current behavior)', async () => {
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const adminEmail = `admin2_${Date.now()}@e2e.local`;
     await request(app.getHttpServer())

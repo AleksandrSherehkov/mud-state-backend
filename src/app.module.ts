@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -14,6 +14,7 @@ import { HttpLoggingInterceptor } from './common/interceptors/http-logging.inter
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { RequestContextModule } from './common/request-context/request-context.module';
 import { JobsModule } from './jobs/jobs.module';
+import { AuthThrottlerGuard } from './common/guards/auth-throttler.guard';
 
 @Module({
   imports: [
@@ -49,6 +50,18 @@ import { JobsModule } from './jobs/jobs.module';
         TOKEN_CLEANUP_DAYS: Joi.number().min(1).max(365).default(7),
         TOKEN_CLEANUP_CRON: Joi.string().default('0 0 * * *'),
         REFRESH_TOKEN_PEPPER: Joi.string().length(64).hex().required(),
+        AUTH_LOCK_MAX_ATTEMPTS: Joi.number().min(3).max(50).default(10),
+        AUTH_LOCK_BASE_SECONDS: Joi.number().min(1).max(60).default(2),
+        AUTH_LOCK_MAX_SECONDS: Joi.number().min(10).max(3600).default(300),
+        AUTH_LOCK_WINDOW_SECONDS: Joi.number().min(60).max(86400).default(900),
+        PASSWORD_MIN_LENGTH: Joi.number().min(6).max(128).default(8),
+        PASSWORD_MAX_LENGTH: Joi.number()
+          .min(Joi.ref('PASSWORD_MIN_LENGTH'))
+          .max(128)
+          .default(72),
+        PASSWORD_REQUIRE_UPPERCASE: Joi.boolean().default(true),
+        PASSWORD_REQUIRE_DIGIT: Joi.boolean().default(true),
+        PASSWORD_REQUIRE_SPECIAL: Joi.boolean().default(false),
       }),
       envFilePath:
         process.env.APP_ENV === 'test' || process.env.NODE_ENV === 'test'
@@ -78,7 +91,7 @@ import { JobsModule } from './jobs/jobs.module';
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: AuthThrottlerGuard,
     },
     {
       provide: APP_INTERCEPTOR,

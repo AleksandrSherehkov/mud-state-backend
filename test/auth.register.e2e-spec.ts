@@ -9,6 +9,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
 
 import { Role } from '@prisma/client';
+import { useContainer } from 'class-validator';
 
 type RegisterResponse = {
   id: string;
@@ -44,6 +45,43 @@ type HttpErrorResponse = {
   error: string;
 };
 
+function envBool(v: unknown, def = false): boolean {
+  if (typeof v !== 'string') return def;
+  const s = v.trim().toLowerCase();
+  if (s === 'true') return true;
+  if (s === 'false') return false;
+  return def;
+}
+
+function envInt(v: unknown, def: number): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
+}
+
+// строим пароль, который точно проходит текущую policy из ENV
+function buildValidPassword(): string {
+  const min = envInt(process.env.PASSWORD_MIN_LENGTH, 8);
+  const max = envInt(process.env.PASSWORD_MAX_LENGTH, 72);
+
+  const requireUpper = envBool(process.env.PASSWORD_REQUIRE_UPPERCASE, true);
+  const requireDigit = envBool(process.env.PASSWORD_REQUIRE_DIGIT, true);
+  const requireSpecial = envBool(process.env.PASSWORD_REQUIRE_SPECIAL, false);
+
+  let pwd = 'a'; // базовая
+
+  if (requireUpper) pwd += 'A';
+  if (requireDigit) pwd += '1';
+  if (requireSpecial) pwd += '!';
+
+  // добиваем до min
+  while (pwd.length < min) pwd += 'x';
+
+  // ограничиваем max (на всякий)
+  if (pwd.length > max) pwd = pwd.slice(0, max);
+
+  return pwd;
+}
+
 describe('Auth E2E — full flow', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -73,6 +111,8 @@ describe('Auth E2E — full flow', () => {
       }),
     );
 
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
+
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -89,7 +129,7 @@ describe('Auth E2E — full flow', () => {
 
   it('register → me → refresh → me → logout → refresh(401)', async () => {
     const email = `flow_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const registerRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)

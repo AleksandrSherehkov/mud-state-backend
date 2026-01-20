@@ -9,6 +9,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
 
 import { Role } from '@prisma/client';
+import { buildValidPassword } from './helpers/password';
+import { useContainer } from 'class-validator';
 
 type RegisterResponse = {
   id: string;
@@ -97,7 +99,7 @@ describe('Auth E2E — logout', () => {
         forbidNonWhitelisted: true,
       }),
     );
-
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -126,7 +128,7 @@ describe('Auth E2E — logout', () => {
 
   it('200: logout with accessToken -> ok, then refresh must be 401', async () => {
     const email = `logout_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const regRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
@@ -160,7 +162,7 @@ describe('Auth E2E — logout', () => {
 
   it('400: second logout (already logged out) -> Bad Request', async () => {
     const email = `logout2_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const regRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)

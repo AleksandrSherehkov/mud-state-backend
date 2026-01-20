@@ -9,6 +9,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as request from 'supertest';
 
 import { Role } from '@prisma/client';
+import { useContainer } from 'class-validator';
+import { buildValidPassword } from './helpers/password';
 
 type RegisterResponse = {
   id: string;
@@ -98,7 +100,7 @@ describe('Auth E2E — me', () => {
         forbidNonWhitelisted: true,
       }),
     );
-
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -127,7 +129,7 @@ describe('Auth E2E — me', () => {
 
   it('200: /me with valid accessToken -> returns id/email/role/createdAt', async () => {
     const email = `me_${Date.now()}@e2e.local`;
-    const password = 'strongPassword123';
+    const password = buildValidPassword();
 
     const regRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)

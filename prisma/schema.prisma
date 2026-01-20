@@ -22,6 +22,7 @@ model User {
   refreshTokens RefreshToken[]
   sessions      Session[]
   createdAt     DateTime       @default(now())
+  security UserSecurity?
 }
 
 model Character {
@@ -67,4 +68,24 @@ model Session {
 
   @@index([userId, isActive])
   @@index([refreshTokenId, isActive])
+}
+
+model UserSecurity {
+  userId       String   @id
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  
+  failedLoginCount Int      @default(0)
+  lastFailedAt     DateTime?
+  lockedUntil      DateTime?
+
+  
+  lastFailedIp     String?
+  lastFailedUaHash String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([lockedUntil])
+  @@index([lastFailedAt])
 }

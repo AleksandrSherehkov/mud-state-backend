@@ -1,5 +1,6 @@
-import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, Validate } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { PasswordPolicyValidator } from 'src/common/validators/password-policy.validator';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -7,8 +8,13 @@ export class CreateUserDto {
   @IsNotEmpty()
   email: string;
 
-  @ApiProperty({ example: 'strongPassword123' })
-  @MinLength(6)
+  @ApiProperty({
+    example: 'StrongPassword123',
+    description:
+      'Пароль згідно політики безпеки (довжина/вимоги задаються через ENV)',
+  })
+  @IsString()
   @IsNotEmpty()
+  @Validate(PasswordPolicyValidator)
   password: string;
 }

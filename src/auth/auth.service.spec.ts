@@ -17,6 +17,7 @@ import { RefreshTokenService } from './refresh-token.service';
 import { SessionService } from './session.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AppLogger } from 'src/logger/logger.service';
+import { AuthSecurityService } from './auth-security.service';
 
 import type { RegisterDto } from './dto/register.dto';
 import type { LoginDto } from './dto/login.dto';
@@ -76,6 +77,13 @@ describe('AuthService', () => {
     >
   >;
 
+  let authSecurity: jest.Mocked<
+    Pick<
+      AuthSecurityService,
+      'assertNotLocked' | 'onLoginFailed' | 'onLoginSuccess'
+    >
+  >;
+
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -116,6 +124,14 @@ describe('AuthService', () => {
       silly: jest.fn(),
     };
 
+    authSecurity = {
+      assertNotLocked: jest.fn().mockResolvedValue(undefined),
+      onLoginSuccess: jest.fn().mockResolvedValue(undefined),
+      onLoginFailed: jest.fn().mockImplementation(() => {
+        throw new UnauthorizedException('Невірний email або пароль');
+      }),
+    };
+
     service = new AuthService(
       usersService as unknown as UsersService,
       tokenService as unknown as TokenService,
@@ -123,6 +139,7 @@ describe('AuthService', () => {
       sessionService as unknown as SessionService,
       prisma as unknown as PrismaService,
       logger as unknown as AppLogger,
+      authSecurity as unknown as AuthSecurityService,
     );
 
     expect(logger.setContext).toHaveBeenCalledWith('AuthService');
@@ -176,7 +193,7 @@ describe('AuthService', () => {
       expect(logger.warn).toHaveBeenCalled();
     });
 
-    it('throws UnauthorizedException when password invalid', async () => {
+    it('throws UnauthorizedException when password invalid (handled by AuthSecurityService)', async () => {
       const dto: LoginDto = { email: 'user@ex.com', password: 'wrong123' };
 
       usersService.findByEmail.mockResolvedValue({
@@ -192,8 +209,14 @@ describe('AuthService', () => {
         new UnauthorizedException('Невірний email або пароль'),
       );
 
+      expect(authSecurity.assertNotLocked).toHaveBeenCalledWith('u1');
       expect(bcrypt.compare).toHaveBeenCalledWith(dto.password, 'hash');
-      expect(logger.warn).toHaveBeenCalled();
+
+      expect(authSecurity.onLoginFailed).toHaveBeenCalledWith({
+        userId: 'u1',
+        ip: '2.2.2.2',
+        userAgent: 'UA',
+      });
     });
 
     it('revokes all tokens/sessions and issues new tokens', async () => {
@@ -219,7 +242,10 @@ describe('AuthService', () => {
       const result = await service.login(dto, '3.3.3.3', 'Agent');
 
       expect(usersService.findByEmail).toHaveBeenCalledWith(dto.email);
+      expect(authSecurity.assertNotLocked).toHaveBeenCalledWith('u1');
+
       expect(bcrypt.compare).toHaveBeenCalledWith(dto.password, 'hash');
+      expect(authSecurity.onLoginSuccess).toHaveBeenCalledWith('u1');
 
       expect(refreshTokenService.revokeAll).toHaveBeenCalledWith('u1');
       expect(sessionService.terminateAll).toHaveBeenCalledWith('u1');
