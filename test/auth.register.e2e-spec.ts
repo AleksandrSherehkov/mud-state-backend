@@ -58,7 +58,6 @@ function envInt(v: unknown, def: number): number {
   return Number.isFinite(n) ? n : def;
 }
 
-// строим пароль, который точно проходит текущую policy из ENV
 function buildValidPassword(): string {
   const min = envInt(process.env.PASSWORD_MIN_LENGTH, 8);
   const max = envInt(process.env.PASSWORD_MAX_LENGTH, 72);
@@ -67,16 +66,14 @@ function buildValidPassword(): string {
   const requireDigit = envBool(process.env.PASSWORD_REQUIRE_DIGIT, true);
   const requireSpecial = envBool(process.env.PASSWORD_REQUIRE_SPECIAL, false);
 
-  let pwd = 'a'; // базовая
+  let pwd = 'a';
 
   if (requireUpper) pwd += 'A';
   if (requireDigit) pwd += '1';
   if (requireSpecial) pwd += '!';
 
-  // добиваем до min
   while (pwd.length < min) pwd += 'x';
 
-  // ограничиваем max (на всякий)
   if (pwd.length > max) pwd = pwd.slice(0, max);
 
   return pwd;

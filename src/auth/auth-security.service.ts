@@ -47,7 +47,6 @@ export class AuthSecurityService {
         },
       );
 
-      // Сообщение делай нейтральным (без подтверждения существования аккаунта)
       throw new UnauthorizedException('Невірний email або пароль');
     }
   }

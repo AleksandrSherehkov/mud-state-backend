@@ -27,13 +27,11 @@ function getHeader(req: ReqLike, name: string): unknown {
   const headers = req.headers;
   if (!headers || typeof headers !== 'object') return undefined;
 
-  // express приводит к lower-case, но на всякий случай пробуем оба
   const h = headers as Record<string, unknown>;
   return h[name] ?? h[name.toLowerCase()];
 }
 
 function getPath(req: ReqLike): string {
-  // req.path обычно без query, но иногда в тестах/прокси может быть иначе
   const raw =
     (typeof req.path === 'string' && req.path) ||
     (typeof req.originalUrl === 'string' && req.originalUrl) ||
@@ -53,7 +51,6 @@ function getIpFromXForwardedFor(req: ReqLike): string | undefined {
   const raw = firstNonEmptyString(xff);
   if (!raw) return undefined;
 
-  // берём первый (client) IP из списка
   const first = raw.split(',')[0];
   return firstNonEmptyString(first);
 }
@@ -128,7 +125,6 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
       return ip;
     }
 
-    // По умолчанию: классический per-IP трекинг
     return ip;
   }
 }

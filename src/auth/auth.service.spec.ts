@@ -443,7 +443,6 @@ describe('AuthService', () => {
 
   describe('issueTokens (private)', () => {
     it('creates refreshToken + session via transaction, signs tokens, returns Tokens', async () => {
-      // 1st call -> refreshTokenId (jti), 2nd call -> sessionId (sid)
       (randomUUID as unknown as jest.Mock)
         .mockReturnValueOnce('jti-uuid')
         .mockReturnValueOnce('sid-uuid');

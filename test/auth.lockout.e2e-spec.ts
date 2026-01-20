@@ -49,7 +49,6 @@ function envInt(v: unknown, def: number): number {
   return Number.isFinite(n) ? n : def;
 }
 
-// пароль под текущую policy из ENV
 function buildValidPassword(): string {
   const min = envInt(process.env.PASSWORD_MIN_LENGTH, 8);
   const max = envInt(process.env.PASSWORD_MAX_LENGTH, 72);
@@ -78,21 +77,17 @@ describe('Auth E2E — lockout / progressive delay', () => {
   const basePath = `/${API_PREFIX}/v${API_VERSION}`;
 
   beforeAll(async () => {
-    // --- make test deterministic & avoid 429 (throttle) ---
     process.env.NODE_ENV = 'test';
     process.env.APP_ENV = 'test';
 
-    // Keep throttler from interfering with login attempts
     process.env.THROTTLE_TTL = '60';
     process.env.THROTTLE_LIMIT = '100';
 
-    // Lock policy (fast for tests)
     process.env.AUTH_LOCK_MAX_ATTEMPTS = '3';
-    process.env.AUTH_LOCK_BASE_SECONDS = '1'; // attempt 3 => delay 4s
+    process.env.AUTH_LOCK_BASE_SECONDS = '1';
     process.env.AUTH_LOCK_MAX_SECONDS = '60';
     process.env.AUTH_LOCK_WINDOW_SECONDS = '900';
 
-    // Password policy for tests (so buildValidPassword() is stable)
     process.env.PASSWORD_MIN_LENGTH = process.env.PASSWORD_MIN_LENGTH ?? '8';
     process.env.PASSWORD_MAX_LENGTH = process.env.PASSWORD_MAX_LENGTH ?? '72';
     process.env.PASSWORD_REQUIRE_UPPERCASE =
@@ -102,7 +97,6 @@ describe('Auth E2E — lockout / progressive delay', () => {
     process.env.PASSWORD_REQUIRE_SPECIAL =
       process.env.PASSWORD_REQUIRE_SPECIAL ?? 'false';
 
-    // IMPORTANT: dynamic import AFTER env setup
     const { AppModule } = await import('src/app.module');
 
     const moduleRef = await Test.createTestingModule({
@@ -125,7 +119,6 @@ describe('Auth E2E — lockout / progressive delay', () => {
       }),
     );
 
-    // ВАЖНО: DI для class-validator constraints (PasswordPolicyValidator)
     useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
     await app.init();
@@ -146,7 +139,6 @@ describe('Auth E2E — lockout / progressive delay', () => {
     const email = `lock_${Date.now()}@e2e.local`;
     const password = buildValidPassword();
 
-    // register
     const registerRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/register`)
       .send({ email, password })
@@ -159,7 +151,6 @@ describe('Auth E2E — lockout / progressive delay', () => {
     expect(typeof userId).toBe('string');
     expect(userId.length).toBeGreaterThan(0);
 
-    // 3 wrong attempts -> each 401
     for (let i = 0; i < 3; i++) {
       const res = await request(app.getHttpServer())
         .post(`${basePath}/auth/login`)
@@ -170,7 +161,6 @@ describe('Auth E2E — lockout / progressive delay', () => {
       expect(body.statusCode).toBe(401);
     }
 
-    // now even correct password should be blocked (locked)
     const blocked = await request(app.getHttpServer())
       .post(`${basePath}/auth/login`)
       .send({ email, password })
@@ -179,11 +169,8 @@ describe('Auth E2E — lockout / progressive delay', () => {
     const blockedBody = blocked.body as HttpErrorResponse;
     expect(blockedBody.statusCode).toBe(401);
 
-    // wait for lock to expire:
-    // maxAttempts=3, baseSec=1 => delay = 1 * 2^(3-1) = 4s
     await sleep(4200);
 
-    // after expiry correct login should succeed
     const ok = await request(app.getHttpServer())
       .post(`${basePath}/auth/login`)
       .send({ email, password })
@@ -197,7 +184,6 @@ describe('Auth E2E — lockout / progressive delay', () => {
     expect(typeof tokens.jti).toBe('string');
     expect(tokens.jti.length).toBeGreaterThan(10);
 
-    // optional sanity: user still exists
     const user = await prisma.user.findUnique({ where: { id: userId } });
     expect(user).toBeTruthy();
   });

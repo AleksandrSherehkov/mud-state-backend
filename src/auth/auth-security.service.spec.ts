@@ -126,7 +126,7 @@ describe('AuthSecurityService', () => {
 
       prisma.userSecurity.findUnique.mockResolvedValue({
         failedLoginCount: 7,
-        lastFailedAt: new Date('2026-01-19T00:00:00.000Z'), // давно -> окно истекло
+        lastFailedAt: new Date('2026-01-19T00:00:00.000Z'),
         lockedUntil: null,
       });
 
@@ -152,7 +152,7 @@ describe('AuthSecurityService', () => {
 
       prisma.userSecurity.findUnique.mockResolvedValue({
         failedLoginCount: 1,
-        lastFailedAt: new Date('2026-01-19T23:59:30.000Z'), // 30s ago -> внутри окна
+        lastFailedAt: new Date('2026-01-19T23:59:30.000Z'),
         lockedUntil: null,
       });
 
@@ -170,7 +170,6 @@ describe('AuthSecurityService', () => {
     });
 
     it('locks account when attempt >= maxAttempts', async () => {
-      // maxAttempts=3, baseSec=2
       const now = new Date('2026-01-20T00:00:00.000Z');
       jest.useFakeTimers().setSystemTime(now);
 
@@ -188,14 +187,13 @@ describe('AuthSecurityService', () => {
 
       const args = prisma.userSecurity.upsert.mock.calls[0][0];
 
-      // nextCount = 3 -> attempt=3 -> delaySec=2*2^(3-1)=8
       expect(args.update.failedLoginCount).toBe(3);
       expect(args.update.lockedUntil).toBeInstanceOf(Date);
 
       const lockedUntil: Date = args.update.lockedUntil;
       expect(lockedUntil.getTime()).toBe(now.getTime() + 8_000);
 
-      expect(logger.warn).toHaveBeenCalled(); // lock set warn
+      expect(logger.warn).toHaveBeenCalled();
 
       jest.useRealTimers();
     });

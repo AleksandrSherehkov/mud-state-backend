@@ -79,7 +79,6 @@ export class AuthService {
 
     const isValid = await bcrypt.compare(dto.password, user.password);
     if (!isValid) {
-      // ВАЖНО: не раскрываем "пароль неверный"
       return this.authSecurity.onLoginFailed({
         userId: user.id,
         ip,
@@ -228,8 +227,8 @@ export class AuthService {
     ip?: string,
     userAgent?: string,
   ): Promise<Tokens> {
-    const refreshTokenId = randomUUID(); // jti
-    const sessionId = randomUUID(); // sid (явный id сессии)
+    const refreshTokenId = randomUUID();
+    const sessionId = randomUUID();
 
     const nip: string | null = ip ? normalizeIp(ip) : null;
     const ua: string | null = userAgent ? userAgent.trim() : null;

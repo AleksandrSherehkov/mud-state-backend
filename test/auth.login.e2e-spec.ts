@@ -64,7 +64,6 @@ function envInt(v: unknown, def: number): number {
   return Number.isFinite(n) ? n : def;
 }
 
-// пароль под текущую policy из ENV
 function buildValidPassword(): string {
   const min = envInt(process.env.PASSWORD_MIN_LENGTH, 8);
   const max = envInt(process.env.PASSWORD_MAX_LENGTH, 72);
@@ -113,7 +112,6 @@ describe('Auth E2E — login', () => {
       }),
     );
 
-    // ВАЖНО: DI для class-validator constraints (PasswordPolicyValidator)
     useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
     await app.init();
@@ -167,7 +165,7 @@ describe('Auth E2E — login', () => {
 
     const res = await request(app.getHttpServer())
       .post(`${basePath}/auth/login`)
-      .send({ email, password: 'wrongPassword123' }) // намеренно не по policy
+      .send({ email, password: 'wrongPassword123' })
       .expect(401);
 
     const body = res.body as HttpErrorResponse;
