@@ -16,10 +16,14 @@ import { RequestContextModule } from './common/request-context/request-context.m
 import { JobsModule } from './jobs/jobs.module';
 import { AuthThrottlerGuard } from './common/guards/auth-throttler.guard';
 
+const isTest =
+  process.env.NODE_ENV === 'test' || process.env.APP_ENV === 'test';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: isTest ? '.env.test' : '.env',
       validationSchema: Joi.object({
         APP_ENV: Joi.string()
           .valid('development', 'production', 'test')
@@ -64,17 +68,13 @@ import { AuthThrottlerGuard } from './common/guards/auth-throttler.guard';
         PASSWORD_REQUIRE_UPPERCASE: Joi.boolean().default(true),
         PASSWORD_REQUIRE_DIGIT: Joi.boolean().default(true),
         PASSWORD_REQUIRE_SPECIAL: Joi.boolean().default(false),
-        CORS_ORIGINS:
-          process.env.APP_ENV === 'production'
-            ? Joi.string().min(1).required()
-            : Joi.string().default(''),
-
+        CORS_ORIGINS: Joi.when('APP_ENV', {
+          is: 'production',
+          then: Joi.string().min(1).required(),
+          otherwise: Joi.string().default(''),
+        }),
         TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(10).default(1),
       }),
-      envFilePath:
-        process.env.APP_ENV === 'test' || process.env.NODE_ENV === 'test'
-          ? '.env.test'
-          : '.env',
     }),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
