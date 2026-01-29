@@ -15,6 +15,12 @@ export class TokenService {
   ) {
     this.logger.setContext(TokenService.name);
   }
+  private issuer() {
+    return this.getRequired('JWT_ISSUER');
+  }
+  private audience() {
+    return this.getRequired('JWT_AUDIENCE');
+  }
 
   private getRequired(key: string): string {
     const v = this.config.get<string>(key);
@@ -38,7 +44,12 @@ export class TokenService {
     secret: string,
     expiresIn: StringValue | number,
   ): Promise<string> {
-    return this.jwt.signAsync(payload, { secret, expiresIn });
+    return this.jwt.signAsync(payload, {
+      secret,
+      expiresIn,
+      issuer: this.issuer(),
+      audience: this.audience(),
+    });
   }
   hashRefreshToken(token: string): string {
     const pepper = this.getRequired('REFRESH_TOKEN_PEPPER');
@@ -72,6 +83,8 @@ export class TokenService {
     try {
       return await this.jwt.verifyAsync<JwtPayload>(token, {
         secret: this.getRequired('JWT_REFRESH_SECRET'),
+        issuer: this.issuer(),
+        audience: this.audience(),
       });
     } catch (err: unknown) {
       const name = err instanceof Error ? err.name : 'UnknownError';

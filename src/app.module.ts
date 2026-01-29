@@ -29,6 +29,8 @@ import { AuthThrottlerGuard } from './common/guards/auth-throttler.guard';
         API_VERSION: Joi.string().pattern(/^\d+$/).default('1'),
         JWT_ACCESS_SECRET: Joi.string().required(),
         JWT_REFRESH_SECRET: Joi.string().required(),
+        JWT_ISSUER: Joi.string().min(1).required(),
+        JWT_AUDIENCE: Joi.string().min(1).required(),
         PORT: Joi.number().default(3000),
         BASE_URL: Joi.string().uri().default('http://localhost:3000'),
         JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),

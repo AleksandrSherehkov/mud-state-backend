@@ -243,4 +243,86 @@ export class RefreshTokenService {
 
     return result;
   }
+  async assertFingerprint(params: {
+    userId: string;
+    jti: string;
+    sid: string;
+    ip?: string | null;
+    userAgent?: string | null;
+  }) {
+    const token = await this.prisma.refreshToken.findFirst({
+      where: { userId: params.userId, jti: params.jti, revoked: false },
+      select: { ip: true, userAgent: true },
+    });
+
+    const session = await this.prisma.session.findFirst({
+      where: {
+        id: params.sid,
+        userId: params.userId,
+        isActive: true,
+        endedAt: null,
+      },
+      select: { ip: true, userAgent: true },
+    });
+
+    if (!token || !session) {
+      // refresh() уже отдельно проверяет isSessionActive/claim, но тут оставляем защиту
+      throw new UnauthorizedException('Токен відкликано або недійсний');
+    }
+
+    const reqIp = params.ip ?? null;
+    const reqUa = (params.userAgent ?? '').trim() || null;
+
+    const tokenIp = token.ip ?? null;
+    const tokenUa = (token.userAgent ?? '').trim() || null;
+
+    const sessIp = session.ip ?? null;
+    const sessUa = (session.userAgent ?? '').trim() || null;
+
+    // ---- политика (по умолчанию UA-only) ----
+    // UA mismatch => блок
+    const uaMismatch =
+      (!!tokenUa && !!reqUa && tokenUa !== reqUa) ||
+      (!!sessUa && !!reqUa && sessUa !== reqUa);
+
+    // IP mismatch (мягко): проверяем только если обе стороны известны
+    const ipMismatch =
+      (!!tokenIp && !!reqIp && tokenIp !== reqIp) ||
+      (!!sessIp && !!reqIp && sessIp !== reqIp);
+
+    if (uaMismatch || ipMismatch) {
+      this.logger.warn(
+        'Refresh fingerprint mismatch',
+        RefreshTokenService.name,
+        {
+          event: 'auth.refresh.fingerprint_mismatch',
+          userId: params.userId,
+          jti: params.jti,
+          sid: params.sid,
+          ipMismatch,
+          uaMismatch,
+          tokenIpMasked: tokenIp ? maskIp(tokenIp) : undefined,
+          sessionIpMasked: sessIp ? maskIp(sessIp) : undefined,
+          reqIpMasked: reqIp ? maskIp(reqIp) : undefined,
+          tokenUaHash: tokenUa ? hashId(tokenUa) : undefined,
+          sessionUaHash: sessUa ? hashId(sessUa) : undefined,
+          reqUaHash: reqUa ? hashId(reqUa) : undefined,
+        },
+      );
+
+      // “по-взрослому”: при подозрении — глобальный revoke + terminate
+      await Promise.all([
+        this.prisma.refreshToken.updateMany({
+          where: { userId: params.userId, revoked: false },
+          data: { revoked: true },
+        }),
+        this.prisma.session.updateMany({
+          where: { userId: params.userId, isActive: true },
+          data: { isActive: false, endedAt: new Date() },
+        }),
+      ]);
+
+      throw new UnauthorizedException('Токен відкликано або недійсний');
+    }
+  }
 }

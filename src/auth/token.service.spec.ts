@@ -86,6 +86,8 @@ describe('TokenService', () => {
       config.get.mockImplementation((key: string, defaultValue?: unknown) => {
         if (key === 'JWT_ACCESS_SECRET') return 'secretA';
         if (key === 'JWT_ACCESS_EXPIRES_IN') return '10m' as StringValue;
+        if (key === 'JWT_ISSUER') return 'mud-state-backend';
+        if (key === 'JWT_AUDIENCE') return 'mud-state-clients';
         return defaultValue as any;
       });
 
@@ -96,6 +98,8 @@ describe('TokenService', () => {
       expect(jwt.signAsync).toHaveBeenCalledWith(payload, {
         secret: 'secretA',
         expiresIn: '10m',
+        issuer: 'mud-state-backend',
+        audience: 'mud-state-clients',
       });
       expect(token).toBe('access-signed');
     });
@@ -112,6 +116,8 @@ describe('TokenService', () => {
       config.get.mockImplementation((key: string, defaultValue?: unknown) => {
         if (key === 'JWT_ACCESS_SECRET') return 'secretA';
         if (key === 'JWT_ACCESS_EXPIRES_IN') return defaultValue;
+        if (key === 'JWT_ISSUER') return 'mud-state-backend';
+        if (key === 'JWT_AUDIENCE') return 'mud-state-clients';
         return defaultValue as any;
       });
 
@@ -122,6 +128,8 @@ describe('TokenService', () => {
       expect(jwt.signAsync).toHaveBeenCalledWith(payload, {
         secret: 'secretA',
         expiresIn: '15m',
+        issuer: 'mud-state-backend',
+        audience: 'mud-state-clients',
       });
       expect(token).toBe('access-signed');
     });
@@ -140,6 +148,8 @@ describe('TokenService', () => {
       config.get.mockImplementation((key: string, defaultValue?: unknown) => {
         if (key === 'JWT_REFRESH_SECRET') return 'secretR';
         if (key === 'JWT_REFRESH_EXPIRES_IN') return '30d' as StringValue;
+        if (key === 'JWT_ISSUER') return 'mud-state-backend';
+        if (key === 'JWT_AUDIENCE') return 'mud-state-clients';
         return defaultValue as any;
       });
 
@@ -150,6 +160,8 @@ describe('TokenService', () => {
       expect(jwt.signAsync).toHaveBeenCalledWith(payload, {
         secret: 'secretR',
         expiresIn: '30d',
+        issuer: 'mud-state-backend',
+        audience: 'mud-state-clients',
       });
       expect(token).toBe('refresh-signed');
     });
@@ -166,6 +178,8 @@ describe('TokenService', () => {
       config.get.mockImplementation((key: string, defaultValue?: unknown) => {
         if (key === 'JWT_REFRESH_SECRET') return 'secretR';
         if (key === 'JWT_REFRESH_EXPIRES_IN') return defaultValue;
+        if (key === 'JWT_ISSUER') return 'mud-state-backend';
+        if (key === 'JWT_AUDIENCE') return 'mud-state-clients';
         return defaultValue as any;
       });
 
@@ -176,6 +190,8 @@ describe('TokenService', () => {
       expect(jwt.signAsync).toHaveBeenCalledWith(payload, {
         secret: 'secretR',
         expiresIn: '7d',
+        issuer: 'mud-state-backend',
+        audience: 'mud-state-clients',
       });
       expect(token).toBe('refresh-signed');
     });
@@ -193,6 +209,8 @@ describe('TokenService', () => {
 
       config.get.mockImplementation((key: string) => {
         if (key === 'JWT_REFRESH_SECRET') return 'secR';
+        if (key === 'JWT_ISSUER') return 'mud-state-backend';
+        if (key === 'JWT_AUDIENCE') return 'mud-state-clients';
         return undefined;
       });
 
@@ -200,13 +218,19 @@ describe('TokenService', () => {
 
       const result = await service.verifyRefreshToken('token');
 
-      expect(jwt.verifyAsync).toHaveBeenCalledWith('token', { secret: 'secR' });
+      expect(jwt.verifyAsync).toHaveBeenCalledWith('token', {
+        secret: 'secR',
+        issuer: 'mud-state-backend',
+        audience: 'mud-state-clients',
+      });
       expect(result).toEqual(payload);
     });
 
     it('throws UnauthorizedException when verification fails and logs warn', async () => {
       config.get.mockImplementation((key: string) => {
         if (key === 'JWT_REFRESH_SECRET') return 'secR';
+        if (key === 'JWT_ISSUER') return 'mud-state-backend';
+        if (key === 'JWT_AUDIENCE') return 'mud-state-clients';
         return undefined;
       });
 

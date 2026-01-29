@@ -176,6 +176,14 @@ export class AuthService {
       throw new UnauthorizedException('Сесію завершено або недійсна');
     }
 
+    await this.refreshTokenService.assertFingerprint({
+      userId,
+      jti: payload.jti,
+      sid: payload.sid,
+      ip: ip ? normalizeIp(ip) : null,
+      userAgent: userAgent?.trim() || null,
+    });
+
     const tokenHash = this.tokenService.hashRefreshToken(refreshToken);
 
     const claim = await this.refreshTokenService.revokeIfActiveByHash(

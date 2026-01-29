@@ -61,7 +61,10 @@ describe('AuthService', () => {
   >;
 
   let refreshTokenService: jest.Mocked<
-    Pick<RefreshTokenService, 'create' | 'revokeAll' | 'revokeIfActiveByHash'>
+    Pick<
+      RefreshTokenService,
+      'create' | 'revokeAll' | 'revokeIfActiveByHash' | 'assertFingerprint'
+    >
   >;
 
   let sessionService: jest.Mocked<
@@ -107,6 +110,7 @@ describe('AuthService', () => {
       create: jest.fn(),
       revokeAll: jest.fn(),
       revokeIfActiveByHash: jest.fn(),
+      assertFingerprint: jest.fn().mockResolvedValue(undefined),
     };
 
     sessionService = {
