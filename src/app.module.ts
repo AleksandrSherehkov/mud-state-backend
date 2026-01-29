@@ -62,6 +62,12 @@ import { AuthThrottlerGuard } from './common/guards/auth-throttler.guard';
         PASSWORD_REQUIRE_UPPERCASE: Joi.boolean().default(true),
         PASSWORD_REQUIRE_DIGIT: Joi.boolean().default(true),
         PASSWORD_REQUIRE_SPECIAL: Joi.boolean().default(false),
+        CORS_ORIGINS:
+          process.env.APP_ENV === 'production'
+            ? Joi.string().min(1).required()
+            : Joi.string().default(''),
+
+        TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(10).default(1),
       }),
       envFilePath:
         process.env.APP_ENV === 'test' || process.env.NODE_ENV === 'test'

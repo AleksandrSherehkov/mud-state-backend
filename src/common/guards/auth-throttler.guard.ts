@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
-
+import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { hashId } from 'src/common/helpers/log-sanitize';
 
 type BodyWithEmail = { email?: unknown };
@@ -12,7 +12,6 @@ type ReqLike = Record<string, unknown> & {
   originalUrl?: unknown;
   method?: unknown;
   body?: unknown;
-  headers?: unknown;
   socket?: unknown;
   connection?: unknown;
 };
@@ -21,14 +20,6 @@ function firstNonEmptyString(v: unknown): string | undefined {
   if (typeof v !== 'string') return undefined;
   const s = v.trim();
   return s || undefined;
-}
-
-function getHeader(req: ReqLike, name: string): unknown {
-  const headers = req.headers;
-  if (!headers || typeof headers !== 'object') return undefined;
-
-  const h = headers as Record<string, unknown>;
-  return h[name] ?? h[name.toLowerCase()];
 }
 
 function getPath(req: ReqLike): string {
@@ -43,16 +34,8 @@ function getPath(req: ReqLike): string {
 }
 
 function getIpFromReqIp(req: ReqLike): string | undefined {
+  // req.ip уже учитывает trust proxy (если он настроен правильно)
   return firstNonEmptyString(req.ip);
-}
-
-function getIpFromXForwardedFor(req: ReqLike): string | undefined {
-  const xff = getHeader(req, 'x-forwarded-for');
-  const raw = firstNonEmptyString(xff);
-  if (!raw) return undefined;
-
-  const first = raw.split(',')[0];
-  return firstNonEmptyString(first);
 }
 
 function getIpFromSocket(req: ReqLike): string | undefined {
@@ -72,13 +55,13 @@ function getIpFromConnection(req: ReqLike): string | undefined {
 }
 
 function getIp(req: ReqLike): string {
-  return (
+  const raw =
     getIpFromReqIp(req) ??
-    getIpFromXForwardedFor(req) ??
     getIpFromSocket(req) ??
     getIpFromConnection(req) ??
-    'unknown'
-  );
+    'unknown';
+
+  return normalizeIp(raw);
 }
 
 function normalizeMethod(req: ReqLike): string {
@@ -109,7 +92,6 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     await Promise.resolve();
 
     const r = req as ReqLike;
-
     const ip = getIp(r);
 
     const isLogin = isPostAndEndsWith(r, '/auth/login');
@@ -121,9 +103,7 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
       return `${ip}:${emailHash}`;
     }
 
-    if (isRefresh) {
-      return ip;
-    }
+    if (isRefresh) return ip;
 
     return ip;
   }

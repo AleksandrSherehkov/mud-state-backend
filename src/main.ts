@@ -8,16 +8,46 @@ import { AppLogger } from './logger/logger.service';
 
 import { bootstrapLogger } from './logger/bootstrap-logger';
 import { useContainer } from 'class-validator';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  useContainer(app.select(AppModule), { fallbackOnErrors: true });
-  const logger = await app.resolve(AppLogger);
 
+  useContainer(app.select(AppModule), { fallbackOnErrors: true });
+
+  const logger = await app.resolve(AppLogger);
   app.useLogger(logger);
 
-  app.set('trust proxy', true);
+  const configService = app.get(ConfigService);
 
+  // ---- security middleware ----
+  app.use(
+    helmet({
+      // CSP лучше включать точечно, когда будет понятна политика фронта/доменов
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'same-site' },
+    }),
+  );
+
+  // ---- CORS ----
+  const originsRaw = configService.get<string>('CORS_ORIGINS') ?? '';
+  const origins = originsRaw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  app.enableCors({
+    origin: origins.length ? origins : false, // false = запретить если не задано
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'Accept'],
+    maxAge: 600,
+    credentials: false,
+  });
+
+  // ---- trust proxy ----
+  app.set('trust proxy', Number(configService.get('TRUST_PROXY_HOPS') ?? 1));
+
+  // ---- validation ----
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -26,7 +56,7 @@ async function bootstrap() {
     }),
   );
 
-  const configService = app.get(ConfigService);
+  // ---- base settings ----
   const baseUrl = configService.get<string>(
     'BASE_URL',
     'http://localhost:3000',
@@ -41,8 +71,7 @@ async function bootstrap() {
     defaultVersion: apiVersion,
   });
 
-  const apiBase = `${baseUrl}/${apiPrefix}/v${apiVersion}`;
-
+  // ---- swagger ----
   const config = new DocumentBuilder()
     .setTitle('MUD-State API')
     .setDescription('API for the MUD simulation state backend')
@@ -54,14 +83,18 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
 
+  // ---- start ----
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
+
+  const apiBase = `${baseUrl}/${apiPrefix}/v${apiVersion}`;
   logger.log('==============================', 'Bootstrap');
   logger.log('✅ APP STARTED', 'Bootstrap');
   logger.log(`🚀 Server: ${apiBase}`, 'Bootstrap');
   logger.log(`📚 Swagger: ${baseUrl}/${apiPrefix}/docs`, 'Bootstrap');
   logger.log('==============================', 'Bootstrap');
 }
+
 bootstrap().catch((err: unknown) => {
   bootstrapLogger.error(
     `❌ Failed to start application: ${err instanceof Error ? err.stack : String(err)}`,
