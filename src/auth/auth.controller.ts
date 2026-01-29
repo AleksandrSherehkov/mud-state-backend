@@ -182,15 +182,16 @@ export class AuthController {
   @ApiRolesAccess('AUTHENTICATED', {
     sideEffects: AUTH_SIDE_EFFECTS.logout,
     notes: [
-      'Якщо немає активних токенів/сесій для завершення — контролер повертає 400 (вже вийшов).',
+      'Після logout поточна сесія завершується, тому повторний logout з тим самим accessToken поверне 401 (JwtAuthGuard).',
     ],
   })
   @ApiAuthLinks.logout200()
   @ApiMutationErrorResponses({
     includeConflict: false,
+    includeBadRequest: false,
     notFoundMessage: 'Користувача не знайдено',
-    badRequestDescription: 'Користувач вже вийшов із системи',
-    badRequestMessageExample: 'Користувач вже вийшов із системи',
+    unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
+    unauthorizedMessageExample: 'Session is not active',
   })
   async logout(
     @CurrentUser('userId') userId: string,
@@ -331,7 +332,7 @@ export class AuthController {
     sideEffects: AUTH_SIDE_EFFECTS.terminateOtherSessions,
     notes: [
       'Поточна сесія визначається по sid з access token (JWT).',
-      'Refresh-токени не відкликає (тільки session.isActive=false).',
+      'Завершує сесії та відкликає refresh-токени, пов’язані з ними (revoked=true).',
     ],
   })
   @ApiAuthLinks.terminateOthers200()

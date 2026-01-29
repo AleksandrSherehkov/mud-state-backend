@@ -27,7 +27,7 @@ export const AUTH_SIDE_EFFECTS = {
   logout: [
     'Відкликає всі активні refresh-токени користувача (revokeAll).',
     'Завершує всі активні сесії користувача (terminateAll).',
-    'Якщо немає що відкликати/завершити — повертає noop (у тебе це BadRequest на рівні контролера).',
+    'Після цього access token стає непридатним, бо JwtStrategy вимагає активну сесію.',
   ].join('\n'),
 
   getMe: 'Side effects відсутні: лише читання профілю.',
@@ -38,11 +38,11 @@ export const AUTH_SIDE_EFFECTS = {
 
   terminateOtherSessions: [
     'Завершує всі активні сесії користувача, крім поточної (exclude sid з JWT).',
-    'Refresh-токени не відкликає.',
+    'Відкликає refresh-токени, пов’язані із завершеними сесіями.',
   ].join('\n'),
 
   terminateSpecificSession: [
     'Завершує активну сесію користувача, знайдену за парою IP + User-Agent.',
-    'Refresh-токени не відкликає.',
+    'Відкликає refresh-токен, пов’язаний із цією сесією (якщо він ще не revoked).',
   ].join('\n'),
 } as const;

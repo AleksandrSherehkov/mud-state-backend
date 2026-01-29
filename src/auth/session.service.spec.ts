@@ -24,8 +24,14 @@ type PrismaSessionModel = {
   count: jest.Mock<Promise<number>, [args: any]>;
 };
 
+type PrismaRefreshTokenModel = {
+  updateMany: jest.Mock<Promise<{ count: number }>, [args: any]>;
+};
+
 type PrismaMock = {
   session: PrismaSessionModel;
+  refreshToken: PrismaRefreshTokenModel;
+  $transaction: jest.Mock;
 };
 
 type LoggerMock = jest.Mocked<Pick<AppLogger, 'setContext' | 'log' | 'debug'>>;
@@ -46,7 +52,20 @@ describe('SessionService', () => {
         updateMany: jest.fn(),
         count: jest.fn(),
       },
+      refreshToken: {
+        updateMany: jest.fn(),
+      },
+      $transaction: jest.fn(),
     };
+
+    prisma.$transaction.mockImplementation(async (cb: any) => {
+      const tx = {
+        session: prisma.session,
+        refreshToken: prisma.refreshToken,
+      };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return await cb(tx);
+    });
 
     logger = {
       setContext: jest.fn(),
@@ -72,11 +91,19 @@ describe('SessionService', () => {
 
       prisma.session.create.mockResolvedValue({ id: 'sid-1' });
 
-      const result = await service.create('u1', 'jti-1', ' 1.1.1.1 ', ' UA ');
+      const result = await service.create(
+        'sid-1',
+        'u1',
+        'jti-1',
+        ' 1.1.1.1 ',
+        ' UA ',
+      );
 
       expect(normalizeIp).toHaveBeenCalledWith(' 1.1.1.1 ');
+
       expect(prisma.session.create).toHaveBeenCalledWith({
         data: {
+          id: 'sid-1',
           userId: 'u1',
           refreshTokenId: 'jti-1',
           ip: '1.1.1.1',
@@ -106,10 +133,11 @@ describe('SessionService', () => {
     it('handles missing ip/userAgent (stores nulls) and logs without ipMasked/uaHash', async () => {
       prisma.session.create.mockResolvedValue({ id: 'sid-2' });
 
-      const result = await service.create('u2', 'jti-2');
+      const result = await service.create('sid-2', 'u2', 'jti-2');
 
       expect(prisma.session.create).toHaveBeenCalledWith({
         data: {
+          id: 'sid-2',
           userId: 'u2',
           refreshTokenId: 'jti-2',
           ip: null,
@@ -191,9 +219,14 @@ describe('SessionService', () => {
   describe('termination operations', () => {
     beforeEach(() => {
       prisma.session.updateMany.mockResolvedValue({ count: 1 });
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
+
+      prisma.session.findMany.mockResolvedValue([
+        { id: 'sid-any', refreshTokenId: 'jti-any' },
+      ]);
     });
 
-    it('terminateSpecificSession normalizes ip and trims userAgent; enforces isActive:true', async () => {
+    it('terminateSpecificSession normalizes ip and trims userAgent; terminates by ids in transaction', async () => {
       (normalizeIp as jest.Mock).mockReturnValue('2.2.2.2');
       (maskIp as jest.Mock).mockReturnValue('2.2.*.*');
       (hashId as jest.Mock).mockReturnValue('ua_hash');
@@ -203,11 +236,21 @@ describe('SessionService', () => {
 
       await service.terminateSpecificSession('u4', ' 2.2.2.2 ', ' UA ');
 
-      expect(prisma.session.updateMany).toHaveBeenCalledWith({
+      expect(prisma.session.findMany).toHaveBeenCalledWith({
         where: {
           userId: 'u4',
           ip: '2.2.2.2',
           userAgent: 'UA',
+          isActive: true,
+        },
+        select: { id: true, refreshTokenId: true },
+      });
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+
+      expect(prisma.session.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['sid-any'] },
           isActive: true,
         },
         data: {
@@ -219,16 +262,26 @@ describe('SessionService', () => {
       jest.useRealTimers();
     });
 
-    it('terminateOtherSessions enforces isActive:true', async () => {
+    it('terminateOtherSessions selects by NOT id, then terminates by ids in transaction', async () => {
       const now = new Date('2025-07-02T00:00:00.000Z');
       jest.useFakeTimers().setSystemTime(now);
 
       await service.terminateOtherSessions('u5', 'sid123');
 
-      expect(prisma.session.updateMany).toHaveBeenCalledWith({
+      expect(prisma.session.findMany).toHaveBeenCalledWith({
         where: {
           userId: 'u5',
           NOT: { id: 'sid123' },
+          isActive: true,
+        },
+        select: { id: true, refreshTokenId: true },
+      });
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+
+      expect(prisma.session.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['sid-any'] },
           isActive: true,
         },
         data: {
@@ -240,14 +293,24 @@ describe('SessionService', () => {
       jest.useRealTimers();
     });
 
-    it('terminateAll enforces isActive:true', async () => {
+    it('terminateAll selects by userId, then terminates by ids in transaction', async () => {
       const now = new Date('2025-07-03T00:00:00.000Z');
       jest.useFakeTimers().setSystemTime(now);
 
       await service.terminateAll('u6');
 
-      expect(prisma.session.updateMany).toHaveBeenCalledWith({
+      expect(prisma.session.findMany).toHaveBeenCalledWith({
         where: { userId: 'u6', isActive: true },
+        select: { id: true, refreshTokenId: true },
+      });
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+
+      expect(prisma.session.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['sid-any'] },
+          isActive: true,
+        },
         data: {
           isActive: false,
           endedAt: new Date(now.getTime()),
@@ -257,14 +320,24 @@ describe('SessionService', () => {
       jest.useRealTimers();
     });
 
-    it('terminateByRefreshToken enforces isActive:true', async () => {
+    it('terminateByRefreshToken selects by refreshTokenId, then terminates by ids in transaction', async () => {
       const now = new Date('2025-07-04T00:00:00.000Z');
       jest.useFakeTimers().setSystemTime(now);
 
       await service.terminateByRefreshToken('jti-77');
 
-      expect(prisma.session.updateMany).toHaveBeenCalledWith({
+      expect(prisma.session.findMany).toHaveBeenCalledWith({
         where: { refreshTokenId: 'jti-77', isActive: true },
+        select: { id: true, refreshTokenId: true },
+      });
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+
+      expect(prisma.session.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['sid-any'] },
+          isActive: true,
+        },
         data: {
           isActive: false,
           endedAt: new Date(now.getTime()),
@@ -274,10 +347,12 @@ describe('SessionService', () => {
       jest.useRealTimers();
     });
 
-    it('logs debug noop when nothing terminated (count=0)', async () => {
-      prisma.session.updateMany.mockResolvedValue({ count: 0 });
+    it('logs debug noop when nothing terminated (no sessions)', async () => {
+      prisma.session.findMany.mockResolvedValue([]);
 
       await service.terminateAll('u6');
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
 
       expect(logger.debug).toHaveBeenCalledWith(
         'Terminate sessions: nothing to terminate',

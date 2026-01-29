@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AppLogger } from 'src/logger/logger.service';
 import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class RefreshTokenService {
@@ -178,5 +179,50 @@ export class RefreshTokenService {
     return this.prisma.refreshToken.count({
       where: { userId, revoked: false },
     });
+  }
+  async revokeManyByJtis(
+    jtis: string[],
+    meta?: Record<string, unknown>,
+  ): Promise<Prisma.BatchPayload> {
+    const uniq = [...new Set(jtis.map((x) => x?.trim()).filter(Boolean))];
+
+    if (uniq.length === 0) {
+      this.logger.debug(
+        'Revoke many refresh tokens: empty list',
+        RefreshTokenService.name,
+        { event: 'refresh_token.revoke_many.noop', reason: 'empty', ...meta },
+      );
+      return { count: 0 };
+    }
+
+    const result = await this.prisma.refreshToken.updateMany({
+      where: { jti: { in: uniq }, revoked: false },
+      data: { revoked: true },
+    });
+
+    if (result.count > 0) {
+      this.logger.log(
+        'Refresh tokens revoked (many)',
+        RefreshTokenService.name,
+        {
+          event: 'refresh_token.revoked_many',
+          count: result.count,
+          jtisCount: uniq.length,
+          ...meta,
+        },
+      );
+    } else {
+      this.logger.debug(
+        'Revoke many refresh tokens: nothing to revoke',
+        RefreshTokenService.name,
+        {
+          event: 'refresh_token.revoked_many.noop',
+          jtisCount: uniq.length,
+          ...meta,
+        },
+      );
+    }
+
+    return result;
   }
 }

@@ -160,7 +160,7 @@ describe('Auth E2E — logout', () => {
     ).toBe(true);
   });
 
-  it('400: second logout (already logged out) -> Bad Request', async () => {
+  it('401: second logout with the same accessToken -> Unauthorized (token invalidated by logout)', async () => {
     const email = `logout2_${Date.now()}@e2e.local`;
     const password = buildValidPassword();
 
@@ -181,10 +181,10 @@ describe('Auth E2E — logout', () => {
     const second = await request(app.getHttpServer())
       .post(`${basePath}/auth/logout`)
       .set('Authorization', `Bearer ${reg.accessToken}`)
-      .expect(400);
+      .expect(401);
 
     const body = second.body as HttpErrorResponse;
-    expect(body.statusCode).toBe(400);
+    expect(body.statusCode).toBe(401);
     expect(
       typeof body.message === 'string' || Array.isArray(body.message),
     ).toBe(true);

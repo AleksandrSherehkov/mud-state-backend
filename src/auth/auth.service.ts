@@ -133,9 +133,50 @@ export class AuthService {
         userId,
         tokenSub: payload.sub,
         jti: payload.jti,
+        sid: payload.sid,
       });
       throw new UnauthorizedException('Невідповідність користувача');
     }
+
+    if (!payload.sid) {
+      this.logger.warn(
+        'Refresh failed: session missing in token',
+        AuthService.name,
+        {
+          event: 'auth.refresh.fail',
+          reason: 'missing_sid',
+          userId,
+          jti: payload.jti,
+        },
+      );
+      throw new UnauthorizedException('Недійсний токен');
+    }
+
+    const sessionActive = await this.sessionService.isSessionActive(
+      payload.sid,
+      userId,
+    );
+    if (!sessionActive) {
+      const nip = ip ? normalizeIp(ip) : null;
+      const ua = userAgent?.trim() || null;
+
+      this.logger.warn(
+        'Refresh blocked: session is not active',
+        AuthService.name,
+        {
+          event: 'auth.refresh.blocked',
+          reason: 'session_inactive',
+          userId,
+          jti: payload.jti,
+          sid: payload.sid,
+          ipMasked: nip ? maskIp(nip) : undefined,
+          uaHash: ua ? hashId(ua) : undefined,
+        },
+      );
+
+      throw new UnauthorizedException('Сесію завершено або недійсна');
+    }
+
     const tokenHash = this.tokenService.hashRefreshToken(refreshToken);
 
     const claim = await this.refreshTokenService.revokeIfActiveByHash(
@@ -145,15 +186,40 @@ export class AuthService {
     );
 
     if (claim.count === 0) {
+      const nip = ip ? normalizeIp(ip) : null;
+      const ua = userAgent?.trim() || null;
+
       this.logger.warn(
-        'Refresh failed: token revoked or reuse detected',
+        'Refresh reuse detected or token already revoked',
         AuthService.name,
         {
-          event: 'auth.refresh.reuse_or_revoked',
+          event: 'auth.refresh.reuse_detected',
           userId,
           jti: payload.jti,
+          sid: payload.sid,
+          ipMasked: nip ? maskIp(nip) : undefined,
+          uaHash: ua ? hashId(ua) : undefined,
         },
       );
+
+      const [revokeRes, terminateRes] = await Promise.all([
+        this.refreshTokenService.revokeAll(userId),
+        this.sessionService.terminateAll(userId),
+      ]);
+
+      this.logger.warn(
+        'Refresh reuse response applied (global revoke + terminate)',
+        AuthService.name,
+        {
+          event: 'auth.refresh.reuse_response_applied',
+          userId,
+          jti: payload.jti,
+          sid: payload.sid,
+          revokedTokens: revokeRes.count,
+          terminatedSessions: terminateRes.count,
+        },
+      );
+
       throw new UnauthorizedException('Токен відкликано або недійсний');
     }
 
@@ -166,6 +232,7 @@ export class AuthService {
         reason: 'user_not_found',
         userId,
         jti: payload.jti,
+        sid: payload.sid,
       });
       throw new UnauthorizedException('Користувача не знайдено');
     }
@@ -175,6 +242,7 @@ export class AuthService {
       userId,
       role: user.role,
       jti: payload.jti,
+      sid: payload.sid,
     });
 
     return this.issueTokens(user.id, user.email, user.role, ip, userAgent);
@@ -248,21 +316,51 @@ export class AuthService {
 
     const tokenHash = this.tokenService.hashRefreshToken(refreshToken);
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.refreshToken.create({
-        data: {
-          userId,
-          jti: refreshTokenId,
-          tokenHash,
-          ip: nip,
-          userAgent: ua,
-        },
-      });
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.refreshToken.create({
+          data: {
+            userId,
+            jti: refreshTokenId,
+            tokenHash,
+            ip: nip,
+            userAgent: ua,
+          },
+        });
 
-      await tx.session.create({
-        data: { id: sessionId, userId, refreshTokenId, ip: nip, userAgent: ua },
+        await tx.session.create({
+          data: {
+            id: sessionId,
+            userId,
+            refreshTokenId,
+            ip: nip,
+            userAgent: ua,
+          },
+        });
       });
-    });
+    } catch (err: unknown) {
+      const errorName = err instanceof Error ? err.name : 'UnknownError';
+      const errorMessage = err instanceof Error ? err.message : String(err);
+
+      this.logger.error(
+        'Tokens issue transaction failed',
+        undefined,
+        AuthService.name,
+        {
+          event: 'auth.tokens.issue_failed',
+          userId,
+          role,
+          jti: refreshTokenId,
+          sid: sessionId,
+          ipMasked: nip ? maskIp(nip) : undefined,
+          uaHash: ua ? hashId(ua) : undefined,
+          errorName,
+          errorMessage,
+        },
+      );
+
+      throw err;
+    }
 
     this.logger.log('Tokens issued', AuthService.name, {
       event: 'auth.tokens.issued',

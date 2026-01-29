@@ -65,7 +65,10 @@ describe('AuthService', () => {
   >;
 
   let sessionService: jest.Mocked<
-    Pick<SessionService, 'terminateAll' | 'terminateByRefreshToken'>
+    Pick<
+      SessionService,
+      'terminateAll' | 'terminateByRefreshToken' | 'isSessionActive'
+    >
   >;
 
   let prisma: { $transaction: jest.Mock };
@@ -108,7 +111,12 @@ describe('AuthService', () => {
     sessionService = {
       terminateAll: jest.fn(),
       terminateByRefreshToken: jest.fn(),
+      isSessionActive: jest.fn(),
     };
+
+    sessionService.isSessionActive.mockResolvedValue(true);
+    refreshTokenService.revokeAll.mockResolvedValue({ count: 0 } as any);
+    sessionService.terminateAll.mockResolvedValue({ count: 0 } as any);
 
     prisma = {
       $transaction: jest.fn(),
@@ -302,17 +310,45 @@ describe('AuthService', () => {
       expect(logger.warn).toHaveBeenCalled();
     });
 
+    it('throws UnauthorizedException when session is not active (blocks before claim)', async () => {
+      tokenService.verifyRefreshToken.mockResolvedValue(payload as any);
+      sessionService.isSessionActive.mockResolvedValue(false);
+
+      await expect(
+        service.refresh(userId, refreshToken, ip, userAgent),
+      ).rejects.toThrow(
+        new UnauthorizedException('Сесію завершено або недійсна'),
+      );
+
+      expect(sessionService.isSessionActive).toHaveBeenCalledWith(
+        payload.sid,
+        userId,
+      );
+      expect(refreshTokenService.revokeIfActiveByHash).not.toHaveBeenCalled();
+      expect(sessionService.terminateByRefreshToken).not.toHaveBeenCalled();
+    });
+
     it('throws UnauthorizedException when revokeIfActiveByHash returns count=0', async () => {
       tokenService.verifyRefreshToken.mockResolvedValue(payload as any);
+      sessionService.isSessionActive.mockResolvedValue(true);
+
       tokenService.hashRefreshToken.mockReturnValue('hash-r');
       refreshTokenService.revokeIfActiveByHash.mockResolvedValue({
         count: 0,
       } as any);
 
+      refreshTokenService.revokeAll.mockResolvedValue({ count: 2 } as any);
+      sessionService.terminateAll.mockResolvedValue({ count: 3 } as any);
+
       await expect(
         service.refresh(userId, refreshToken, ip, userAgent),
       ).rejects.toThrow(
         new UnauthorizedException('Токен відкликано або недійсний'),
+      );
+
+      expect(sessionService.isSessionActive).toHaveBeenCalledWith(
+        payload.sid,
+        userId,
       );
 
       expect(refreshTokenService.revokeIfActiveByHash).toHaveBeenCalledWith(
@@ -321,11 +357,16 @@ describe('AuthService', () => {
         'hash-r',
       );
 
+      expect(refreshTokenService.revokeAll).toHaveBeenCalledWith(userId);
+      expect(sessionService.terminateAll).toHaveBeenCalledWith(userId);
+
       expect(logger.warn).toHaveBeenCalled();
     });
 
     it('terminates session by refreshToken jti and issues new tokens', async () => {
       tokenService.verifyRefreshToken.mockResolvedValue(payload as any);
+      sessionService.isSessionActive.mockResolvedValue(true);
+
       tokenService.hashRefreshToken.mockReturnValue('hash-r');
       refreshTokenService.revokeIfActiveByHash.mockResolvedValue({
         count: 1,
@@ -355,6 +396,11 @@ describe('AuthService', () => {
       expect(tokenService.verifyRefreshToken).toHaveBeenCalledWith(
         refreshToken,
       );
+      expect(sessionService.isSessionActive).toHaveBeenCalledWith(
+        payload.sid,
+        userId,
+      );
+
       expect(tokenService.hashRefreshToken).toHaveBeenCalledWith(refreshToken);
 
       expect(refreshTokenService.revokeIfActiveByHash).toHaveBeenCalledWith(
@@ -382,6 +428,8 @@ describe('AuthService', () => {
 
     it('throws UnauthorizedException when user not found after token claim', async () => {
       tokenService.verifyRefreshToken.mockResolvedValue(payload as any);
+      sessionService.isSessionActive.mockResolvedValue(true);
+
       tokenService.hashRefreshToken.mockReturnValue('hash-r');
       refreshTokenService.revokeIfActiveByHash.mockResolvedValue({
         count: 1,
