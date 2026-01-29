@@ -1,4 +1,3 @@
-// src/auth/strategies/jwt.strategy.spec.ts
 import { UnauthorizedException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { Role } from '@prisma/client';
@@ -63,7 +62,6 @@ describe('JwtStrategy', () => {
       UnauthorizedException,
     );
 
-    // Не проверяем точную фразу, только "что warn был" + мета
     expect(loggerMock.warn).toHaveBeenCalledWith(
       expect.any(String),
       JwtStrategy.name,

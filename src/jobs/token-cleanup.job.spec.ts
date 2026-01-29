@@ -11,15 +11,15 @@ jest.mock('cron', () => ({
 }));
 
 import { TokenCleanupJob } from './token-cleanup.job';
-import type { UsersService } from 'src/users/users.service';
 import type { ConfigService } from '@nestjs/config';
 import type { AppLogger } from 'src/logger/logger.service';
 import type { SchedulerRegistry } from '@nestjs/schedule';
+import type { AuthMaintenanceService } from 'src/auth/auth-maintenance.service';
 
 type CronJobLike = { stop: jest.Mock<void, []> };
 
 describe('TokenCleanupJob', () => {
-  let usersService: {
+  let maintenance: {
     cleanRevokedTokens: jest.Mock<Promise<number>, [olderThanDays?: number]>;
     cleanInactiveSessions: jest.Mock<Promise<number>, [olderThanDays?: number]>;
   };
@@ -43,7 +43,7 @@ describe('TokenCleanupJob', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    usersService = {
+    maintenance = {
       cleanRevokedTokens: jest.fn<Promise<number>, [olderThanDays?: number]>(),
       cleanInactiveSessions: jest.fn<
         Promise<number>,
@@ -70,11 +70,13 @@ describe('TokenCleanupJob', () => {
       deleteCronJob: jest.fn<void, [name: string]>(),
     };
 
+    // ✅ порядок аргументов как в реальном конструкторе:
+    // (config, schedulerRegistry, logger, maintenance)
     job = new TokenCleanupJob(
-      usersService as unknown as UsersService,
       config as unknown as ConfigService,
-      logger as unknown as AppLogger,
       schedulerRegistry as unknown as SchedulerRegistry,
+      logger as unknown as AppLogger,
+      maintenance as unknown as AuthMaintenanceService,
     );
   });
 
@@ -128,14 +130,14 @@ describe('TokenCleanupJob', () => {
       return def;
     });
 
-    usersService.cleanRevokedTokens.mockResolvedValue(0);
-    usersService.cleanInactiveSessions.mockResolvedValue(0);
+    maintenance.cleanRevokedTokens.mockResolvedValue(0);
+    maintenance.cleanInactiveSessions.mockResolvedValue(0);
 
     await job.handleCleanup();
 
     expect(config.get).toHaveBeenCalledWith('TOKEN_CLEANUP_DAYS', 7);
-    expect(usersService.cleanRevokedTokens).toHaveBeenCalledWith(7);
-    expect(usersService.cleanInactiveSessions).toHaveBeenCalledWith(7);
+    expect(maintenance.cleanRevokedTokens).toHaveBeenCalledWith(7);
+    expect(maintenance.cleanInactiveSessions).toHaveBeenCalledWith(7);
 
     expect(logger.debug).toHaveBeenCalledWith(
       'Token cleanup start',
@@ -162,8 +164,8 @@ describe('TokenCleanupJob', () => {
       return def;
     });
 
-    usersService.cleanRevokedTokens.mockResolvedValue(2);
-    usersService.cleanInactiveSessions.mockResolvedValue(3);
+    maintenance.cleanRevokedTokens.mockResolvedValue(2);
+    maintenance.cleanInactiveSessions.mockResolvedValue(3);
 
     await job.handleCleanup();
 
@@ -197,8 +199,8 @@ describe('TokenCleanupJob', () => {
     });
 
     const error = new Error('failure');
-    usersService.cleanRevokedTokens.mockRejectedValue(error);
-    usersService.cleanInactiveSessions.mockResolvedValue(1);
+    maintenance.cleanRevokedTokens.mockRejectedValue(error);
+    maintenance.cleanInactiveSessions.mockResolvedValue(1);
 
     await job.handleCleanup();
 
@@ -221,8 +223,8 @@ describe('TokenCleanupJob', () => {
       return def;
     });
 
-    usersService.cleanRevokedTokens.mockRejectedValue('boom');
-    usersService.cleanInactiveSessions.mockResolvedValue(1);
+    maintenance.cleanRevokedTokens.mockRejectedValue('boom');
+    maintenance.cleanInactiveSessions.mockResolvedValue(1);
 
     await job.handleCleanup();
 

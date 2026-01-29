@@ -342,47 +342,4 @@ describe('UsersService', () => {
       expect(logger.error).toHaveBeenCalled();
     });
   });
-
-  describe('cleanup functions', () => {
-    it('cleanRevokedTokens deletes tokens older than days and returns count', async () => {
-      const now = new Date('2025-08-01T00:00:00.000Z');
-      jest.useFakeTimers().setSystemTime(now);
-
-      prisma.refreshToken.deleteMany.mockResolvedValue({ count: 3 });
-
-      const count = await service.cleanRevokedTokens(5);
-
-      const threshold = new Date(now);
-      threshold.setDate(threshold.getDate() - 5);
-
-      expect(prisma.refreshToken.deleteMany).toHaveBeenCalledWith({
-        where: { revoked: true, createdAt: { lt: threshold } },
-      });
-      expect(count).toBe(3);
-
-      expect(logger.log).toHaveBeenCalled();
-      jest.useRealTimers();
-    });
-
-    it('cleanInactiveSessions deletes sessions older than days and returns count', async () => {
-      const now = new Date('2025-08-02T00:00:00.000Z');
-      jest.useFakeTimers().setSystemTime(now);
-
-      prisma.session.deleteMany.mockResolvedValue({ count: 2 });
-
-      const count = await service.cleanInactiveSessions(10);
-
-      const threshold = new Date(now);
-      threshold.setDate(threshold.getDate() - 10);
-
-      expect(prisma.session.deleteMany).toHaveBeenCalledWith({
-        where: { isActive: false, endedAt: { lt: threshold } },
-      });
-      expect(count).toBe(2);
-
-      expect(logger.log).toHaveBeenCalled();
-
-      jest.useRealTimers();
-    });
-  });
 });

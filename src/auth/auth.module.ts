@@ -13,6 +13,7 @@ import { LoggerModule } from 'src/logger/logger.module';
 import type { StringValue } from 'ms';
 import { AuthSecurityService } from './auth-security.service';
 import { ValidatorsModule } from 'src/common/validators/validators.module';
+import { AuthMaintenanceService } from './auth-maintenance.service';
 
 @Module({
   imports: [
@@ -37,11 +38,13 @@ import { ValidatorsModule } from 'src/common/validators/validators.module';
   providers: [
     AuthService,
     AuthSecurityService,
+    AuthMaintenanceService,
     JwtStrategy,
     TokenService,
     RefreshTokenService,
     SessionService,
   ],
+  exports: [AuthService, AuthMaintenanceService],
   controllers: [AuthController],
 })
 export class AuthModule {}

@@ -2,8 +2,9 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { ConfigService } from '@nestjs/config';
-import { UsersService } from 'src/users/users.service';
+
 import { AppLogger } from 'src/logger/logger.service';
+import { AuthMaintenanceService } from 'src/auth/auth-maintenance.service';
 
 const DEFAULT_CLEANUP_CRON = '0 0 * * *';
 const DEFAULT_CLEANUP_DAYS = 7;
@@ -19,10 +20,10 @@ function errMeta(err: unknown) {
 @Injectable()
 export class TokenCleanupJob implements OnModuleInit, OnModuleDestroy {
   constructor(
-    private readonly usersService: UsersService,
     private readonly config: ConfigService,
-    private readonly logger: AppLogger,
     private readonly schedulerRegistry: SchedulerRegistry,
+    private readonly logger: AppLogger,
+    private readonly maintenance: AuthMaintenanceService,
   ) {
     this.logger.setContext(TokenCleanupJob.name);
   }
@@ -75,8 +76,8 @@ export class TokenCleanupJob implements OnModuleInit, OnModuleDestroy {
 
     try {
       const [deletedTokens, deletedSessions] = await Promise.all([
-        this.usersService.cleanRevokedTokens(days),
-        this.usersService.cleanInactiveSessions(days),
+        this.maintenance.cleanRevokedTokens(days),
+        this.maintenance.cleanInactiveSessions(days),
       ]);
 
       this.logger.debug('Token cleanup finished', TokenCleanupJob.name, {
