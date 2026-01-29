@@ -289,23 +289,21 @@ describe('AuthService', () => {
       tokenService.verifyRefreshToken.mockRejectedValue(new Error('bad'));
 
       await expect(
-        service.refresh(userId, refreshToken, ip, userAgent),
+        service.refresh(refreshToken, ip, userAgent),
       ).rejects.toThrow(new UnauthorizedException('Недійсний токен'));
 
       expect(logger.warn).toHaveBeenCalled();
     });
 
-    it('throws UnauthorizedException when userId mismatch', async () => {
+    it('throws UnauthorizedException when token has no sub', async () => {
       tokenService.verifyRefreshToken.mockResolvedValue({
         ...payload,
-        sub: 'other',
+        sub: undefined,
       } as any);
 
       await expect(
-        service.refresh(userId, refreshToken, ip, userAgent),
-      ).rejects.toThrow(
-        new UnauthorizedException('Невідповідність користувача'),
-      );
+        service.refresh(refreshToken, ip, userAgent),
+      ).rejects.toThrow(new UnauthorizedException('Недійсний токен'));
 
       expect(logger.warn).toHaveBeenCalled();
     });
@@ -315,7 +313,7 @@ describe('AuthService', () => {
       sessionService.isSessionActive.mockResolvedValue(false);
 
       await expect(
-        service.refresh(userId, refreshToken, ip, userAgent),
+        service.refresh(refreshToken, ip, userAgent),
       ).rejects.toThrow(
         new UnauthorizedException('Сесію завершено або недійсна'),
       );
@@ -341,7 +339,7 @@ describe('AuthService', () => {
       sessionService.terminateAll.mockResolvedValue({ count: 3 } as any);
 
       await expect(
-        service.refresh(userId, refreshToken, ip, userAgent),
+        service.refresh(refreshToken, ip, userAgent),
       ).rejects.toThrow(
         new UnauthorizedException('Токен відкликано або недійсний'),
       );
@@ -391,7 +389,7 @@ describe('AuthService', () => {
         .spyOn(service as any, 'issueTokens')
         .mockResolvedValue(tokens);
 
-      const result = await service.refresh(userId, refreshToken, ip, userAgent);
+      const result = await service.refresh(refreshToken, ip, userAgent);
 
       expect(tokenService.verifyRefreshToken).toHaveBeenCalledWith(
         refreshToken,
@@ -441,7 +439,7 @@ describe('AuthService', () => {
       usersService.findById.mockResolvedValue(null);
 
       await expect(
-        service.refresh(userId, refreshToken, ip, userAgent),
+        service.refresh(refreshToken, ip, userAgent),
       ).rejects.toThrow(new UnauthorizedException('Користувача не знайдено'));
 
       expect(logger.warn).toHaveBeenCalled();

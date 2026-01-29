@@ -181,7 +181,6 @@ describe('AuthController', () => {
   describe('refresh', () => {
     it('extracts ip/userAgent, calls authService.refresh, returns Tokens', async () => {
       const dto: RefreshDto = {
-        userId: 'u1',
         refreshToken: 'r1',
       };
 
@@ -206,7 +205,6 @@ describe('AuthController', () => {
 
       expect(extractRequestInfo).toHaveBeenCalledWith(req);
       expect(authService.refresh).toHaveBeenCalledWith(
-        'u1',
         'r1',
         '2.2.2.2',
         'AgentX',

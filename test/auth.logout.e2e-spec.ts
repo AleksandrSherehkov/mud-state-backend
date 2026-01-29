@@ -149,7 +149,7 @@ describe('Auth E2E — logout', () => {
 
     const refreshRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/refresh`)
-      .send({ userId: reg.id, refreshToken: reg.refreshToken })
+      .send({ refreshToken: reg.refreshToken })
       .expect(401);
 
     const refreshBody = refreshRes.body as HttpErrorResponse;

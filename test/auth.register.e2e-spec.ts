@@ -172,7 +172,7 @@ describe('Auth E2E — full flow', () => {
 
     const refreshRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/refresh`)
-      .send({ userId, refreshToken: refreshToken1 })
+      .send({ refreshToken: refreshToken1 })
       .expect(200);
 
     const tokens2 = refreshRes.body as TokenResponse;
@@ -215,7 +215,7 @@ describe('Auth E2E — full flow', () => {
 
     const refreshAfterLogoutRes = await request(app.getHttpServer())
       .post(`${basePath}/auth/refresh`)
-      .send({ userId, refreshToken: refreshToken2 })
+      .send({ refreshToken: refreshToken2 })
       .expect(401);
 
     const err = refreshAfterLogoutRes.body as HttpErrorResponse;

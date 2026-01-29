@@ -104,7 +104,6 @@ export class AuthService {
   }
 
   async refresh(
-    userId: string,
     refreshToken: string,
     ip?: string,
     userAgent?: string,
@@ -120,24 +119,24 @@ export class AuthService {
         {
           event: 'auth.refresh.fail',
           reason: 'invalid_token',
-          userId,
         },
       );
       throw new UnauthorizedException('Недійсний токен');
     }
-
-    if (payload.sub !== userId) {
-      this.logger.warn('Refresh failed: user mismatch', AuthService.name, {
-        event: 'auth.refresh.fail',
-        reason: 'user_mismatch',
-        userId,
-        tokenSub: payload.sub,
-        jti: payload.jti,
-        sid: payload.sid,
-      });
-      throw new UnauthorizedException('Невідповідність користувача');
+    const userId = payload.sub;
+    if (!userId) {
+      this.logger.warn(
+        'Refresh failed: missing sub in token',
+        AuthService.name,
+        {
+          event: 'auth.refresh.fail',
+          reason: 'missing_sub',
+          jti: payload.jti,
+          sid: payload.sid,
+        },
+      );
+      throw new UnauthorizedException('Недійсний токен');
     }
-
     if (!payload.sid) {
       this.logger.warn(
         'Refresh failed: session missing in token',

@@ -158,7 +158,6 @@ export class AuthController {
   ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
     const result = await this.authService.refresh(
-      dto.userId,
       dto.refreshToken,
       ip,
       userAgent,
