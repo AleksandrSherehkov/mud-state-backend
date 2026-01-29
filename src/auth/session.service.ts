@@ -4,12 +4,14 @@ import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AppLogger } from 'src/logger/logger.service';
 import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
+import { RefreshTokenService } from './refresh-token.service';
 
 @Injectable()
 export class SessionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLogger,
+    private readonly refreshTokenService: RefreshTokenService,
   ) {
     this.logger.setContext(SessionService.name);
   }
@@ -20,11 +22,14 @@ export class SessionService {
     refreshTokenId: string,
     ip?: string,
     userAgent?: string,
+    tx?: Prisma.TransactionClient,
   ) {
     const nip = ip ? normalizeIp(ip) : null;
     const ua = userAgent?.trim() || null;
 
-    const session = await this.prisma.session.create({
+    const db = tx ?? this.prisma;
+
+    const session = await db.session.create({
       data: {
         id: sessionId,
         userId,
@@ -37,7 +42,7 @@ export class SessionService {
     this.logger.log('Session created', SessionService.name, {
       event: 'session.created',
       userId,
-      sid: session.id,
+      sid: sessionId,
       jti: refreshTokenId,
       ipMasked: nip ? maskIp(nip) : undefined,
       uaHash: ua ? hashId(ua) : undefined,
@@ -118,10 +123,7 @@ export class SessionService {
     const { revoked, terminated } = await this.prisma.$transaction(
       async (tx) => {
         const revoked = jtis.length
-          ? await tx.refreshToken.updateMany({
-              where: { jti: { in: jtis }, revoked: false },
-              data: { revoked: true },
-            })
+          ? await this.refreshTokenService.revokeManyByJtis(jtis, meta, tx)
           : ({ count: 0 } as Prisma.BatchPayload);
 
         const terminated = await tx.session.updateMany({

@@ -16,6 +16,7 @@ jest.mock('src/common/helpers/log-sanitize', () => ({
   hashId: jest.fn(),
 }));
 import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
+import type { RefreshTokenService } from './refresh-token.service';
 
 type PrismaSessionModel = {
   create: jest.Mock<Promise<{ id: string }>, [args: any]>;
@@ -41,6 +42,9 @@ describe('SessionService', () => {
 
   let prisma: PrismaMock;
   let logger: LoggerMock;
+  let refreshTokenService: jest.Mocked<
+    Pick<RefreshTokenService, 'revokeManyByJtis'>
+  >;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -72,10 +76,37 @@ describe('SessionService', () => {
       log: jest.fn(),
       debug: jest.fn(),
     };
+    refreshTokenService = {
+      revokeManyByJtis: jest.fn(),
+    };
+    type BatchPayload = { count: number };
+
+    refreshTokenService.revokeManyByJtis.mockImplementation(
+      async (
+        jtis: string[],
+        _meta?: Record<string, unknown>,
+        tx?: {
+          refreshToken: {
+            updateMany: (...args: any[]) => Promise<BatchPayload>;
+          };
+        },
+      ): Promise<BatchPayload> => {
+        if (!jtis?.length) return { count: 0 };
+        if (!tx) throw new Error('tx is required in this test mock');
+
+        const res: BatchPayload = await tx.refreshToken.updateMany({
+          where: { jti: { in: jtis }, revoked: false },
+          data: { revoked: true },
+        });
+
+        return res;
+      },
+    );
 
     service = new SessionService(
       prisma as unknown as PrismaService,
       logger as unknown as AppLogger,
+      refreshTokenService as unknown as RefreshTokenService,
     );
   });
 

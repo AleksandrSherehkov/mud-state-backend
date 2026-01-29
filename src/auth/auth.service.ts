@@ -317,25 +317,23 @@ export class AuthService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        await tx.refreshToken.create({
-          data: {
-            userId,
-            jti: refreshTokenId,
-            tokenHash,
-            ip: nip,
-            userAgent: ua,
-          },
-        });
+        await this.refreshTokenService.create(
+          userId,
+          refreshTokenId,
+          tokenHash,
+          nip ?? undefined,
+          ua ?? undefined,
+          tx,
+        );
 
-        await tx.session.create({
-          data: {
-            id: sessionId,
-            userId,
-            refreshTokenId,
-            ip: nip,
-            userAgent: ua,
-          },
-        });
+        await this.sessionService.create(
+          sessionId,
+          userId,
+          refreshTokenId,
+          nip ?? undefined,
+          ua ?? undefined,
+          tx,
+        );
       });
     } catch (err: unknown) {
       const errorName = err instanceof Error ? err.name : 'UnknownError';

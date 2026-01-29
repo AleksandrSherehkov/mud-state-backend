@@ -61,13 +61,13 @@ describe('AuthService', () => {
   >;
 
   let refreshTokenService: jest.Mocked<
-    Pick<RefreshTokenService, 'revokeAll' | 'revokeIfActiveByHash'>
+    Pick<RefreshTokenService, 'create' | 'revokeAll' | 'revokeIfActiveByHash'>
   >;
 
   let sessionService: jest.Mocked<
     Pick<
       SessionService,
-      'terminateAll' | 'terminateByRefreshToken' | 'isSessionActive'
+      'create' | 'terminateAll' | 'terminateByRefreshToken' | 'isSessionActive'
     >
   >;
 
@@ -104,11 +104,13 @@ describe('AuthService', () => {
     };
 
     refreshTokenService = {
+      create: jest.fn(),
       revokeAll: jest.fn(),
       revokeIfActiveByHash: jest.fn(),
     };
 
     sessionService = {
+      create: jest.fn(),
       terminateAll: jest.fn(),
       terminateByRefreshToken: jest.fn(),
       isSessionActive: jest.fn(),
@@ -488,24 +490,23 @@ describe('AuthService', () => {
   });
 
   describe('issueTokens (private)', () => {
-    it('creates refreshToken + session via transaction, signs tokens, returns Tokens', async () => {
+    it('creates refreshToken + session via services in transaction, signs tokens, returns Tokens', async () => {
       (randomUUID as unknown as jest.Mock)
         .mockReturnValueOnce('jti-uuid')
         .mockReturnValueOnce('sid-uuid');
 
       (normalizeIp as unknown as jest.Mock).mockReturnValue('nip');
 
-      const refreshCreate = jest.fn().mockResolvedValue(undefined);
-      const sessionCreate = jest.fn().mockResolvedValue(undefined);
+      // tx можно оставить минимальным - он просто передается в сервисы
+      const tx = { refreshToken: {}, session: {} };
 
       prisma.$transaction.mockImplementation(async (cb: any) => {
-        const tx = {
-          refreshToken: { create: refreshCreate },
-          session: { create: sessionCreate },
-        };
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return await cb(tx);
       });
+
+      refreshTokenService.create.mockResolvedValue({} as any);
+      sessionService.create.mockResolvedValue({ id: 'sid-uuid' } as any);
 
       tokenService.signAccessToken.mockResolvedValue('access-signed');
       tokenService.signRefreshToken.mockResolvedValue('refresh-signed');
@@ -521,25 +522,24 @@ describe('AuthService', () => {
 
       expect(normalizeIp).toHaveBeenCalledWith(' 5.5.5.5 ');
 
-      expect(refreshCreate).toHaveBeenCalledWith({
-        data: {
-          userId: 'u1',
-          jti: 'jti-uuid',
-          tokenHash: 'hash-refresh-signed',
-          ip: 'nip',
-          userAgent: 'TestUA',
-        },
-      });
+      // ✅ теперь проверяем сервисы, а не tx.model.create
+      expect(refreshTokenService.create).toHaveBeenCalledWith(
+        'u1',
+        'jti-uuid',
+        'hash-refresh-signed',
+        'nip',
+        'TestUA',
+        tx,
+      );
 
-      expect(sessionCreate).toHaveBeenCalledWith({
-        data: {
-          id: 'sid-uuid',
-          userId: 'u1',
-          refreshTokenId: 'jti-uuid',
-          ip: 'nip',
-          userAgent: 'TestUA',
-        },
-      });
+      expect(sessionService.create).toHaveBeenCalledWith(
+        'sid-uuid',
+        'u1',
+        'jti-uuid',
+        'nip',
+        'TestUA',
+        tx,
+      );
 
       expect(tokenService.signAccessToken).toHaveBeenCalledWith({
         sub: 'u1',

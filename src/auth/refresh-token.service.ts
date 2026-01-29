@@ -3,6 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { AppLogger } from 'src/logger/logger.service';
 import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 import { Prisma } from '@prisma/client';
+import { normalizeIp } from 'src/common/helpers/ip-normalize';
 
 @Injectable()
 export class RefreshTokenService {
@@ -19,17 +20,30 @@ export class RefreshTokenService {
     tokenHash: string,
     ip?: string,
     userAgent?: string,
+    tx?: Prisma.TransactionClient,
   ) {
-    const token = await this.prisma.refreshToken.create({
-      data: { userId, jti, tokenHash, ip, userAgent },
+    const db = tx ?? this.prisma;
+
+    // ✅ tests expect undefined (not null) when absent
+    const nip = ip ? normalizeIp(ip) : undefined;
+    const ua = userAgent?.trim() || undefined;
+
+    const token = await db.refreshToken.create({
+      data: {
+        userId,
+        jti,
+        tokenHash,
+        ip: nip,
+        userAgent: ua,
+      },
     });
 
     this.logger.log('Refresh token created', RefreshTokenService.name, {
       event: 'refresh_token.created',
       userId,
       jti,
-      ipMasked: ip ? maskIp(ip) : undefined,
-      uaHash: userAgent ? hashId(userAgent.trim()) : undefined,
+      ipMasked: nip ? maskIp(nip) : undefined,
+      uaHash: ua ? hashId(ua) : undefined,
     });
 
     return token;
@@ -180,9 +194,11 @@ export class RefreshTokenService {
       where: { userId, revoked: false },
     });
   }
+
   async revokeManyByJtis(
     jtis: string[],
     meta?: Record<string, unknown>,
+    tx?: Prisma.TransactionClient,
   ): Promise<Prisma.BatchPayload> {
     const uniq = [...new Set(jtis.map((x) => x?.trim()).filter(Boolean))];
 
@@ -195,7 +211,9 @@ export class RefreshTokenService {
       return { count: 0 };
     }
 
-    const result = await this.prisma.refreshToken.updateMany({
+    const db = tx ?? this.prisma;
+
+    const result = await db.refreshToken.updateMany({
       where: { jti: { in: uniq }, revoked: false },
       data: { revoked: true },
     });
