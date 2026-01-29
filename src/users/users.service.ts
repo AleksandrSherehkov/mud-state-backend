@@ -275,4 +275,17 @@ export class UsersService {
 
     return result.count;
   }
+  async getAuthSnapshotById(
+    id: string,
+  ): Promise<{ id: string; email: string; role: User['role'] } | null> {
+    this.logger.debug('Get auth snapshot by id', UsersService.name, {
+      event: 'user.auth_snapshot.by_id',
+      userId: id,
+    });
+
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true },
+    });
+  }
 }
