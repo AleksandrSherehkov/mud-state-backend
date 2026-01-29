@@ -224,57 +224,6 @@ export class UsersService {
     }
   }
 
-  async cleanRevokedTokens(olderThanDays = 7): Promise<number> {
-    const dateThreshold = new Date();
-    dateThreshold.setDate(dateThreshold.getDate() - olderThanDays);
-
-    this.logger.log('Cleanup revoked tokens start', UsersService.name, {
-      event: 'cleanup.refresh_tokens.start',
-      olderThanDays,
-      thresholdIso: dateThreshold.toISOString(),
-    });
-
-    const result = await this.prisma.refreshToken.deleteMany({
-      where: {
-        revoked: true,
-        createdAt: { lt: dateThreshold },
-      },
-    });
-
-    this.logger.log('Cleanup revoked tokens done', UsersService.name, {
-      event: 'cleanup.refresh_tokens.done',
-      deletedCount: result.count,
-      olderThanDays,
-    });
-
-    return result.count;
-  }
-
-  async cleanInactiveSessions(olderThanDays = 7): Promise<number> {
-    const dateThreshold = new Date();
-    dateThreshold.setDate(dateThreshold.getDate() - olderThanDays);
-
-    this.logger.log('Cleanup inactive sessions start', UsersService.name, {
-      event: 'cleanup.sessions.start',
-      olderThanDays,
-      thresholdIso: dateThreshold.toISOString(),
-    });
-
-    const result = await this.prisma.session.deleteMany({
-      where: {
-        isActive: false,
-        endedAt: { lt: dateThreshold },
-      },
-    });
-
-    this.logger.log('Cleanup inactive sessions done', UsersService.name, {
-      event: 'cleanup.sessions.done',
-      deletedCount: result.count,
-      olderThanDays,
-    });
-
-    return result.count;
-  }
   async getAuthSnapshotById(
     id: string,
   ): Promise<{ id: string; email: string; role: User['role'] } | null> {
