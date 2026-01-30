@@ -14,11 +14,12 @@ import { TokenService } from './token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SessionService } from './session.service';
 import { Role } from '@prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
+
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { AppLogger } from 'src/logger/logger.service';
 import { hashId, maskIp } from 'src/common/helpers/log-sanitize';
 import { AuthSecurityService } from './auth-security.service';
+import { AuthTransactionService } from './auth-transaction.service';
 
 @Injectable()
 export class AuthService {
@@ -27,7 +28,7 @@ export class AuthService {
     private readonly tokenService: TokenService,
     private readonly refreshTokenService: RefreshTokenService,
     private readonly sessionService: SessionService,
-    private readonly prisma: PrismaService,
+    private readonly tx: AuthTransactionService,
     private readonly logger: AppLogger,
     private readonly authSecurity: AuthSecurityService,
   ) {
@@ -324,7 +325,7 @@ export class AuthService {
     const tokenHash = this.tokenService.hashRefreshToken(refreshToken);
 
     try {
-      await this.prisma.$transaction(async (tx) => {
+      await this.tx.run(async (tx) => {
         await this.refreshTokenService.create(
           userId,
           refreshTokenId,

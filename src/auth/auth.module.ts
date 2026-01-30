@@ -14,6 +14,7 @@ import type { StringValue } from 'ms';
 import { AuthSecurityService } from './auth-security.service';
 import { ValidatorsModule } from 'src/common/validators/validators.module';
 import { AuthMaintenanceService } from './auth-maintenance.service';
+import { AuthTransactionService } from './auth-transaction.service';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AuthMaintenanceService } from './auth-maintenance.service';
     }),
   ],
   providers: [
+    AuthTransactionService,
     AuthService,
     AuthSecurityService,
     AuthMaintenanceService,

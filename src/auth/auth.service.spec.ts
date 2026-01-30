@@ -15,7 +15,7 @@ import { UsersService } from '../users/users.service';
 import { TokenService } from './token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SessionService } from './session.service';
-import { PrismaService } from 'src/prisma/prisma.service';
+
 import { AppLogger } from 'src/logger/logger.service';
 import { AuthSecurityService } from './auth-security.service';
 
@@ -24,6 +24,7 @@ import type { LoginDto } from './dto/login.dto';
 import type { Tokens, JwtPayload } from './types/jwt.types';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { randomUUID } from 'node:crypto';
+import { AuthTransactionService } from './auth-transaction.service';
 
 jest.mock('src/common/helpers/log-sanitize', () => ({
   hashId: jest.fn(() => 'email-hash'),
@@ -74,7 +75,7 @@ describe('AuthService', () => {
     >
   >;
 
-  let prisma: { $transaction: jest.Mock };
+  let tx: { run: jest.Mock };
 
   let logger: jest.Mocked<
     Pick<
@@ -124,8 +125,8 @@ describe('AuthService', () => {
     refreshTokenService.revokeAll.mockResolvedValue({ count: 0 } as any);
     sessionService.terminateAll.mockResolvedValue({ count: 0 } as any);
 
-    prisma = {
-      $transaction: jest.fn(),
+    tx = {
+      run: jest.fn(),
     };
 
     logger = {
@@ -151,7 +152,7 @@ describe('AuthService', () => {
       tokenService as unknown as TokenService,
       refreshTokenService as unknown as RefreshTokenService,
       sessionService as unknown as SessionService,
-      prisma as unknown as PrismaService,
+      tx as unknown as AuthTransactionService,
       logger as unknown as AppLogger,
       authSecurity as unknown as AuthSecurityService,
     );
@@ -502,11 +503,11 @@ describe('AuthService', () => {
       (normalizeIp as unknown as jest.Mock).mockReturnValue('nip');
 
       // tx можно оставить минимальным - он просто передается в сервисы
-      const tx = { refreshToken: {}, session: {} };
+      const txClient = { refreshToken: {}, session: {} };
 
-      prisma.$transaction.mockImplementation(async (cb: any) => {
+      tx.run.mockImplementation(async (cb: any) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return await cb(tx);
+        return await cb(txClient);
       });
 
       refreshTokenService.create.mockResolvedValue({} as any);
@@ -533,7 +534,7 @@ describe('AuthService', () => {
         'hash-refresh-signed',
         'nip',
         'TestUA',
-        tx,
+        txClient,
       );
 
       expect(sessionService.create).toHaveBeenCalledWith(
@@ -542,7 +543,7 @@ describe('AuthService', () => {
         'jti-uuid',
         'nip',
         'TestUA',
-        tx,
+        txClient,
       );
 
       expect(tokenService.signAccessToken).toHaveBeenCalledWith({
