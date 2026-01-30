@@ -70,8 +70,6 @@ describe('TokenCleanupJob', () => {
       deleteCronJob: jest.fn<void, [name: string]>(),
     };
 
-    // ✅ порядок аргументов как в реальном конструкторе:
-    // (config, schedulerRegistry, logger, maintenance)
     job = new TokenCleanupJob(
       config as unknown as ConfigService,
       schedulerRegistry as unknown as SchedulerRegistry,

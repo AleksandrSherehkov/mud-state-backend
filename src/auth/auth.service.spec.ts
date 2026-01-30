@@ -502,7 +502,6 @@ describe('AuthService', () => {
 
       (normalizeIp as unknown as jest.Mock).mockReturnValue('nip');
 
-      // tx можно оставить минимальным - он просто передается в сервисы
       const txClient = { refreshToken: {}, session: {} };
 
       tx.run.mockImplementation(async (cb: any) => {
@@ -527,7 +526,6 @@ describe('AuthService', () => {
 
       expect(normalizeIp).toHaveBeenCalledWith(' 5.5.5.5 ');
 
-      // ✅ теперь проверяем сервисы, а не tx.model.create
       expect(refreshTokenService.create).toHaveBeenCalledWith(
         'u1',
         'jti-uuid',

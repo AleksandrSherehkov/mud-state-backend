@@ -74,6 +74,7 @@ const isTest =
           otherwise: Joi.string().default(''),
         }),
         TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(10).default(1),
+        SWAGGER_ENABLED: Joi.boolean().default(true),
       }),
     }),
     ThrottlerModule.forRootAsync({

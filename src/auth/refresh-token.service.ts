@@ -24,7 +24,6 @@ export class RefreshTokenService {
   ) {
     const db = tx ?? this.prisma;
 
-    // ✅ tests expect undefined (not null) when absent
     const nip = ip ? normalizeIp(ip) : undefined;
     const ua = userAgent?.trim() || undefined;
 
@@ -266,7 +265,6 @@ export class RefreshTokenService {
     });
 
     if (!token || !session) {
-      // refresh() уже отдельно проверяет isSessionActive/claim, но тут оставляем защиту
       throw new UnauthorizedException('Токен відкликано або недійсний');
     }
 
@@ -285,7 +283,6 @@ export class RefreshTokenService {
       (!!tokenUa && !!reqUa && tokenUa !== reqUa) ||
       (!!sessUa && !!reqUa && sessUa !== reqUa);
 
-    // IP mismatch (мягко): проверяем только если обе стороны известны
     const ipMismatch =
       (!!tokenIp && !!reqIp && tokenIp !== reqIp) ||
       (!!sessIp && !!reqIp && sessIp !== reqIp);
@@ -310,7 +307,6 @@ export class RefreshTokenService {
         },
       );
 
-      // “по-взрослому”: при подозрении — глобальный revoke + terminate
       await Promise.all([
         this.prisma.refreshToken.updateMany({
           where: { userId: params.userId, revoked: false },

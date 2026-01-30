@@ -34,7 +34,6 @@ function getPath(req: ReqLike): string {
 }
 
 function getIpFromReqIp(req: ReqLike): string | undefined {
-  // req.ip уже учитывает trust proxy (если он настроен правильно)
   return firstNonEmptyString(req.ip);
 }
 
