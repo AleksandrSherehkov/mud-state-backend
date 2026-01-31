@@ -11,8 +11,9 @@ import * as bcrypt from 'bcrypt';
 import { Tokens, JwtPayload } from './types/jwt.types';
 import { randomUUID } from 'node:crypto';
 import { TokenService } from './token.service';
-import { RefreshTokenService } from './refresh-token.service';
-import { SessionService } from './session.service';
+import { RefreshTokenService } from 'src/sessions/refresh-token.service';
+import { SessionService } from 'src/sessions/session.service';
+
 import { Role } from '@prisma/client';
 
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
@@ -303,7 +304,7 @@ export class AuthService {
     ip?: string,
     userAgent?: string,
   ): Promise<Tokens> {
-    const refreshTokenId = randomUUID();
+    const refreshJti = randomUUID();
     const sessionId = randomUUID();
 
     const nip: string | null = ip ? normalizeIp(ip) : null;
@@ -312,7 +313,7 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: userId,
       email,
-      jti: refreshTokenId,
+      jti: refreshJti,
       role,
       sid: sessionId,
     };
@@ -328,7 +329,7 @@ export class AuthService {
       await this.tx.run(async (tx) => {
         await this.refreshTokenService.create(
           userId,
-          refreshTokenId,
+          refreshJti,
           tokenHash,
           nip ?? undefined,
           ua ?? undefined,
@@ -338,7 +339,7 @@ export class AuthService {
         await this.sessionService.create(
           sessionId,
           userId,
-          refreshTokenId,
+          refreshJti,
           nip ?? undefined,
           ua ?? undefined,
           tx,
@@ -356,7 +357,7 @@ export class AuthService {
           event: 'auth.tokens.issue_failed',
           userId,
           role,
-          jti: refreshTokenId,
+          jti: refreshJti,
           sid: sessionId,
           ipMasked: nip ? maskIp(nip) : undefined,
           uaHash: ua ? hashId(ua) : undefined,
@@ -372,12 +373,12 @@ export class AuthService {
       event: 'auth.tokens.issued',
       userId,
       role,
-      jti: refreshTokenId,
+      jti: refreshJti,
       sid: sessionId,
       ipMasked: nip ? maskIp(nip) : undefined,
       uaHash: ua ? hashId(ua) : undefined,
     });
 
-    return { accessToken, refreshToken, jti: refreshTokenId };
+    return { accessToken, refreshToken, jti: refreshJti };
   }
 }

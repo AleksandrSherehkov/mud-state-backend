@@ -3,7 +3,7 @@ import type { ConfigService } from '@nestjs/config';
 import { Role } from '@prisma/client';
 
 import { JwtStrategy } from './jwt.strategy';
-import type { SessionService } from '../session.service';
+import type { SessionService } from '../../sessions/session.service';
 import type { UsersService } from 'src/users/users.service';
 import type { AppLogger } from 'src/logger/logger.service';
 import type { JwtPayload } from '../types/jwt.types';

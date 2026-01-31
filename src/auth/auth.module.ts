@@ -7,14 +7,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { TokenService } from './token.service';
-import { RefreshTokenService } from './refresh-token.service';
-import { SessionService } from './session.service';
 import { LoggerModule } from 'src/logger/logger.module';
 import type { StringValue } from 'ms';
 import { AuthSecurityService } from './auth-security.service';
 import { ValidatorsModule } from 'src/common/validators/validators.module';
 import { AuthMaintenanceService } from './auth-maintenance.service';
 import { AuthTransactionService } from './auth-transaction.service';
+import { SessionsModule } from 'src/sessions/sessions.module';
 
 @Module({
   imports: [
@@ -22,6 +21,7 @@ import { AuthTransactionService } from './auth-transaction.service';
     PrismaModule,
     LoggerModule,
     ValidatorsModule,
+    SessionsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -43,8 +43,6 @@ import { AuthTransactionService } from './auth-transaction.service';
     AuthMaintenanceService,
     JwtStrategy,
     TokenService,
-    RefreshTokenService,
-    SessionService,
   ],
   exports: [AuthService, AuthMaintenanceService],
   controllers: [AuthController],

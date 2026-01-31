@@ -1,6 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 
-import { RefreshTokenService } from './refresh-token.service';
+import { RefreshTokenService } from '../sessions/refresh-token.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AppLogger } from 'src/logger/logger.service';
 

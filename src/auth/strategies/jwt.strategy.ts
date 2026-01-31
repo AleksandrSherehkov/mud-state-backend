@@ -4,7 +4,8 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 
 import { JwtPayload } from '../types/jwt.types';
-import { SessionService } from '../session.service';
+import { SessionService } from 'src/sessions/session.service';
+
 import { UsersService } from 'src/users/users.service';
 import { AppLogger } from 'src/logger/logger.service';
 

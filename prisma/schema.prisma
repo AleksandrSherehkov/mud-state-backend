@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-
 }
 
 enum Role {
@@ -15,14 +14,14 @@ enum Role {
 
 model User {
   id            String         @id @default(uuid())
-  email     String @db.Citext @unique
+  email         String         @unique @db.Citext
   password      String
-  role          Role     @default(USER)
+  role          Role           @default(USER)
   characters    Character[]
   refreshTokens RefreshToken[]
   sessions      Session[]
   createdAt     DateTime       @default(now())
-  security UserSecurity?
+  security      UserSecurity?
 }
 
 model Character {
@@ -38,8 +37,7 @@ model Character {
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  jti       String @unique
+  jti       String   @id @db.Uuid
   tokenHash String   @db.VarChar(64)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -54,32 +52,30 @@ model RefreshToken {
 }
 
 model Session {
-  id             String        @id @default(uuid())
-  userId         String
-  refreshTokenId String?
-  refreshToken   RefreshToken? @relation("SessionToRefreshToken", fields: [refreshTokenId], references: [jti], onDelete: SetNull)
-  ip             String?
-  userAgent      String?
-  isActive       Boolean       @default(true)
-  startedAt      DateTime      @default(now())
-  endedAt        DateTime?
+  id              String        @id @default(uuid())
+  userId          String
+  refreshTokenJti String? @db.Uuid 
+  refreshToken    RefreshToken? @relation("SessionToRefreshToken", fields: [refreshTokenJti], references: [jti], onDelete: SetNull)
+  ip              String?
+  userAgent       String?
+  isActive        Boolean       @default(true)
+  startedAt       DateTime      @default(now())
+  endedAt         DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isActive])
-  @@index([refreshTokenId, isActive])
+  @@index([refreshTokenJti])
 }
 
 model UserSecurity {
-  userId       String   @id
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  
-  failedLoginCount Int      @default(0)
+  failedLoginCount Int       @default(0)
   lastFailedAt     DateTime?
   lockedUntil      DateTime?
 
-  
   lastFailedIp     String?
   lastFailedUaHash String?
 

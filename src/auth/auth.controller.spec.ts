@@ -14,8 +14,8 @@ import {
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { SessionService } from './session.service';
-import { RefreshTokenService } from './refresh-token.service';
+import { SessionService } from '../sessions/session.service';
+import { RefreshTokenService } from '../sessions/refresh-token.service';
 import { UsersService } from 'src/users/users.service';
 
 import { RegisterDto } from './dto/register.dto';

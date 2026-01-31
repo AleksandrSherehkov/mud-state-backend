@@ -19,7 +19,7 @@ export class SessionService {
   async create(
     sessionId: string,
     userId: string,
-    refreshTokenId: string,
+    refreshTokenJti: string,
     ip?: string,
     userAgent?: string,
     tx?: Prisma.TransactionClient,
@@ -33,7 +33,7 @@ export class SessionService {
       data: {
         id: sessionId,
         userId,
-        refreshTokenId,
+        refreshTokenJti,
         ip: nip,
         userAgent: ua,
       },
@@ -43,7 +43,7 @@ export class SessionService {
       event: 'session.created',
       userId,
       sid: sessionId,
-      jti: refreshTokenId,
+      jti: refreshTokenJti,
       ipMasked: nip ? maskIp(nip) : undefined,
       uaHash: ua ? hashId(ua) : undefined,
     });
@@ -93,7 +93,7 @@ export class SessionService {
   ): Promise<Prisma.BatchPayload> {
     const sessions = await this.prisma.session.findMany({
       where: { ...where, isActive: true },
-      select: { id: true, refreshTokenId: true },
+      select: { id: true, refreshTokenJti: true },
     });
 
     if (sessions.length === 0) {
@@ -114,7 +114,7 @@ export class SessionService {
     const jtis = [
       ...new Set(
         sessions
-          .map((s) => s.refreshTokenId)
+          .map((s) => s.refreshTokenJti)
           .filter((x): x is string => !!x)
           .map((x) => x.trim()),
       ),
@@ -200,7 +200,7 @@ export class SessionService {
 
   async terminateByRefreshToken(jti: string) {
     return this.terminateSessions(
-      { refreshTokenId: jti },
+      { refreshTokenJti: jti },
       { jti, reason: 'by_refresh_token' },
     );
   }

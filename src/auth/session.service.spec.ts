@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
-import { SessionService } from './session.service';
+import { SessionService } from '../sessions/session.service';
 import type { PrismaService } from 'src/prisma/prisma.service';
 import type { AppLogger } from 'src/logger/logger.service';
 
@@ -16,7 +16,7 @@ jest.mock('src/common/helpers/log-sanitize', () => ({
   hashId: jest.fn(),
 }));
 import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
-import type { RefreshTokenService } from './refresh-token.service';
+import type { RefreshTokenService } from '../sessions/refresh-token.service';
 
 type PrismaSessionModel = {
   create: jest.Mock<Promise<{ id: string }>, [args: any]>;

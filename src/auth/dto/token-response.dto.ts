@@ -6,9 +6,20 @@ export class TokenResponseDto {
 
   @ApiProperty({ example: 'refresh.jwt.token' })
   refreshToken: string;
+
   @ApiProperty({
     example: 'uuid',
     description: 'a3f1e5b2-1c4d-4e6f-9a8b-1234567890ab',
   })
   jti: string;
+
+  constructor(data: {
+    accessToken: string;
+    refreshToken: string;
+    jti: string;
+  }) {
+    this.accessToken = data.accessToken;
+    this.refreshToken = data.refreshToken;
+    this.jti = data.jti;
+  }
 }

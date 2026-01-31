@@ -13,8 +13,8 @@ import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { TokenService } from './token.service';
-import { RefreshTokenService } from './refresh-token.service';
-import { SessionService } from './session.service';
+import { RefreshTokenService } from '../sessions/refresh-token.service';
+import { SessionService } from '../sessions/session.service';
 
 import { AppLogger } from 'src/logger/logger.service';
 import { AuthSecurityService } from './auth-security.service';
