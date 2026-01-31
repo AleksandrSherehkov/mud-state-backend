@@ -110,7 +110,7 @@ export class AuthService {
     ip?: string,
     userAgent?: string,
   ): Promise<Tokens> {
-    let payload: JwtPayload & { jti: string };
+    let payload: JwtPayload;
 
     try {
       payload = await this.tokenService.verifyRefreshToken(refreshToken);

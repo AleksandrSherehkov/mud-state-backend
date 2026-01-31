@@ -22,9 +22,9 @@ import {
   ApiMutationErrorResponses,
   ApiQueryErrorResponses,
 } from 'src/common/swagger/api-exceptions';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { SkipThrottle } from '@nestjs/throttler';
 import { UpdateUserDto } from './dto/update-user.dto';

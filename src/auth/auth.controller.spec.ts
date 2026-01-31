@@ -21,7 +21,7 @@ import { UsersService } from 'src/users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
-import { TerminateSessionDto } from './dto/terminate-session.dto';
+import { TerminateSessionDto } from '../sessions/dto/terminate-session.dto';
 
 import { RegisterResponseDto } from './dto/register-response.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';

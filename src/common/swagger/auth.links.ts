@@ -9,11 +9,11 @@ import { RegisterResponseDto } from 'src/auth/dto/register-response.dto';
 import { TokenResponseDto } from 'src/auth/dto/token-response.dto';
 import { LogoutResponseDto } from 'src/auth/dto/logout-response.dto';
 import { MeResponseDto } from 'src/auth/dto/me-response.dto';
-import { FullSessionDto } from 'src/auth/dto/full-session.dto';
-import { ActiveSessionDto } from 'src/auth/dto/active-session.dto';
-import { RefreshTokenSessionDto } from 'src/auth/dto/refresh-token-session.dto';
-import { TerminateCountResponseDto } from 'src/auth/dto/terminate-count-response.dto';
-import { TerminateResultDto } from 'src/auth/dto/terminate-result.dto';
+import { FullSessionDto } from 'src/sessions/dto/full-session.dto';
+import { ActiveSessionDto } from 'src/sessions/dto/active-session.dto';
+import { RefreshTokenSessionDto } from 'src/sessions/dto/refresh-token-session.dto';
+import { TerminateCountResponseDto } from 'src/sessions/dto/terminate-count-response.dto';
+import { TerminateResultDto } from 'src/sessions/dto/terminate-result.dto';
 
 export const ApiAuthLinks = {
   register201() {

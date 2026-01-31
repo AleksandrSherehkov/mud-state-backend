@@ -9,7 +9,7 @@ export type Tokens = {
 export type JwtPayload = {
   sub: string;
   email: string;
-  jti: string;
   role: Role;
+  jti: string;
   sid: string;
 };

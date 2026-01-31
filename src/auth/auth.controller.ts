@@ -21,8 +21,8 @@ import {
   ApiMutationErrorResponses,
   ApiQueryErrorResponses,
 } from 'src/common/swagger/api-exceptions';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { CurrentUser } from './decorators/current-user.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 
 import { TokenResponseDto } from './dto/token-response.dto';
