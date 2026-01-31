@@ -4,12 +4,14 @@ import { AppLogger } from 'src/logger/logger.service';
 import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 import { Prisma } from '@prisma/client';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class RefreshTokenService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLogger,
+    private readonly config: ConfigService,
   ) {
     this.logger.setContext(RefreshTokenService.name);
   }
@@ -279,13 +281,20 @@ export class RefreshTokenService {
 
     // ---- политика (по умолчанию UA-only) ----
     // UA mismatch => блок
-    const uaMismatch =
-      (!!tokenUa && !!reqUa && tokenUa !== reqUa) ||
-      (!!sessUa && !!reqUa && sessUa !== reqUa);
+    const bindUa = Boolean(this.config.get<boolean>('REFRESH_BIND_UA'));
+    const bindIp = Boolean(this.config.get<boolean>('REFRESH_BIND_IP'));
 
+    // UA mismatch => блок (если включено)
+    const uaMismatch =
+      bindUa &&
+      ((!!tokenUa && !!reqUa && tokenUa !== reqUa) ||
+        (!!sessUa && !!reqUa && sessUa !== reqUa));
+
+    // IP mismatch => блок (если включено)
     const ipMismatch =
-      (!!tokenIp && !!reqIp && tokenIp !== reqIp) ||
-      (!!sessIp && !!reqIp && sessIp !== reqIp);
+      bindIp &&
+      ((!!tokenIp && !!reqIp && tokenIp !== reqIp) ||
+        (!!sessIp && !!reqIp && sessIp !== reqIp));
 
     if (uaMismatch || ipMismatch) {
       this.logger.warn(
@@ -296,6 +305,8 @@ export class RefreshTokenService {
           userId: params.userId,
           jti: params.jti,
           sid: params.sid,
+          bindUa,
+          bindIp,
           ipMismatch,
           uaMismatch,
           tokenIpMasked: tokenIp ? maskIp(tokenIp) : undefined,

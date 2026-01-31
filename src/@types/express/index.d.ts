@@ -1,5 +1,5 @@
 import 'express';
-import { UserFromJwt } from 'src/auth/types/user-from-jwt';
+import { UserFromJwt } from 'src/common/types/user-from-jwt';
 
 declare module 'express' {
   interface Request {

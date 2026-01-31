@@ -56,6 +56,8 @@ const isTest =
         TOKEN_CLEANUP_DAYS: Joi.number().min(1).max(365).default(7),
         TOKEN_CLEANUP_CRON: Joi.string().default('0 0 * * *'),
         REFRESH_TOKEN_PEPPER: Joi.string().length(64).hex().required(),
+        REFRESH_BIND_UA: Joi.boolean().default(true),
+        REFRESH_BIND_IP: Joi.boolean().default(false),
         AUTH_LOCK_MAX_ATTEMPTS: Joi.number().min(3).max(50).default(10),
         AUTH_LOCK_BASE_SECONDS: Joi.number().min(1).max(60).default(2),
         AUTH_LOCK_MAX_SECONDS: Joi.number().min(10).max(3600).default(300),
