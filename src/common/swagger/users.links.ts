@@ -8,13 +8,9 @@ export const ApiUsersLinks = {
     return applyDecorators(
       ApiExtraModels(PublicUserDto),
       ApiOkResponse({
-        description: 'Знайдений користувач',
+        description: 'Користувач знайдений',
         type: PublicUserDto,
         links: {
-          getByEmail: {
-            operationId: 'users_getByEmail',
-            description: 'Далі: знайти користувача за email',
-          },
           update: {
             operationId: 'users_update',
             description: 'Далі: оновити користувача (ADMIN)',
@@ -22,6 +18,10 @@ export const ApiUsersLinks = {
           delete: {
             operationId: 'users_delete',
             description: 'Далі: видалити користувача (ADMIN)',
+          },
+          getByEmail: {
+            operationId: 'users_getByEmail',
+            description: 'Далі: знайти користувача за email (ADMIN/MODERATOR)',
           },
         },
       }),
@@ -32,12 +32,12 @@ export const ApiUsersLinks = {
     return applyDecorators(
       ApiExtraModels(PublicUserDto),
       ApiOkResponse({
-        description: 'Знайдений користувач',
+        description: 'Користувач знайдений',
         type: PublicUserDto,
         links: {
           getById: {
             operationId: 'users_getById',
-            description: 'Далі: отримати користувача за ID',
+            description: 'Далі: отримати користувача за ID (ADMIN/MODERATOR)',
           },
           update: {
             operationId: 'users_update',
@@ -56,16 +56,12 @@ export const ApiUsersLinks = {
     return applyDecorators(
       ApiExtraModels(PublicUserDto),
       ApiOkResponse({
-        description: 'Користувача оновлено',
+        description: 'Користувач оновлений',
         type: PublicUserDto,
         links: {
           getById: {
             operationId: 'users_getById',
-            description: 'Далі: перевірити користувача за ID',
-          },
-          getByEmail: {
-            operationId: 'users_getByEmail',
-            description: 'Далі: перевірити користувача за email',
+            description: 'Далі: перевірити користувача за ID (ADMIN/MODERATOR)',
           },
           delete: {
             operationId: 'users_delete',
@@ -80,19 +76,16 @@ export const ApiUsersLinks = {
     return applyDecorators(
       ApiExtraModels(PublicUserDto),
       ApiOkResponse({
-        description: 'Користувача видалено',
+        description: 'Користувач видалений',
         type: PublicUserDto,
         links: {
-          getById: {
-            operationId: 'users_getById',
-            description: 'Далі: перевірити, що користувача немає',
-          },
           getByEmail: {
             operationId: 'users_getByEmail',
-            description: 'Далі: перевірити, що користувача немає',
+            description:
+              'Далі: перевірити, що користувача більше нема (ADMIN/MODERATOR)',
           },
         },
       }),
     );
   },
-} as const;
+};

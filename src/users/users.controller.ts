@@ -47,7 +47,7 @@ export class UsersController {
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Отримати користувача за ID',
+    summary: 'Отримати користувача за ID (ADMIN/MODERATOR)',
     operationId: 'users_getById',
   })
   @ApiRolesAccess([Role.ADMIN, Role.MODERATOR], {
@@ -77,7 +77,7 @@ export class UsersController {
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Пошук користувача за email',
+    summary: 'Пошук користувача за email (ADMIN/MODERATOR)',
     operationId: 'users_getByEmail',
   })
   @ApiRolesAccess([Role.ADMIN, Role.MODERATOR], {
@@ -110,7 +110,7 @@ export class UsersController {
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Оновити користувача',
+    summary: 'Оновити користувача (ADMIN)',
     operationId: 'users_update',
   })
   @ApiRolesAccess([Role.ADMIN], {
@@ -143,7 +143,7 @@ export class UsersController {
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Видалити користувача',
+    summary: 'Видалити користувача (ADMIN)',
     operationId: 'users_delete',
   })
   @ApiRolesAccess([Role.ADMIN], {

@@ -1,21 +1,16 @@
-export const USERS_SIDE_EFFECTS = {
-  getById: 'Side effects відсутні: лише читання профілю користувача.',
+export const USERS_SIDE_EFFECTS: Record<
+  'getById' | 'getByEmail' | 'update' | 'delete',
+  string[]
+> = {
+  getById: ['Читання користувача з БД за ID'],
 
-  getByEmail: [
-    'Side effects відсутні: лише читання профілю користувача.',
-    'Email нормалізується на рівні DTO (trim).',
-    'Пошук у сервісі виконується по normalizeEmail (trim + lowercase).',
-  ].join('\n'),
+  getByEmail: ['Пошук користувача в БД за email'],
 
   update: [
-    'Оновлює поля користувача (email/password/role) у БД.',
-    'Email (якщо переданий) нормалізується: trim + lowercase.',
-    'Password (якщо переданий) буде перехешовано (bcrypt).',
-    'Може завершитися Conflict (email дублюється).',
-  ].join('\n'),
+    'Оновлення даних користувача (partial update)',
+    'Можливе хешування пароля (якщо пароль змінюється)',
+    'Зміна ролі (якщо передано role)',
+  ],
 
-  delete: [
-    'Видаляє користувача з БД за UUID.',
-    'Повертає публічні дані видаленого користувача.',
-  ].join('\n'),
-} as const;
+  delete: ['Видалення користувача з БД (незворотно)'],
+};

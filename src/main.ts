@@ -73,9 +73,10 @@ async function bootstrap() {
 
   // ---- swagger ----
   const appEnv = configService.get<string>('APP_ENV') ?? 'development';
-  const swaggerEnabled = Boolean(configService.get<boolean>('SWAGGER_ENABLED'));
+  const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED') ?? false;
 
   const shouldEnableSwagger = swaggerEnabled && appEnv !== 'production';
+  const apiBase = `${baseUrl}/${apiPrefix}/v${apiVersion}`;
 
   if (shouldEnableSwagger) {
     const config = new DocumentBuilder()
@@ -83,7 +84,7 @@ async function bootstrap() {
       .setDescription('API for the MUD simulation state backend')
       .setVersion('1.0')
       .addBearerAuth()
-      .addServer(baseUrl, 'Base server')
+      .addServer(apiBase, 'API base')
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
@@ -94,7 +95,6 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
 
-  const apiBase = `${baseUrl}/${apiPrefix}/v${apiVersion}`;
   logger.log('==============================', 'Bootstrap');
   logger.log('✅ APP STARTED', 'Bootstrap');
   logger.log(`🔌 Listening on port: ${port}`, 'Bootstrap');
