@@ -27,9 +27,6 @@ export class AuthSecurityService {
     };
   }
 
-  /**
-   * Проверка "можно ли логиниться" (если user найден)
-   */
   async assertNotLocked(userId: string) {
     const sec = await this.prisma.userSecurity.findUnique({
       where: { userId },
@@ -51,9 +48,6 @@ export class AuthSecurityService {
     }
   }
 
-  /**
-   * Регистрируем неудачную попытку и выставляем lock/delay.
-   */
   async onLoginFailed(params: {
     userId: string;
     ip?: string | null;
@@ -132,9 +126,6 @@ export class AuthSecurityService {
     throw new UnauthorizedException('Невірний email або пароль');
   }
 
-  /**
-   * Успешный логин: сброс счётчиков.
-   */
   async onLoginSuccess(userId: string) {
     await this.prisma.userSecurity.upsert({
       where: { userId },
