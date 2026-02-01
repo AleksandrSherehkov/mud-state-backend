@@ -1,7 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class FullSessionDto {
-  @ApiProperty({ example: 'sess_xyz789' })
+  @ApiProperty({
+    example: 'a3f1e5b2-1c4d-4e6f-9a8b-1234567890ab',
+    format: 'uuid',
+  })
   id: string;
 
   @ApiProperty({ example: '192.168.1.1' })

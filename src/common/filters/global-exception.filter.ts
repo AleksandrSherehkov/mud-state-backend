@@ -12,6 +12,29 @@ import { AppLogger } from 'src/logger/logger.service';
 import { extractRequestInfo } from 'src/common/helpers/request-info';
 import { getRequestId } from 'src/common/request-context/request-context';
 import { maskIp } from 'src/common/helpers/log-sanitize';
+import { UserFromJwt } from 'src/common/types/user-from-jwt';
+
+type ErrorBody = {
+  statusCode: number;
+  message: string | string[];
+  error: string;
+  timestamp: string;
+  path: string;
+  requestId?: string;
+};
+
+function isUserFromJwt(v: unknown): v is UserFromJwt {
+  if (!v || typeof v !== 'object') return false;
+
+  const u = v as Partial<UserFromJwt>;
+
+  return (
+    typeof u.userId === 'string' &&
+    typeof u.email === 'string' &&
+    typeof u.sid === 'string' &&
+    typeof u.role === 'string'
+  );
+}
 
 @Catch()
 @Injectable()
@@ -38,7 +61,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     const { ip, userAgent } = extractRequestInfo(req);
 
-    const user = req.user;
+    const rawUser: unknown = (req as Request & { user?: unknown }).user;
+    const user = isUserFromJwt(rawUser) ? rawUser : undefined;
 
     const status =
       exception instanceof HttpException
@@ -79,22 +103,75 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         !this.isProd && exception instanceof Error
           ? exception.stack
           : undefined;
-
       this.logger.error(logMessage, trace, GlobalExceptionFilter.name, meta);
     } else {
       this.logger.warn(logMessage, GlobalExceptionFilter.name, meta);
     }
 
-    if (exception instanceof HttpException) {
-      const body = exception.getResponse();
-      return res.status(status).json(body);
+    const body = normalizeErrorBody(exception, status, req.path, requestId);
+    return res.status(status).json(body);
+  }
+}
+
+function normalizeErrorBody(
+  exception: unknown,
+  status: number,
+  path: string,
+  requestId?: string,
+): ErrorBody {
+  const timestamp = new Date().toISOString();
+
+  if (exception instanceof HttpException) {
+    const r = exception.getResponse();
+
+    // Nest ValidationPipe обычно отдаёт { statusCode, message: string[], error }
+    if (r && typeof r === 'object') {
+      const o = r as Record<string, unknown>;
+
+      const message = Array.isArray(o.message)
+        ? o.message.filter((x) => typeof x === 'string')
+        : typeof o.message === 'string'
+          ? o.message
+          : exception.message;
+
+      const error =
+        typeof o.error === 'string'
+          ? o.error
+          : typeof o.statusCode === 'number'
+            ? (HttpStatus[status] ?? 'Error')
+            : 'Error';
+
+      return {
+        statusCode: status,
+        message,
+        error,
+        timestamp,
+        path,
+        requestId,
+      };
     }
 
-    return res.status(status).json({
+    // если getResponse() строка — приводим к нормальной форме
+    const msg = typeof r === 'string' ? r : exception.message;
+
+    return {
       statusCode: status,
-      message: status >= 500 ? 'Internal server error' : 'Error',
-    });
+      message: msg,
+      error: HttpStatus[status] ?? 'Error',
+      timestamp,
+      path,
+      requestId,
+    };
   }
+
+  return {
+    statusCode: status,
+    message: status >= 500 ? 'Internal server error' : 'Error',
+    error: HttpStatus[status] ?? 'Error',
+    timestamp,
+    path,
+    requestId,
+  };
 }
 
 function safeHttpExceptionMessage(ex: HttpException): string {

@@ -78,6 +78,7 @@ export class SessionsController {
   @ApiSessionsLinks.mySessions200()
   @ApiQueryErrorResponses({
     includeBadRequest: false,
+    includeTooManyRequests: false,
     notFoundMessage: 'Ресурс не знайдено',
   })
   async mySessions(
@@ -106,6 +107,7 @@ export class SessionsController {
     includeConflict: false,
     includeForbidden: false,
     includeBadRequest: false,
+    includeTooManyRequests: false,
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
     unauthorizedMessageExample: 'Session is not active',
   })
@@ -140,6 +142,7 @@ export class SessionsController {
   @ApiMutationErrorResponses({
     includeConflict: false,
     includeForbidden: false,
+    includeTooManyRequests: false,
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
     unauthorizedMessageExample: 'Session is not active',
   })
@@ -180,6 +183,7 @@ export class SessionsController {
   @ApiQueryErrorResponses({
     notFoundMessage: 'Ресурс не знайдено',
     includeBadRequest: false,
+    includeTooManyRequests: false,
   })
   async getUserSessions(
     @Param('userId') userId: string,

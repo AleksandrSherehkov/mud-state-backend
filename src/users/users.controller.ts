@@ -64,7 +64,10 @@ export class UsersController {
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @ApiUsersLinks.getById200()
-  @ApiQueryErrorResponses('Користувача не знайдено')
+  @ApiQueryErrorResponses({
+    notFoundMessage: 'Користувача не знайдено',
+    includeTooManyRequests: false,
+  })
   async getById(@Param('id') id: string) {
     const user = await this.usersService.findById(id);
     if (!user) throw new NotFoundException('Користувача не знайдено');
@@ -97,7 +100,10 @@ export class UsersController {
     },
   })
   @ApiUsersLinks.getByEmail200()
-  @ApiQueryErrorResponses('Користувача не знайдено')
+  @ApiQueryErrorResponses({
+    notFoundMessage: 'Користувача не знайдено',
+    includeTooManyRequests: false,
+  })
   async getByEmail(@Query() query: GetUserByEmailQueryDto) {
     const user = await this.usersService.findByEmail(query.email);
     if (!user) throw new NotFoundException('Користувача не знайдено');
@@ -131,6 +137,7 @@ export class UsersController {
     notFoundMessage: 'Користувача не знайдено',
     conflictDescription: 'Email вже використовується',
     conflictMessageExample: 'Email вже використовується',
+    includeTooManyRequests: false,
   })
   async update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     const user = await this.usersService.updateUser(id, dto);
@@ -163,6 +170,7 @@ export class UsersController {
   @ApiMutationErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
     includeConflict: false,
+    includeTooManyRequests: false,
   })
   async delete(@Param('id') id: string) {
     const user = await this.usersService.deleteUser(id);

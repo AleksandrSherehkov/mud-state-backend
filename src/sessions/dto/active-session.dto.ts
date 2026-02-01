@@ -2,8 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class ActiveSessionDto {
   @ApiProperty({
+    example: 'a3f1e5b2-1c4d-4e6f-9a8b-1234567890ab',
     format: 'uuid',
-    example: '550e8400-e29b-41d4-a716-446655440000',
   })
   id: string;
 

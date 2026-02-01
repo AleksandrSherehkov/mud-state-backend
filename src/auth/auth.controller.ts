@@ -150,10 +150,12 @@ export class AuthController {
   @ApiAuthLinks.logout200()
   @ApiMutationErrorResponses({
     includeConflict: false,
-    includeBadRequest: false,
+    includeTooManyRequests: false,
     notFoundMessage: 'Користувача не знайдено',
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
     unauthorizedMessageExample: 'Session is not active',
+    badRequestDescription: 'Користувач вже вийшов із системи',
+    badRequestMessageExample: 'Користувач вже вийшов із системи',
   })
   async logout(
     @CurrentUser('userId') userId: string,
@@ -183,6 +185,7 @@ export class AuthController {
   @ApiQueryErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
     includeBadRequest: false,
+    includeTooManyRequests: false,
   })
   async getMe(@CurrentUser('userId') userId: string): Promise<MeResponseDto> {
     const user = await this.authService.getMe(userId);

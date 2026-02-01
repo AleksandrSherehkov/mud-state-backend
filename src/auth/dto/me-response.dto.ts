@@ -20,6 +20,8 @@ export class MeResponseDto {
   @ApiProperty({
     example: '2025-05-31T14:16:08.682Z',
     description: 'Дата створення',
+    type: String,
+    format: 'date-time',
   })
   createdAt: Date;
 
