@@ -4,7 +4,6 @@ import {
   Controller,
   Get,
   HttpCode,
-  NotFoundException,
   Post,
   Req,
   UseGuards,
@@ -28,11 +27,8 @@ import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { TokenResponseDto } from './dto/token-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { extractRequestInfo } from 'src/common/helpers/request-info';
-
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
-
-import { UsersService } from 'src/users/users.service';
 import { ApiRolesAccess } from 'src/common/swagger/api-roles';
 import { AUTH_SIDE_EFFECTS } from 'src/common/swagger/auth.swagger';
 import { ApiAuthLinks } from 'src/common/swagger/auth.links';
@@ -43,10 +39,7 @@ import { ApiAuthLinks } from 'src/common/swagger/auth.links';
   version: '1',
 })
 export class AuthController {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly usersService: UsersService,
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Post('register')
   @HttpCode(201)
@@ -192,10 +185,7 @@ export class AuthController {
     includeBadRequest: false,
   })
   async getMe(@CurrentUser('userId') userId: string): Promise<MeResponseDto> {
-    const user = await this.usersService.findById(userId);
-    if (!user) {
-      throw new NotFoundException('Користувача не знайдено');
-    }
+    const user = await this.authService.getMe(userId);
     return new MeResponseDto(user);
   }
 }

@@ -5,9 +5,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { AppLogger } from 'src/logger/logger.service';
 import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 import { RefreshTokenService } from './refresh-token.service';
+import { AuthSessionsPort } from 'src/auth/ports/auth-sessions.port';
 
 @Injectable()
-export class SessionService {
+export class SessionService implements AuthSessionsPort {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLogger,

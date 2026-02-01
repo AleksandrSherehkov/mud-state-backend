@@ -5,9 +5,10 @@ import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 import { Prisma } from '@prisma/client';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { ConfigService } from '@nestjs/config';
+import { AuthRefreshTokensPort } from 'src/auth/ports/auth-refresh-tokens.port';
 
 @Injectable()
-export class RefreshTokenService {
+export class RefreshTokenService implements AuthRefreshTokensPort {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLogger,
@@ -251,6 +252,11 @@ export class RefreshTokenService {
     ip?: string | null;
     userAgent?: string | null;
   }) {
+    const bindUa = Boolean(this.config.get<boolean>('REFRESH_BIND_UA'));
+    const bindIp = Boolean(this.config.get<boolean>('REFRESH_BIND_IP'));
+
+    if (!bindUa && !bindIp) return;
+
     const token = await this.prisma.refreshToken.findFirst({
       where: { userId: params.userId, jti: params.jti, revoked: false },
       select: { ip: true, userAgent: true },
@@ -270,7 +276,7 @@ export class RefreshTokenService {
       throw new UnauthorizedException('Токен відкликано або недійсний');
     }
 
-    const reqIp = params.ip ?? null;
+    const reqIp = params.ip ? normalizeIp(params.ip) : null;
     const reqUa = (params.userAgent ?? '').trim() || null;
 
     const tokenIp = token.ip ?? null;
@@ -279,22 +285,15 @@ export class RefreshTokenService {
     const sessIp = session.ip ?? null;
     const sessUa = (session.userAgent ?? '').trim() || null;
 
-    // ---- политика (по умолчанию UA-only) ----
-    // UA mismatch => блок
-    const bindUa = Boolean(this.config.get<boolean>('REFRESH_BIND_UA'));
-    const bindIp = Boolean(this.config.get<boolean>('REFRESH_BIND_IP'));
-
-    // UA mismatch => блок (если включено)
     const uaMismatch =
       bindUa &&
-      ((!!tokenUa && !!reqUa && tokenUa !== reqUa) ||
-        (!!sessUa && !!reqUa && sessUa !== reqUa));
+      ((!!tokenUa && (!reqUa || tokenUa !== reqUa)) ||
+        (!!sessUa && (!reqUa || sessUa !== reqUa)));
 
-    // IP mismatch => блок (если включено)
     const ipMismatch =
       bindIp &&
-      ((!!tokenIp && !!reqIp && tokenIp !== reqIp) ||
-        (!!sessIp && !!reqIp && sessIp !== reqIp));
+      ((!!tokenIp && (!reqIp || tokenIp !== reqIp)) ||
+        (!!sessIp && (!reqIp || sessIp !== reqIp)));
 
     if (uaMismatch || ipMismatch) {
       this.logger.warn(
@@ -318,7 +317,7 @@ export class RefreshTokenService {
         },
       );
 
-      await Promise.all([
+      await this.prisma.$transaction([
         this.prisma.refreshToken.updateMany({
           where: { userId: params.userId, revoked: false },
           data: { revoked: true },

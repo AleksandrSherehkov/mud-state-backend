@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AppLogger } from 'src/logger/logger.service';
 import { hashId } from 'src/common/helpers/log-sanitize';
+import { AuthUsersPort } from 'src/auth/ports/auth-users.port';
 
 function errMeta(err: unknown) {
   if (err instanceof Error) {
@@ -20,7 +21,7 @@ function errMeta(err: unknown) {
 }
 
 @Injectable()
-export class UsersService {
+export class UsersService implements AuthUsersPort {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,

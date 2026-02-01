@@ -1,9 +1,9 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -11,8 +11,6 @@ import * as bcrypt from 'bcrypt';
 import { Tokens, JwtPayload } from './types/jwt.types';
 import { randomUUID } from 'node:crypto';
 import { TokenService } from './token.service';
-import { RefreshTokenService } from 'src/sessions/refresh-token.service';
-import { SessionService } from 'src/sessions/session.service';
 
 import { Role } from '@prisma/client';
 
@@ -21,14 +19,26 @@ import { AppLogger } from 'src/logger/logger.service';
 import { hashId, maskIp } from 'src/common/helpers/log-sanitize';
 import { AuthSecurityService } from './auth-security.service';
 import { AuthTransactionService } from './auth-transaction.service';
+import {
+  AUTH_REFRESH_TOKENS_PORT,
+  AUTH_SESSIONS_PORT,
+  AUTH_USERS_PORT,
+} from './ports/tokens';
+import { AuthUsersPort } from './ports/auth-users.port';
+import { AuthRefreshTokensPort } from './ports/auth-refresh-tokens.port';
+import { AuthSessionsPort } from './ports/auth-sessions.port';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly usersService: UsersService,
+    @Inject(AUTH_USERS_PORT)
+    private readonly usersService: AuthUsersPort,
     private readonly tokenService: TokenService,
-    private readonly refreshTokenService: RefreshTokenService,
-    private readonly sessionService: SessionService,
+    @Inject(AUTH_REFRESH_TOKENS_PORT)
+    private readonly refreshTokenService: AuthRefreshTokensPort,
+
+    @Inject(AUTH_SESSIONS_PORT)
+    private readonly sessionService: AuthSessionsPort,
     private readonly tx: AuthTransactionService,
     private readonly logger: AppLogger,
     private readonly authSecurity: AuthSecurityService,
@@ -295,6 +305,12 @@ export class AuthService {
     });
 
     return { loggedOut: true, terminatedAt: new Date().toISOString() };
+  }
+
+  async getMe(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new NotFoundException('Користувача не знайдено');
+    return user;
   }
 
   private async issueTokens(
