@@ -13,6 +13,10 @@ export class ActiveSessionDto {
   @ApiProperty({ example: 'Mozilla/5.0...' })
   userAgent: string;
 
-  @ApiProperty({ example: '2025-05-31T14:00:00.000Z' })
+  @ApiProperty({
+    example: '2025-05-31T14:00:00.000Z',
+    type: String,
+    format: 'date-time',
+  })
   startedAt: string;
 }

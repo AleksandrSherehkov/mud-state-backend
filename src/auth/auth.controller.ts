@@ -151,11 +151,10 @@ export class AuthController {
   @ApiMutationErrorResponses({
     includeConflict: false,
     includeTooManyRequests: false,
+    includeBadRequest: false,
     notFoundMessage: 'Користувача не знайдено',
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
     unauthorizedMessageExample: 'Session is not active',
-    badRequestDescription: 'Користувач вже вийшов із системи',
-    includeBadRequest: false,
   })
   async logout(
     @CurrentUser('userId') userId: string,

@@ -16,9 +16,18 @@ export class FullSessionDto {
   @ApiProperty({ example: true })
   isActive: boolean;
 
-  @ApiProperty({ example: '2025-05-31T14:00:00.000Z' })
+  @ApiProperty({
+    example: '2025-05-31T14:00:00.000Z',
+    type: String,
+    format: 'date-time',
+  })
   startedAt: string;
 
-  @ApiProperty({ example: null })
+  @ApiProperty({
+    example: null,
+    nullable: true,
+    type: String,
+    format: 'date-time',
+  })
   endedAt: string | null;
 }
