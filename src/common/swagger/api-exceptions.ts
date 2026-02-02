@@ -7,7 +7,10 @@ import {
   ApiConflictResponse,
   ApiInternalServerErrorResponse,
   ApiTooManyRequestsResponse,
+  ApiExtraModels,
+  getSchemaPath,
 } from '@nestjs/swagger';
+import { ApiErrorResponseDto } from './api-error-response.dto';
 
 type CommonErrorsOptions = {
   includeBadRequest?: boolean;
@@ -43,13 +46,38 @@ type MutationErrorsOptions = CommonErrorsOptions & {
 type QueryErrorsOptions = CommonErrorsOptions & {
   notFoundMessage?: string;
 };
+type ApiErrorExampleValue = {
+  statusCode: number;
+  message: string | string[];
+  error: string;
+  timestamp: string;
+  path: string;
+  requestId?: string;
+};
 
 function makeErrorExample(
   statusCode: number,
   message: string | string[],
   error: string,
+  path = '/api/v1/example',
 ) {
-  return { statusCode, message, error };
+  return {
+    statusCode,
+    message,
+    error,
+    timestamp: '2026-02-02T00:00:00.000Z',
+    path,
+    requestId: 'req_01J2ABCDEF...',
+  };
+}
+
+function jsonErrorContent(exampleValue: ApiErrorExampleValue) {
+  return {
+    'application/json': {
+      schema: { $ref: getSchemaPath(ApiErrorResponseDto) },
+      examples: { default: { value: exampleValue } },
+    },
+  };
 }
 
 export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
@@ -66,10 +94,7 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
     options?.badRequestDescription ?? 'Некоректні вхідні дані';
   const badRequestMessageExample =
     options?.badRequestMessageExample ??
-    ([
-      'email має бути валідним',
-      'Пароль має містити: від 8 до 72 символів, щонайменше 1 велика літера (A-Z), щонайменше 1 цифра (0-9).',
-    ] as string[]);
+    (['Некоректні вхідні дані'] as string[]);
 
   const unauthorizedDescription =
     options?.unauthorizedDescription ?? 'Неавторизований доступ';
@@ -99,17 +124,20 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
     options?.internalMessageExample ?? 'Щось пішло не так на сервері';
 
   const decorators = [
+    ApiExtraModels(ApiErrorResponseDto),
+
     ...(includeBadRequest
       ? [
           ApiBadRequestResponse({
             description: badRequestDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 400,
                 badRequestMessageExample,
                 'Bad Request',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -118,13 +146,14 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
       ? [
           ApiUnauthorizedResponse({
             description: unauthorizedDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 401,
                 unauthorizedMessageExample,
                 'Unauthorized',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -133,13 +162,14 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
       ? [
           ApiForbiddenResponse({
             description: forbiddenDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 403,
                 forbiddenMessageExample,
                 'Forbidden',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -148,9 +178,14 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
       ? [
           ApiNotFoundResponse({
             description: notFoundMessage,
-            schema: {
-              example: makeErrorExample(404, notFoundMessage, 'Not Found'),
-            },
+            content: jsonErrorContent(
+              makeErrorExample(
+                404,
+                notFoundMessage,
+                'Not Found',
+                '/api/v1/example',
+              ),
+            ),
           }),
         ]
       : []),
@@ -159,13 +194,14 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
       ? [
           ApiConflictResponse({
             description: conflictDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 409,
                 conflictMessageExample,
                 'Conflict',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -174,13 +210,14 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
       ? [
           ApiTooManyRequestsResponse({
             description: tooManyRequestsDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 429,
                 tooManyRequestsMessageExample,
                 'Too Many Requests',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -189,13 +226,14 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
       ? [
           ApiInternalServerErrorResponse({
             description: internalDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 500,
                 internalMessageExample,
                 'Internal Server Error',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -246,17 +284,21 @@ export function ApiQueryErrorResponses(
     opts.internalMessageExample ?? 'Щось пішло не так на сервері';
 
   const decorators = [
+    // ✅ ВАЖНО: добавляем модель в components.schemas
+    ApiExtraModels(ApiErrorResponseDto),
+
     ...(includeBadRequest
       ? [
           ApiBadRequestResponse({
             description: badRequestDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 400,
                 badRequestMessageExample,
                 'Bad Request',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -265,13 +307,14 @@ export function ApiQueryErrorResponses(
       ? [
           ApiUnauthorizedResponse({
             description: unauthorizedDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 401,
                 unauthorizedMessageExample,
                 'Unauthorized',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -280,35 +323,37 @@ export function ApiQueryErrorResponses(
       ? [
           ApiForbiddenResponse({
             description: forbiddenDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 403,
                 forbiddenMessageExample,
                 'Forbidden',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
 
     ApiNotFoundResponse({
       description: notFoundMessage,
-      schema: {
-        example: makeErrorExample(404, notFoundMessage, 'Not Found'),
-      },
+      content: jsonErrorContent(
+        makeErrorExample(404, notFoundMessage, 'Not Found', '/api/v1/example'),
+      ),
     }),
 
     ...(includeTooManyRequests
       ? [
           ApiTooManyRequestsResponse({
             description: tooManyRequestsDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 429,
                 tooManyRequestsMessageExample,
                 'Too Many Requests',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -317,13 +362,14 @@ export function ApiQueryErrorResponses(
       ? [
           ApiInternalServerErrorResponse({
             description: internalDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 500,
                 internalMessageExample,
                 'Internal Server Error',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -370,17 +416,21 @@ export function ApiListErrorResponses(options?: QueryErrorsOptions) {
     options?.internalMessageExample ?? 'Щось пішло не так на сервері';
 
   const decorators = [
+    // ✅ ВАЖНО: добавляем модель в components.schemas
+    ApiExtraModels(ApiErrorResponseDto),
+
     ...(includeBadRequest
       ? [
           ApiBadRequestResponse({
             description: badRequestDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 400,
                 badRequestMessageExample,
                 'Bad Request',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -389,13 +439,14 @@ export function ApiListErrorResponses(options?: QueryErrorsOptions) {
       ? [
           ApiUnauthorizedResponse({
             description: unauthorizedDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 401,
                 unauthorizedMessageExample,
                 'Unauthorized',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -404,13 +455,14 @@ export function ApiListErrorResponses(options?: QueryErrorsOptions) {
       ? [
           ApiForbiddenResponse({
             description: forbiddenDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 403,
                 forbiddenMessageExample,
                 'Forbidden',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -419,13 +471,14 @@ export function ApiListErrorResponses(options?: QueryErrorsOptions) {
       ? [
           ApiTooManyRequestsResponse({
             description: tooManyRequestsDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 429,
                 tooManyRequestsMessageExample,
                 'Too Many Requests',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),
@@ -434,13 +487,14 @@ export function ApiListErrorResponses(options?: QueryErrorsOptions) {
       ? [
           ApiInternalServerErrorResponse({
             description: internalDescription,
-            schema: {
-              example: makeErrorExample(
+            content: jsonErrorContent(
+              makeErrorExample(
                 500,
                 internalMessageExample,
                 'Internal Server Error',
+                '/api/v1/example',
               ),
-            },
+            ),
           }),
         ]
       : []),

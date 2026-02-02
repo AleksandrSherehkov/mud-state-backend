@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -42,7 +41,6 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  @HttpCode(201)
   @Throttle({ default: { limit: 3, ttl: 60 } })
   @ApiOperation({
     summary: 'Реєстрація нового користувача',
@@ -58,6 +56,7 @@ export class AuthController {
     includeUnauthorized: false,
     includeForbidden: false,
     includeConflict: true,
+
     conflictDescription: 'Email вже використовується',
     conflictMessageExample: 'Електронна адреса вже використовується',
   })
@@ -94,12 +93,13 @@ export class AuthController {
     @Req() req: Request,
   ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
-    const result = await this.authService.login(dto, ip ?? '', userAgent ?? '');
+    const result = await this.authService.login(dto, ip, userAgent);
     return new TokenResponseDto(result);
   }
 
   @Post('refresh')
   @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60 } })
   @ApiOperation({ summary: 'Оновлення токенів', operationId: 'auth_refresh' })
   @ApiRolesAccess('PUBLIC', {
     sideEffects: AUTH_SIDE_EFFECTS.refresh,
@@ -118,7 +118,6 @@ export class AuthController {
       'Refresh токен недійсний / відкликаний / reuse detected',
     unauthorizedMessageExample: 'Токен відкликано або недійсний',
   })
-  @Throttle({ default: { limit: 10, ttl: 60 } })
   async refresh(
     @Body() dto: RefreshDto,
     @Req() req: Request,
@@ -144,7 +143,8 @@ export class AuthController {
   @ApiRolesAccess('AUTHENTICATED', {
     sideEffects: AUTH_SIDE_EFFECTS.logout,
     notes: [
-      'Після logout поточна сесія завершується, тому повторний logout з тим самим accessToken поверне 401 (JwtAuthGuard).',
+      'Logout є ідемпотентним: повторний виклик повертає 200, якщо запит пройшов JwtAuthGuard.',
+      'Всі сесії користувача завершуються, а всі refresh-токени відкликаються.',
     ],
   })
   @ApiAuthLinks.logout200()
@@ -155,18 +155,16 @@ export class AuthController {
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
     unauthorizedMessageExample: 'Session is not active',
     badRequestDescription: 'Користувач вже вийшов із системи',
-    badRequestMessageExample: 'Користувач вже вийшов із системи',
+    includeBadRequest: false,
   })
   async logout(
     @CurrentUser('userId') userId: string,
   ): Promise<LogoutResponseDto> {
     const result = await this.authService.logout(userId);
-
-    if (!result) {
-      throw new BadRequestException('Користувач вже вийшов із системи');
-    }
-
-    return new LogoutResponseDto(result);
+    return new LogoutResponseDto({
+      loggedOut: Boolean(result),
+      terminatedAt: result?.terminatedAt ?? null,
+    });
   }
 
   @Get('me')

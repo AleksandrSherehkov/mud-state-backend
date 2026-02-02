@@ -75,6 +75,8 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, ip: string, userAgent: string): Promise<Tokens> {
+    const nip = ip ? normalizeIp(ip) : 'unknown';
+    const ua = userAgent?.trim() || 'unknown';
     const emailHash = hashId(dto.email.toLowerCase());
 
     const user = await this.usersService.findByEmail(dto.email);
@@ -93,8 +95,8 @@ export class AuthService {
     if (!isValid) {
       return this.authSecurity.onLoginFailed({
         userId: user.id,
-        ip,
-        userAgent,
+        ip: nip,
+        userAgent: ua,
       }) as never;
     }
 

@@ -6,6 +6,9 @@ export class LogoutResponseDto {
 
   @ApiProperty({
     example: '2025-06-07T11:30:00.000Z',
+    type: String,
+    format: 'date-time',
+    nullable: true,
     description: 'Час завершення сесій',
   })
   terminatedAt: string | null;

@@ -79,7 +79,6 @@ export class SessionsController {
   @ApiQueryErrorResponses({
     includeBadRequest: false,
     includeTooManyRequests: false,
-    notFoundMessage: 'Ресурс не знайдено',
   })
   async mySessions(
     @CurrentUser('userId') userId: string,
@@ -181,7 +180,6 @@ export class SessionsController {
   })
   @ApiSessionsLinks.userSessions200()
   @ApiQueryErrorResponses({
-    notFoundMessage: 'Ресурс не знайдено',
     includeBadRequest: false,
     includeTooManyRequests: false,
   })
