@@ -9,6 +9,7 @@ import { AppLogger } from './logger/logger.service';
 import { bootstrapLogger } from './logger/bootstrap-logger';
 import { useContainer } from 'class-validator';
 import helmet from 'helmet';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -29,6 +30,8 @@ async function bootstrap() {
     }),
   );
 
+  app.use(cookieParser());
+
   // ---- CORS ----
   const originsRaw = configService.get<string>('CORS_ORIGINS') ?? '';
   const origins = originsRaw
@@ -37,11 +40,11 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.enableCors({
-    origin: origins.length ? origins : false, // false = запретить если не задано
+    origin: origins.length ? origins : false,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'Accept'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'X-CSRF-Token'],
     maxAge: 600,
-    credentials: false,
+    credentials: true, // <-- важно для cookie
   });
 
   // ---- trust proxy ----
@@ -84,6 +87,7 @@ async function bootstrap() {
       .setDescription('API for the MUD simulation state backend')
       .setVersion('1.0')
       .addBearerAuth()
+      .addCookieAuth('refreshToken')
       .addServer(apiBase, 'API base')
       .build();
 

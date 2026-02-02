@@ -6,7 +6,7 @@ import {
   HttpStatus,
   Injectable,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import type { Request, Response } from 'express-serve-static-core';
 import { ConfigService } from '@nestjs/config';
 import { AppLogger } from 'src/logger/logger.service';
 import { extractRequestInfo } from 'src/common/helpers/request-info';

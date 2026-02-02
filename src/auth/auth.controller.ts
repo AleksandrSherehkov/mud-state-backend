@@ -5,16 +5,24 @@ import {
   HttpCode,
   Post,
   Req,
+  Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response as ExpressResponse } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { RefreshDto } from './dto/refresh.dto';
 
 import { AuthService } from './auth.service';
 
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiCookieAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   ApiMutationErrorResponses,
   ApiQueryErrorResponses,
@@ -31,6 +39,10 @@ import { RegisterResponseDto } from './dto/register-response.dto';
 import { ApiRolesAccess } from 'src/common/swagger/api-roles';
 import { AUTH_SIDE_EFFECTS } from 'src/common/swagger/auth.swagger';
 import { ApiAuthLinks } from 'src/common/swagger/auth.links';
+import { randomUUID } from 'node:crypto';
+import { CsrfGuard } from 'src/common/guards/csrf.guard';
+import { getCookieString } from 'src/common/http/cookies';
+import type { CookieOptions } from 'express-serve-static-core';
 
 @ApiTags('auth')
 @Controller({
@@ -39,6 +51,58 @@ import { ApiAuthLinks } from 'src/common/swagger/auth.links';
 })
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  private isProd(): boolean {
+    return (process.env.APP_ENV ?? 'development') === 'production';
+  }
+  private isRequestSecure(req: Request): boolean {
+    // req.secure работает корректно при trust proxy
+    if (req.secure) return true;
+
+    const xfProto = req.header('x-forwarded-proto');
+    return xfProto?.toLowerCase() === 'https';
+  }
+
+  private refreshCookieOptions(req: Request): CookieOptions {
+    const secure = this.isProd() && this.isRequestSecure(req);
+
+    return {
+      httpOnly: true,
+      secure,
+      sameSite: this.isProd() ? 'none' : 'lax',
+      path: '/api/v1/auth/refresh',
+    };
+  }
+  private csrfCookieOptions(req: Request): CookieOptions {
+    const secure = this.isProd() && this.isRequestSecure(req);
+
+    return {
+      httpOnly: false, // нужно, чтобы JS мог прочитать и положить в X-CSRF-Token
+      secure,
+      sameSite: this.isProd() ? 'none' : 'lax',
+      path: '/api/v1/auth/refresh',
+    };
+  }
+
+  private setCsrfCookie(res: ExpressResponse, req: Request): string {
+    const csrfToken = randomUUID();
+    res.cookie('csrfToken', csrfToken, this.csrfCookieOptions(req));
+    return csrfToken;
+  }
+
+  private setAuthCookies(
+    res: ExpressResponse,
+    req: Request,
+    refreshToken: string,
+  ): void {
+    res.cookie('refreshToken', refreshToken, this.refreshCookieOptions(req));
+    this.setCsrfCookie(res, req);
+  }
+
+  private clearAuthCookies(res: ExpressResponse, req: Request): void {
+    res.clearCookie('refreshToken', this.refreshCookieOptions(req));
+    res.clearCookie('csrfToken', this.csrfCookieOptions(req));
+  }
 
   @Post('register')
   @Throttle({ default: { limit: 3, ttl: 60 } })
@@ -50,6 +114,7 @@ export class AuthController {
     sideEffects: AUTH_SIDE_EFFECTS.register,
     notes: ['Створює першу сесію та refresh-токен для нового користувача.'],
   })
+  @ApiCookieAuth('refreshToken')
   @ApiBody({ type: RegisterDto })
   @ApiAuthLinks.register201()
   @ApiMutationErrorResponses({
@@ -63,15 +128,27 @@ export class AuthController {
   async register(
     @Body() dto: RegisterDto,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<RegisterResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
 
     const result = await this.authService.register(dto, ip, userAgent);
-    return new RegisterResponseDto(result);
+
+    this.setAuthCookies(res, req, result.refreshToken);
+
+    return new RegisterResponseDto({
+      id: result.id,
+      email: result.email,
+      role: result.role,
+      createdAt: result.createdAt,
+      accessToken: result.accessToken,
+      jti: result.jti,
+    });
   }
 
   @Post('login')
   @HttpCode(200)
+  @ApiCookieAuth('refreshToken')
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @ApiOperation({ summary: 'Вхід користувача', operationId: 'auth_login' })
   @ApiRolesAccess('PUBLIC', {
@@ -91,14 +168,29 @@ export class AuthController {
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
     const result = await this.authService.login(dto, ip, userAgent);
-    return new TokenResponseDto(result);
+
+    this.setAuthCookies(res, req, result.refreshToken);
+
+    return new TokenResponseDto({
+      accessToken: result.accessToken,
+      jti: result.jti,
+    });
   }
 
   @Post('refresh')
   @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  @ApiCookieAuth('refreshToken')
+  @ApiCookieAuth('csrfToken') // не совсем "auth", но так UI покажет cookie
+  @ApiHeader({
+    name: 'X-CSRF-Token',
+    required: true,
+    description: 'CSRF token (должен совпадать со значением cookie csrfToken)',
+  })
   @Throttle({ default: { limit: 10, ttl: 60 } })
   @ApiOperation({ summary: 'Оновлення токенів', operationId: 'auth_refresh' })
   @ApiRolesAccess('PUBLIC', {
@@ -109,7 +201,6 @@ export class AuthController {
       'Refresh “claim” одноразовий: попередній jti відкликається та його сесія завершується.',
     ],
   })
-  @ApiBody({ type: RefreshDto })
   @ApiAuthLinks.refresh200()
   @ApiMutationErrorResponses({
     includeForbidden: false,
@@ -119,16 +210,25 @@ export class AuthController {
     unauthorizedMessageExample: 'Токен відкликано або недійсний',
   })
   async refresh(
-    @Body() dto: RefreshDto,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
-    const result = await this.authService.refresh(
-      dto.refreshToken,
-      ip,
-      userAgent,
-    );
-    return new TokenResponseDto(result);
+
+    const refreshToken = getCookieString(req, 'refreshToken');
+    if (!refreshToken) {
+      throw new UnauthorizedException('Недійсний токен');
+    }
+
+    const result = await this.authService.refresh(refreshToken, ip, userAgent);
+
+    // rotate BOTH refresh + csrf
+    this.setAuthCookies(res, req, result.refreshToken);
+
+    return new TokenResponseDto({
+      accessToken: result.accessToken,
+      jti: result.jti,
+    });
   }
 
   @Post('logout')
@@ -158,8 +258,13 @@ export class AuthController {
   })
   async logout(
     @CurrentUser('userId') userId: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<LogoutResponseDto> {
     const result = await this.authService.logout(userId);
+
+    this.clearAuthCookies(res, req);
+
     return new LogoutResponseDto({
       loggedOut: Boolean(result),
       terminatedAt: result?.terminatedAt ?? null,
