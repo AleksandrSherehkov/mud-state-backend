@@ -5,6 +5,7 @@ import {
   Get,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
   Patch,
   Query,
   UseGuards,
@@ -68,7 +69,7 @@ export class UsersController {
     notFoundMessage: 'Користувача не знайдено',
     includeTooManyRequests: false,
   })
-  async getById(@Param('id') id: string) {
+  async getById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     const user = await this.usersService.findById(id);
     if (!user) throw new NotFoundException('Користувача не знайдено');
     return new PublicUserDto(user);
@@ -139,7 +140,10 @@ export class UsersController {
     conflictMessageExample: 'Email вже використовується',
     includeTooManyRequests: false,
   })
-  async update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+  async update(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: UpdateUserDto,
+  ) {
     const user = await this.usersService.updateUser(id, dto);
     return new PublicUserDto(user);
   }
@@ -172,7 +176,7 @@ export class UsersController {
     includeConflict: false,
     includeTooManyRequests: false,
   })
-  async delete(@Param('id') id: string) {
+  async delete(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     const user = await this.usersService.deleteUser(id);
     return new PublicUserDto(user);
   }

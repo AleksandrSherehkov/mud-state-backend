@@ -27,7 +27,7 @@ export class PublicUserDto {
     type: String,
     format: 'date-time',
   })
-  createdAt: Date;
+  createdAt: string;
 
   constructor(data: {
     id: string;
@@ -38,6 +38,6 @@ export class PublicUserDto {
     this.id = data.id;
     this.email = data.email;
     this.role = data.role;
-    this.createdAt = data.createdAt;
+    this.createdAt = data.createdAt.toISOString();
   }
 }

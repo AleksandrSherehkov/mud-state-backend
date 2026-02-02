@@ -23,7 +23,7 @@ export class MeResponseDto {
     type: String,
     format: 'date-time',
   })
-  createdAt: Date;
+  createdAt: string;
 
   constructor(data: {
     id: string;
@@ -34,6 +34,6 @@ export class MeResponseDto {
     this.id = data.id;
     this.email = data.email;
     this.role = data.role;
-    this.createdAt = data.createdAt;
+    this.createdAt = data.createdAt.toISOString();
   }
 }
