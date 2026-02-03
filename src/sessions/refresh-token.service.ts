@@ -266,6 +266,7 @@ export class RefreshTokenService implements AuthRefreshTokensPort {
       where: {
         id: params.sid,
         userId: params.userId,
+        refreshTokenJti: params.jti,
         isActive: true,
         endedAt: null,
       },
