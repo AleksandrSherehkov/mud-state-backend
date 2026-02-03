@@ -98,7 +98,7 @@ export class AuthController {
   private setAuthCookies(
     res: ExpressResponse,
     req: Request,
-    refreshToken: string
+    refreshToken: string,
   ): void {
     res.cookie('refreshToken', refreshToken, this.refreshCookieOptions(req));
     this.setCsrfCookie(res, req);
@@ -133,7 +133,7 @@ export class AuthController {
   async register(
     @Body() dto: RegisterDto,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<RegisterResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
 
@@ -173,7 +173,7 @@ export class AuthController {
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
     const result = await this.authService.login(dto, ip, userAgent);
@@ -217,7 +217,7 @@ export class AuthController {
   })
   async refresh(
     @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
 
@@ -265,7 +265,7 @@ export class AuthController {
   async logout(
     @CurrentUser('userId') userId: string,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<LogoutResponseDto> {
     const result = await this.authService.logout(userId);
 
