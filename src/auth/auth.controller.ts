@@ -28,8 +28,7 @@ import {
   ApiMutationErrorResponses,
   ApiQueryErrorResponses,
 } from 'src/common/swagger/api-exceptions';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 
 import { TokenResponseDto } from './dto/token-response.dto';
@@ -45,6 +44,8 @@ import { CsrfGuard } from 'src/common/guards/csrf.guard';
 import { getCookieString } from 'src/common/http/cookies';
 import type { CookieOptions } from 'express-serve-static-core';
 import { ConfigService } from '@nestjs/config';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @ApiTags('auth')
 @Controller({
@@ -65,7 +66,7 @@ export class AuthController {
     return `/${this.apiPrefix}`;
   }
   private isProd(): boolean {
-    return (process.env.APP_ENV ?? 'development') === 'production';
+    return this.appEnv === 'production';
   }
   private isRequestSecure(req: Request): boolean {
     // req.secure работает корректно при trust proxy
@@ -127,7 +128,6 @@ export class AuthController {
     sideEffects: AUTH_SIDE_EFFECTS.register,
     notes: ['Створює першу сесію та refresh-токен для нового користувача.'],
   })
-  @ApiCookieAuth('refresh_cookie')
   @ApiBody({ type: RegisterDto })
   @ApiAuthLinks.register201()
   @ApiMutationErrorResponses({
@@ -161,7 +161,6 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
-  @ApiCookieAuth('refresh_cookie')
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @ApiOperation({ summary: 'Вхід користувача', operationId: 'auth_login' })
   @ApiRolesAccess('PUBLIC', {
@@ -208,7 +207,6 @@ export class AuthController {
       'Не вимагає auth.',
     ],
   })
-  @ApiCookieAuth('csrf_cookie')
   csrf(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
@@ -270,7 +268,7 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @SkipThrottle()
-  @ApiBearerAuth()
+  @ApiBearerAuth('access_bearer')
   @HttpCode(200)
   @ApiOperation({
     summary: 'Вихід користувача (ревок refresh токенів + завершення сесій)',
@@ -310,7 +308,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @SkipThrottle()
-  @ApiBearerAuth()
+  @ApiBearerAuth('access_bearer')
   @ApiOperation({
     summary: 'Отримати інформацію про себе',
     operationId: 'auth_me',

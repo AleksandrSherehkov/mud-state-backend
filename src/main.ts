@@ -2,7 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppLogger } from './logger/logger.service';
 
@@ -10,6 +9,7 @@ import { bootstrapLogger } from './logger/bootstrap-logger';
 import { useContainer } from 'class-validator';
 import helmet from 'helmet';
 import * as cookieParser from 'cookie-parser';
+import { setupSwagger } from './common/swagger/setup-swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -20,6 +20,9 @@ async function bootstrap() {
   app.useLogger(logger);
 
   const configService = app.get(ConfigService);
+  // ---- trust proxy ----
+  const trustProxy = Number(configService.get('TRUST_PROXY_HOPS') ?? 1);
+  app.set('trust proxy', trustProxy);
 
   // ---- security middleware ----
   app.use(
@@ -49,9 +52,6 @@ async function bootstrap() {
     credentials: true, // <-- важно для cookie
   });
 
-  // ---- trust proxy ----
-  app.set('trust proxy', Number(configService.get('TRUST_PROXY_HOPS') ?? 1));
-
   // ---- validation ----
   app.useGlobalPipes(
     new ValidationPipe({
@@ -78,37 +78,8 @@ async function bootstrap() {
 
   // ---- swagger ----
   const appEnv = configService.get<string>('APP_ENV') ?? 'development';
-  const swaggerEnabled = Boolean(configService.get('SWAGGER_ENABLED'));
 
-  const shouldEnableSwagger = swaggerEnabled && appEnv !== 'production';
-  const apiBase = `${baseUrl}/${apiPrefix}/v${apiVersion}`;
-
-  if (shouldEnableSwagger) {
-    const config = new DocumentBuilder()
-      .setTitle('MUD-State API')
-      .setDescription('API for the MUD simulation state backend')
-      .setVersion('1.0')
-      .addBearerAuth()
-      .addCookieAuth('refresh_cookie', {
-        type: 'apiKey',
-        in: 'cookie',
-        name: 'refreshToken',
-      })
-      .addApiKey(
-        { type: 'apiKey', in: 'header', name: 'X-CSRF-Token' },
-        'csrf_header',
-      )
-      .addCookieAuth('csrf_cookie', {
-        type: 'apiKey',
-        in: 'cookie',
-        name: 'csrfToken',
-      })
-      .addServer(apiBase, 'API base')
-      .build();
-
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
-  }
+  const { shouldEnableSwagger, apiBase } = setupSwagger(app, configService);
 
   // ---- start ----
   const port = configService.get<number>('PORT', 3000);
@@ -117,8 +88,9 @@ async function bootstrap() {
   logger.log('==============================', 'Bootstrap');
   logger.log('✅ APP STARTED', 'Bootstrap');
   logger.log(`🔌 Listening on port: ${port}`, 'Bootstrap');
+  logger.log(`🌐 Trust proxy hops: ${trustProxy}`, 'Bootstrap');
   logger.log(`🌍 ENV: ${appEnv}`, 'Bootstrap');
-  logger.log(`🚀 Server: ${apiBase}`, 'Bootstrap');
+  logger.log(`🚀 Server: ${apiBase ?? 'n/a'}`, 'Bootstrap');
   logger.log(`🧩 Swagger enabled: ${shouldEnableSwagger}`, 'Bootstrap');
   if (shouldEnableSwagger) {
     logger.log(`📚 Swagger: ${baseUrl}/${apiPrefix}/docs`, 'Bootstrap');
