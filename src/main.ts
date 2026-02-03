@@ -27,7 +27,7 @@ async function bootstrap() {
       // CSP лучше включать точечно, когда будет понятна политика фронта/доменов
       contentSecurityPolicy: false,
       crossOriginResourcePolicy: { policy: 'same-site' },
-    }),
+    })
   );
 
   app.use(cookieParser());
@@ -36,11 +36,11 @@ async function bootstrap() {
   const originsRaw = configService.get<string>('CORS_ORIGINS') ?? '';
   const origins = originsRaw
     .split(',')
-    .map((s) => s.trim())
+    .map(s => s.trim())
     .filter(Boolean);
 
   app.enableCors({
-    origin: origins.length ? origins : false,
+    origin: origins.length ? origins : true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'X-CSRF-Token'],
     maxAge: 600,
@@ -56,13 +56,13 @@ async function bootstrap() {
       transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
-    }),
+    })
   );
 
   // ---- base settings ----
   const baseUrl = configService.get<string>(
     'BASE_URL',
-    'http://localhost:3000',
+    'http://localhost:3000'
   );
   const apiPrefix = configService.get<string>('API_PREFIX', 'api');
   const apiVersion = configService.get<string>('API_VERSION', '1');
@@ -76,7 +76,7 @@ async function bootstrap() {
 
   // ---- swagger ----
   const appEnv = configService.get<string>('APP_ENV') ?? 'development';
-  const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED') ?? false;
+  const swaggerEnabled = Boolean(configService.get('SWAGGER_ENABLED'));
 
   const shouldEnableSwagger = swaggerEnabled && appEnv !== 'production';
   const apiBase = `${baseUrl}/${apiPrefix}/v${apiVersion}`;
@@ -87,7 +87,20 @@ async function bootstrap() {
       .setDescription('API for the MUD simulation state backend')
       .setVersion('1.0')
       .addBearerAuth()
-      .addCookieAuth('refreshToken')
+      .addCookieAuth('refresh_cookie', {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'refreshToken',
+      })
+      .addApiKey(
+        { type: 'apiKey', in: 'header', name: 'X-CSRF-Token' },
+        'csrf_header'
+      )
+      .addCookieAuth('csrf_cookie', {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'csrfToken',
+      })
       .addServer(apiBase, 'API base')
       .build();
 
@@ -113,7 +126,7 @@ async function bootstrap() {
 
 bootstrap().catch((err: unknown) => {
   bootstrapLogger.error(
-    `❌ Failed to start application: ${err instanceof Error ? err.stack : String(err)}`,
+    `❌ Failed to start application: ${err instanceof Error ? err.stack : String(err)}`
   );
   process.exit(1);
 });

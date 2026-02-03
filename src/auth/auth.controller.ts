@@ -21,6 +21,7 @@ import {
   ApiCookieAuth,
   ApiHeader,
   ApiOperation,
+  ApiSecurity,
   ApiTags,
 } from '@nestjs/swagger';
 import {
@@ -51,6 +52,10 @@ import type { CookieOptions } from 'express-serve-static-core';
 })
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+  private apiPath(): string {
+    const prefix = process.env.API_PREFIX ?? 'api';
+    return `/${prefix}`;
+  }
 
   private isProd(): boolean {
     return (process.env.APP_ENV ?? 'development') === 'production';
@@ -64,23 +69,23 @@ export class AuthController {
   }
 
   private refreshCookieOptions(req: Request): CookieOptions {
-    const secure = this.isProd() && this.isRequestSecure(req);
+    const secure = this.isRequestSecure(req);
 
     return {
       httpOnly: true,
       secure,
       sameSite: this.isProd() ? 'none' : 'lax',
-      path: '/api/v1/auth/refresh',
+      path: this.apiPath(),
     };
   }
   private csrfCookieOptions(req: Request): CookieOptions {
-    const secure = this.isProd() && this.isRequestSecure(req);
+    const secure = this.isRequestSecure(req);
 
     return {
       httpOnly: false, // нужно, чтобы JS мог прочитать и положить в X-CSRF-Token
       secure,
       sameSite: this.isProd() ? 'none' : 'lax',
-      path: '/api/v1/auth/refresh',
+      path: this.apiPath(),
     };
   }
 
@@ -93,7 +98,7 @@ export class AuthController {
   private setAuthCookies(
     res: ExpressResponse,
     req: Request,
-    refreshToken: string,
+    refreshToken: string
   ): void {
     res.cookie('refreshToken', refreshToken, this.refreshCookieOptions(req));
     this.setCsrfCookie(res, req);
@@ -114,7 +119,7 @@ export class AuthController {
     sideEffects: AUTH_SIDE_EFFECTS.register,
     notes: ['Створює першу сесію та refresh-токен для нового користувача.'],
   })
-  @ApiCookieAuth('refreshToken')
+  @ApiCookieAuth('refresh_cookie')
   @ApiBody({ type: RegisterDto })
   @ApiAuthLinks.register201()
   @ApiMutationErrorResponses({
@@ -128,7 +133,7 @@ export class AuthController {
   async register(
     @Body() dto: RegisterDto,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Res({ passthrough: true }) res: ExpressResponse
   ): Promise<RegisterResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
 
@@ -148,7 +153,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
-  @ApiCookieAuth('refreshToken')
+  @ApiCookieAuth('refresh_cookie')
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @ApiOperation({ summary: 'Вхід користувача', operationId: 'auth_login' })
   @ApiRolesAccess('PUBLIC', {
@@ -168,7 +173,7 @@ export class AuthController {
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Res({ passthrough: true }) res: ExpressResponse
   ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
     const result = await this.authService.login(dto, ip, userAgent);
@@ -184,8 +189,9 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(200)
   @UseGuards(CsrfGuard)
-  @ApiCookieAuth('refreshToken')
-  @ApiCookieAuth('csrfToken') // не совсем "auth", но так UI покажет cookie
+  @ApiCookieAuth('refresh_cookie')
+  @ApiCookieAuth('csrf_cookie')
+  @ApiSecurity('csrf_header')
   @ApiHeader({
     name: 'X-CSRF-Token',
     required: true,
@@ -211,7 +217,7 @@ export class AuthController {
   })
   async refresh(
     @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Res({ passthrough: true }) res: ExpressResponse
   ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
 
@@ -259,7 +265,7 @@ export class AuthController {
   async logout(
     @CurrentUser('userId') userId: string,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Res({ passthrough: true }) res: ExpressResponse
   ): Promise<LogoutResponseDto> {
     const result = await this.authService.logout(userId);
 
