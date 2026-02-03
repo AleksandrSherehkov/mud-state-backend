@@ -44,6 +44,7 @@ import { randomUUID } from 'node:crypto';
 import { CsrfGuard } from 'src/common/guards/csrf.guard';
 import { getCookieString } from 'src/common/http/cookies';
 import type { CookieOptions } from 'express-serve-static-core';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('auth')
 @Controller({
@@ -51,12 +52,18 @@ import type { CookieOptions } from 'express-serve-static-core';
   version: '1',
 })
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
-  private apiPath(): string {
-    const prefix = process.env.API_PREFIX ?? 'api';
-    return `/${prefix}`;
+  private readonly apiPrefix: string;
+  private readonly appEnv: string;
+  constructor(
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
+  ) {
+    this.apiPrefix = this.config.get<string>('API_PREFIX', 'api');
+    this.appEnv = this.config.get<string>('APP_ENV', 'development');
   }
-
+  private apiPath(): string {
+    return `/${this.apiPrefix}`;
+  }
   private isProd(): boolean {
     return (process.env.APP_ENV ?? 'development') === 'production';
   }
@@ -69,26 +76,27 @@ export class AuthController {
   }
 
   private refreshCookieOptions(req: Request): CookieOptions {
-    const secure = this.isRequestSecure(req);
+    const secure = this.isProd() ? true : this.isRequestSecure(req);
 
     return {
       httpOnly: true,
       secure,
       sameSite: this.isProd() ? 'none' : 'lax',
       path: this.apiPath(),
+      signed: true,
     };
   }
   private csrfCookieOptions(req: Request): CookieOptions {
-    const secure = this.isRequestSecure(req);
+    const secure = this.isProd() ? true : this.isRequestSecure(req);
 
     return {
-      httpOnly: false, // нужно, чтобы JS мог прочитать и положить в X-CSRF-Token
+      httpOnly: false, // double-submit: JS читает и кладёт в header
       secure,
       sameSite: this.isProd() ? 'none' : 'lax',
       path: this.apiPath(),
+      maxAge: 15 * 60 * 1000, // 15 минут
     };
   }
-
   private setCsrfCookie(res: ExpressResponse, req: Request): string {
     const csrfToken = randomUUID();
     res.cookie('csrfToken', csrfToken, this.csrfCookieOptions(req));
@@ -184,6 +192,28 @@ export class AuthController {
       accessToken: result.accessToken,
       jti: result.jti,
     });
+  }
+
+  @Get('csrf')
+  @HttpCode(204)
+  @SkipThrottle()
+  @ApiOperation({
+    summary: 'Видати CSRF cookie (double-submit)',
+    operationId: 'auth_csrf',
+  })
+  @ApiRolesAccess('PUBLIC', {
+    sideEffects: ['Sets csrfToken cookie (non-HttpOnly, short-lived)'],
+    notes: [
+      'Потрібен для відновлення CSRF cookie, якщо вона протухла/очистилась.',
+      'Не вимагає auth.',
+    ],
+  })
+  @ApiCookieAuth('csrf_cookie')
+  csrf(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): void {
+    this.setCsrfCookie(res, req);
   }
 
   @Post('refresh')

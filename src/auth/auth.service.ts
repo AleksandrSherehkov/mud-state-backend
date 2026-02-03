@@ -27,9 +27,11 @@ import {
 import { AuthUsersPort } from './ports/auth-users.port';
 import { AuthRefreshTokensPort } from './ports/auth-refresh-tokens.port';
 import { AuthSessionsPort } from './ports/auth-sessions.port';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
+  private readonly dummyPasswordHash: string;
   constructor(
     @Inject(AUTH_USERS_PORT)
     private readonly usersService: AuthUsersPort,
@@ -42,8 +44,12 @@ export class AuthService {
     private readonly tx: AuthTransactionService,
     private readonly logger: AppLogger,
     private readonly authSecurity: AuthSecurityService,
+    private readonly config: ConfigService,
   ) {
     this.logger.setContext(AuthService.name);
+    this.dummyPasswordHash =
+      this.config.get<string>('AUTH_DUMMY_PASSWORD_HASH') ??
+      '$2b$12$0IP/zdzyXTrX7AZRHVrTQeVvCAklfEeF8VCj0.9pJqlDmbqgth5Dq';
   }
 
   async register(dto: RegisterDto, ip?: string, userAgent?: string) {
@@ -81,6 +87,8 @@ export class AuthService {
 
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
+      await bcrypt.compare(dto.password, this.dummyPasswordHash);
+
       this.logger.warn('Login failed: user not found', AuthService.name, {
         event: 'auth.login.fail',
         reason: 'user_not_found',

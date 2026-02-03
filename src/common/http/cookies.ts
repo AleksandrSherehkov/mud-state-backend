@@ -4,8 +4,16 @@ export function getCookieString(
   req: Request,
   name: string,
 ): string | undefined {
-  const cookies = (req as unknown as { cookies?: Record<string, unknown> })
-    .cookies;
-  const v = cookies?.[name];
-  return typeof v === 'string' ? v : undefined;
+  const r = req as unknown as {
+    cookies?: Record<string, unknown>;
+    signedCookies?: Record<string, unknown>;
+  };
+
+  const signed = r.signedCookies?.[name] as string | undefined;
+  if (typeof signed === 'string') return signed;
+
+  const plain = r.cookies?.[name];
+  if (typeof plain === 'string') return plain;
+
+  return undefined;
 }
