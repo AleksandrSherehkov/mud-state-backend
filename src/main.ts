@@ -24,12 +24,39 @@ async function bootstrap() {
   const trustProxy = Number(configService.get('TRUST_PROXY_HOPS') ?? 1);
   app.set('trust proxy', trustProxy);
 
+  const baseUrl = configService.get<string>(
+    'BASE_URL',
+    'http://localhost:3000',
+  );
+  const apiPrefix = configService.get<string>('API_PREFIX', 'api');
+  const apiVersion = configService.get<string>('API_VERSION', '1');
+  const appEnv = configService.get<string>('APP_ENV') ?? 'development';
+  const isProd = appEnv === 'production';
+
   // ---- security middleware ----
   app.use(
     helmet({
-      // CSP лучше включать точечно, когда будет понятна политика фронта/доменов
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          defaultSrc: ["'none'"],
+          baseUri: ["'none'"],
+          frameAncestors: ["'none'"],
+          formAction: ["'none'"],
+          // Если вдруг будет HTML/Swagger-UI, эти директивы можно расширять точечно.
+          // scriptSrc: ["'self'"],
+          // styleSrc: ["'self'", "'unsafe-inline'"],
+          // imgSrc: ["'self'", "data:"],
+        },
+      },
+
+      hsts: isProd
+        ? { maxAge: 15552000, includeSubDomains: true, preload: true }
+        : false,
+
       crossOriginResourcePolicy: { policy: 'same-site' },
+
+      referrerPolicy: { policy: 'no-referrer' },
     }),
   );
 
@@ -62,12 +89,6 @@ async function bootstrap() {
   );
 
   // ---- base settings ----
-  const baseUrl = configService.get<string>(
-    'BASE_URL',
-    'http://localhost:3000',
-  );
-  const apiPrefix = configService.get<string>('API_PREFIX', 'api');
-  const apiVersion = configService.get<string>('API_VERSION', '1');
 
   app.setGlobalPrefix(apiPrefix);
 
@@ -77,7 +98,6 @@ async function bootstrap() {
   });
 
   // ---- swagger ----
-  const appEnv = configService.get<string>('APP_ENV') ?? 'development';
 
   const { shouldEnableSwagger, apiBase } = setupSwagger(app, configService);
 
