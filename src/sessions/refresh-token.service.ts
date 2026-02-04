@@ -5,11 +5,11 @@ import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 import { Prisma } from '@prisma/client';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { ConfigService } from '@nestjs/config';
-import { AuthRefreshTokensPort } from 'src/auth/ports/auth-refresh-tokens.port';
+
 import * as ms from 'ms';
 
 @Injectable()
-export class RefreshTokenService implements AuthRefreshTokensPort {
+export class RefreshTokenService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLogger,
@@ -34,9 +34,9 @@ export class RefreshTokenService implements AuthRefreshTokensPort {
     tokenHash: string,
     ip?: string,
     userAgent?: string,
-    tx?: unknown,
+    tx?: Prisma.TransactionClient,
   ) {
-    const db = (tx as Prisma.TransactionClient | undefined) ?? this.prisma;
+    const db = tx ?? this.prisma;
 
     const nip = ip ? normalizeIp(ip) : undefined;
     const ua = userAgent?.trim() || undefined;

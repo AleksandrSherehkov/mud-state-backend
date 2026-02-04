@@ -1,3 +1,0 @@
-export const AUTH_USERS_PORT = Symbol('AUTH_USERS_PORT');
-export const AUTH_SESSIONS_PORT = Symbol('AUTH_SESSIONS_PORT');
-export const AUTH_REFRESH_TOKENS_PORT = Symbol('AUTH_REFRESH_TOKENS_PORT');

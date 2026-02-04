@@ -1,4 +1,4 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
@@ -6,16 +6,14 @@ import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from '../types/jwt.types';
 import { SessionService } from 'src/sessions/session.service';
 import { AppLogger } from 'src/logger/logger.service';
-import { AuthUsersPort } from '../ports/auth-users.port';
-import { AUTH_USERS_PORT } from '../ports/tokens';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     config: ConfigService,
     private readonly sessionService: SessionService,
-    @Inject(AUTH_USERS_PORT)
-    private readonly usersService: AuthUsersPort,
+    private readonly usersService: UsersService,
     private readonly logger: AppLogger,
   ) {
     super({

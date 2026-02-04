@@ -1,5 +1,4 @@
 import {
-  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -19,28 +18,19 @@ import { AppLogger } from 'src/logger/logger.service';
 import { hashId, maskIp } from 'src/common/helpers/log-sanitize';
 import { AuthSecurityService } from './auth-security.service';
 import { AuthTransactionService } from './auth-transaction.service';
-import {
-  AUTH_REFRESH_TOKENS_PORT,
-  AUTH_SESSIONS_PORT,
-  AUTH_USERS_PORT,
-} from './ports/tokens';
-import { AuthUsersPort } from './ports/auth-users.port';
-import { AuthRefreshTokensPort } from './ports/auth-refresh-tokens.port';
-import { AuthSessionsPort } from './ports/auth-sessions.port';
 import { ConfigService } from '@nestjs/config';
+import { UsersService } from 'src/users/users.service';
+import { RefreshTokenService } from 'src/sessions/refresh-token.service';
+import { SessionService } from 'src/sessions/session.service';
 
 @Injectable()
 export class AuthService {
   private readonly dummyPasswordHash: string;
   constructor(
-    @Inject(AUTH_USERS_PORT)
-    private readonly usersService: AuthUsersPort,
+    private readonly usersService: UsersService,
     private readonly tokenService: TokenService,
-    @Inject(AUTH_REFRESH_TOKENS_PORT)
-    private readonly refreshTokenService: AuthRefreshTokensPort,
-
-    @Inject(AUTH_SESSIONS_PORT)
-    private readonly sessionService: AuthSessionsPort,
+    private readonly refreshTokenService: RefreshTokenService,
+    private readonly sessionService: SessionService,
     private readonly tx: AuthTransactionService,
     private readonly logger: AppLogger,
     private readonly authSecurity: AuthSecurityService,

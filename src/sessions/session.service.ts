@@ -5,10 +5,9 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { AppLogger } from 'src/logger/logger.service';
 import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 import { RefreshTokenService } from './refresh-token.service';
-import { AuthSessionsPort } from 'src/auth/ports/auth-sessions.port';
 
 @Injectable()
-export class SessionService implements AuthSessionsPort {
+export class SessionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLogger,
@@ -23,12 +22,12 @@ export class SessionService implements AuthSessionsPort {
     refreshTokenJti: string,
     ip?: string,
     userAgent?: string,
-    tx?: unknown,
+    tx?: Prisma.TransactionClient,
   ) {
     const nip = ip ? normalizeIp(ip) : null;
     const ua = userAgent?.trim() || null;
 
-    const db = (tx as Prisma.TransactionClient | undefined) ?? this.prisma;
+    const db = tx ?? this.prisma;
 
     const session = await db.session.create({
       data: {
