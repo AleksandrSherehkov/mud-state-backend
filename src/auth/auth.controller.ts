@@ -41,11 +41,12 @@ import { AUTH_SIDE_EFFECTS } from 'src/common/swagger/auth.swagger';
 import { ApiAuthLinks } from 'src/common/swagger/auth.links';
 import { randomUUID } from 'node:crypto';
 import { CsrfGuard } from 'src/common/guards/csrf.guard';
-import { getCookieString } from 'src/common/http/cookies';
 import type { CookieOptions } from 'express-serve-static-core';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { getRefreshTokenFromRequest } from 'src/common/http/refresh-token';
+import ms from 'ms';
 
 @ApiTags('auth')
 @Controller({
@@ -68,6 +69,17 @@ export class AuthController {
   private isProd(): boolean {
     return this.appEnv === 'production';
   }
+  private tryParseMs(raw: string): number | undefined {
+    const value = ms(raw as ms.StringValue);
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : undefined;
+  }
+
+  private refreshCookieMaxAgeMs(): number {
+    const raw = this.config.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d';
+    return this.tryParseMs(raw) ?? 7 * 24 * 60 * 60 * 1000;
+  }
   private isRequestSecure(req: Request): boolean {
     // req.secure работает корректно при trust proxy
     if (req.secure) return true;
@@ -78,6 +90,7 @@ export class AuthController {
 
   private refreshCookieOptions(req: Request): CookieOptions {
     const secure = this.isProd() ? true : this.isRequestSecure(req);
+    const maxAge = this.refreshCookieMaxAgeMs();
 
     return {
       httpOnly: true,
@@ -85,6 +98,8 @@ export class AuthController {
       sameSite: this.isProd() ? 'none' : 'lax',
       path: this.apiPath(),
       signed: true,
+      maxAge,
+      expires: new Date(Date.now() + maxAge),
     };
   }
   private csrfCookieOptions(req: Request): CookieOptions {
@@ -249,7 +264,7 @@ export class AuthController {
   ): Promise<TokenResponseDto> {
     const { ip, userAgent } = extractRequestInfo(req);
 
-    const refreshToken = getCookieString(req, 'refreshToken');
+    const refreshToken = getRefreshTokenFromRequest(req);
     if (!refreshToken) {
       throw new UnauthorizedException('Недійсний токен');
     }

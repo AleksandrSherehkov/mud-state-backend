@@ -1,19 +1,33 @@
 import type { Request } from 'express';
 
+type CookieReadOptions = {
+  signed?: boolean;
+};
+
 export function getCookieString(
   req: Request,
   name: string,
+  opts: CookieReadOptions = {},
 ): string | undefined {
   const r = req as unknown as {
     cookies?: Record<string, unknown>;
     signedCookies?: Record<string, unknown>;
   };
 
-  const signed = r.signedCookies?.[name] as string | undefined;
-  if (typeof signed === 'string') return signed;
+  const signedRaw = r.signedCookies?.[name];
 
-  const plain = r.cookies?.[name];
-  if (typeof plain === 'string') return plain;
+  if (signedRaw === false) return undefined;
 
-  return undefined;
+  const signed = typeof signedRaw === 'string' ? signedRaw : undefined;
+
+  if (opts.signed) {
+    return signed;
+  }
+
+  if (signed) return signed;
+
+  const plainRaw = r.cookies?.[name];
+  const plain = typeof plainRaw === 'string' ? plainRaw : undefined;
+
+  return plain;
 }

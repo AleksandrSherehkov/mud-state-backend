@@ -47,16 +47,13 @@ export function setupSwagger(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
       'access_bearer',
     )
-    .addCookieAuth(
-      'refreshToken',
-      {
-        type: 'apiKey',
-        in: 'cookie',
-        description:
-          'Signed HttpOnly refresh cookie (set on login/register/refresh).',
-      },
-      'refresh_cookie',
-    )
+    .addSecurity('refresh_cookie', {
+      type: 'apiKey',
+      in: 'cookie',
+      name: 'refreshToken',
+      description:
+        'Signed HttpOnly refresh cookie (set on login/register/refresh).',
+    })
     .addApiKey(
       {
         type: 'apiKey',
@@ -66,15 +63,13 @@ export function setupSwagger(
       },
       'csrf_header',
     )
-    .addCookieAuth(
-      'csrfToken',
-      {
-        type: 'apiKey',
-        in: 'cookie',
-        description: 'Non-HttpOnly CSRF cookie (15 min maxAge).',
-      },
-      'csrf_cookie',
-    )
+
+    .addSecurity('csrf_cookie', {
+      type: 'apiKey',
+      in: 'cookie',
+      name: 'csrfToken',
+      description: 'Non-HttpOnly CSRF cookie (15 min maxAge).',
+    })
     .addServer(apiBase, 'API base')
     .build();
 
