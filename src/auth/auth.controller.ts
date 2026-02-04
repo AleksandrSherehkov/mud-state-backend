@@ -134,6 +134,14 @@ export class AuthController {
   }
 
   @Post('register')
+  @UseGuards(CsrfGuard)
+  @ApiCookieAuth('csrf_cookie')
+  @ApiSecurity('csrf_header')
+  @ApiHeader({
+    name: 'X-CSRF-Token',
+    required: true,
+    description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
+  })
   @Throttle({ default: { limit: 3, ttl: 60 } })
   @ApiOperation({
     summary: 'Реєстрація нового користувача',
@@ -175,6 +183,14 @@ export class AuthController {
   }
 
   @Post('login')
+  @UseGuards(CsrfGuard)
+  @ApiCookieAuth('csrf_cookie')
+  @ApiSecurity('csrf_header')
+  @ApiHeader({
+    name: 'X-CSRF-Token',
+    required: true,
+    description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
+  })
   @HttpCode(200)
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @ApiOperation({ summary: 'Вхід користувача', operationId: 'auth_login' })
@@ -281,7 +297,14 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CsrfGuard)
+  @ApiCookieAuth('csrf_cookie')
+  @ApiSecurity('csrf_header')
+  @ApiHeader({
+    name: 'X-CSRF-Token',
+    required: true,
+    description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
+  })
   @SkipThrottle()
   @ApiBearerAuth('access_bearer')
   @HttpCode(200)
