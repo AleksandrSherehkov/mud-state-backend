@@ -155,11 +155,8 @@ export class AuthController {
   @ApiAuthLinks.register201()
   @ApiMutationErrorResponses({
     includeUnauthorized: false,
-    includeForbidden: false,
+    includeForbidden: true,
     includeConflict: true,
-
-    conflictDescription: 'Email вже використовується',
-    conflictMessageExample: 'Електронна адреса вже використовується',
   })
   async register(
     @Body() dto: RegisterDto,
@@ -203,7 +200,7 @@ export class AuthController {
   @ApiBody({ type: LoginDto })
   @ApiAuthLinks.login200()
   @ApiMutationErrorResponses({
-    includeForbidden: false,
+    includeForbidden: true,
     includeConflict: false,
     unauthorizedDescription: 'Невірний email або пароль',
     unauthorizedMessageExample: 'Невірний email або пароль',
@@ -268,7 +265,7 @@ export class AuthController {
   })
   @ApiAuthLinks.refresh200()
   @ApiMutationErrorResponses({
-    includeForbidden: false,
+    includeForbidden: true,
     includeConflict: false,
     unauthorizedDescription:
       'Refresh токен недійсний / відкликаний / reuse detected',
@@ -324,6 +321,7 @@ export class AuthController {
     includeConflict: false,
     includeTooManyRequests: false,
     includeBadRequest: false,
+    includeForbidden: true,
     notFoundMessage: 'Користувача не знайдено',
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
     unauthorizedMessageExample: 'Session is not active',
