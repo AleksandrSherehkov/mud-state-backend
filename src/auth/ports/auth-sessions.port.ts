@@ -1,5 +1,3 @@
-import type { Prisma } from '@prisma/client';
-
 export interface AuthSessionsPort {
   create(
     sessionId: string,
@@ -7,7 +5,7 @@ export interface AuthSessionsPort {
     refreshTokenJti: string,
     ip?: string,
     userAgent?: string,
-    tx?: Prisma.TransactionClient,
+    tx?: unknown,
   ): Promise<unknown>;
 
   isSessionActive(sessionId: string, userId: string): Promise<boolean>;

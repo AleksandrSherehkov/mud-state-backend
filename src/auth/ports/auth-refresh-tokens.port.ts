@@ -1,5 +1,3 @@
-import type { Prisma } from '@prisma/client';
-
 export interface AuthRefreshTokensPort {
   create(
     userId: string,
@@ -7,7 +5,7 @@ export interface AuthRefreshTokensPort {
     tokenHash: string,
     ip?: string,
     userAgent?: string,
-    tx?: Prisma.TransactionClient,
+    tx?: unknown,
   ): Promise<unknown>;
 
   revokeAll(userId: string): Promise<{ count: number }>;

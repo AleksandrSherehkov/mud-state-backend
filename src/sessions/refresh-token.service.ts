@@ -34,9 +34,9 @@ export class RefreshTokenService implements AuthRefreshTokensPort {
     tokenHash: string,
     ip?: string,
     userAgent?: string,
-    tx?: Prisma.TransactionClient,
+    tx?: unknown,
   ) {
-    const db = tx ?? this.prisma;
+    const db = (tx as Prisma.TransactionClient | undefined) ?? this.prisma;
 
     const nip = ip ? normalizeIp(ip) : undefined;
     const ua = userAgent?.trim() || undefined;

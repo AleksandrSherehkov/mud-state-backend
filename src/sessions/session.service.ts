@@ -23,12 +23,12 @@ export class SessionService implements AuthSessionsPort {
     refreshTokenJti: string,
     ip?: string,
     userAgent?: string,
-    tx?: Prisma.TransactionClient,
+    tx?: unknown,
   ) {
     const nip = ip ? normalizeIp(ip) : null;
     const ua = userAgent?.trim() || null;
 
-    const db = tx ?? this.prisma;
+    const db = (tx as Prisma.TransactionClient | undefined) ?? this.prisma;
 
     const session = await db.session.create({
       data: {
