@@ -42,6 +42,7 @@ model RefreshToken {
   userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   revoked   Boolean  @default(false)
+  expiresAt DateTime
   ip        String?
   userAgent String?
   createdAt DateTime @default(now())
@@ -49,6 +50,7 @@ model RefreshToken {
   sessions Session[] @relation("SessionToRefreshToken")
 
   @@index([userId, revoked])
+  @@index([expiresAt])
 }
 
 model Session {

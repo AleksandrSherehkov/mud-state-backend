@@ -46,7 +46,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { getRefreshTokenFromRequest } from 'src/common/http/refresh-token';
-import ms from 'ms';
+import * as ms from 'ms';
 
 @ApiTags('auth')
 @Controller({

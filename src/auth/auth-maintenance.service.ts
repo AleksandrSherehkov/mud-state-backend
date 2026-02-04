@@ -25,10 +25,14 @@ export class AuthMaintenanceService {
       },
     );
 
+    const now = new Date();
+
     const deleted = await this.prisma.refreshToken.deleteMany({
       where: {
-        revoked: true,
-        createdAt: { lt: dateThreshold },
+        OR: [
+          { revoked: true, createdAt: { lt: dateThreshold } },
+          { expiresAt: { lt: now } },
+        ],
       },
     });
 

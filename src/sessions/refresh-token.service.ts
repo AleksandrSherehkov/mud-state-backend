@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { ConfigService } from '@nestjs/config';
 import { AuthRefreshTokensPort } from 'src/auth/ports/auth-refresh-tokens.port';
+import * as ms from 'ms';
 
 @Injectable()
 export class RefreshTokenService implements AuthRefreshTokensPort {
@@ -15,6 +16,16 @@ export class RefreshTokenService implements AuthRefreshTokensPort {
     private readonly config: ConfigService,
   ) {
     this.logger.setContext(RefreshTokenService.name);
+  }
+  private tryParseMs(raw: string): number | undefined {
+    const v = ms(raw as ms.StringValue);
+    return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+  }
+
+  private calcExpiresAt(): Date {
+    const raw = this.config.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d';
+    const ttl = this.tryParseMs(raw) ?? 7 * 24 * 60 * 60 * 1000;
+    return new Date(Date.now() + ttl);
   }
 
   async create(
@@ -30,6 +41,8 @@ export class RefreshTokenService implements AuthRefreshTokensPort {
     const nip = ip ? normalizeIp(ip) : undefined;
     const ua = userAgent?.trim() || undefined;
 
+    const expiresAt = this.calcExpiresAt();
+
     const token = await db.refreshToken.create({
       data: {
         userId,
@@ -37,6 +50,7 @@ export class RefreshTokenService implements AuthRefreshTokensPort {
         tokenHash,
         ip: nip,
         userAgent: ua,
+        expiresAt,
       },
     });
 
@@ -53,7 +67,7 @@ export class RefreshTokenService implements AuthRefreshTokensPort {
 
   async getActiveTokens(userId: string, take = 50) {
     const tokens = await this.prisma.refreshToken.findMany({
-      where: { userId, revoked: false },
+      where: { userId, revoked: false, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
       take,
     });
@@ -168,6 +182,20 @@ export class RefreshTokenService implements AuthRefreshTokensPort {
       );
       throw new UnauthorizedException('Токен відкликано або недійсний');
     }
+    if (token.expiresAt.getTime() <= Date.now()) {
+      this.logger.warn(
+        'Refresh token validation failed: expired',
+        RefreshTokenService.name,
+        {
+          event: 'refresh_token.validate_failed',
+          reason: 'expired',
+          userId,
+          jti,
+          expiresAt: token.expiresAt.toISOString(),
+        },
+      );
+      throw new UnauthorizedException('Токен відкликано або недійсний');
+    }
 
     if (token.userId !== userId) {
       this.logger.warn(
@@ -187,13 +215,13 @@ export class RefreshTokenService implements AuthRefreshTokensPort {
 
   async findValid(userId: string, jti: string) {
     return this.prisma.refreshToken.findFirst({
-      where: { userId, jti, revoked: false },
+      where: { userId, jti, revoked: false, expiresAt: { gt: new Date() } },
     });
   }
 
   async countActive(userId: string) {
     return this.prisma.refreshToken.count({
-      where: { userId, revoked: false },
+      where: { userId, revoked: false, expiresAt: { gt: new Date() } },
     });
   }
 
