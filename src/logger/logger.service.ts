@@ -1,54 +1,83 @@
+// src/logger/logger.service.ts
 import { Injectable, LoggerService, Scope } from '@nestjs/common';
-import * as winston from 'winston';
-import { sanitizeMeta } from 'src/common/helpers/log-sanitize';
+import type { Logger as WinstonLogger } from 'winston';
+import { sanitizeMeta, sanitizeString } from 'src/common/helpers/log-sanitize';
 import { getRequestId } from 'src/common/request-context/request-context';
 
 type Meta = Record<string, unknown>;
 
 @Injectable({ scope: Scope.TRANSIENT })
 export class AppLogger implements LoggerService {
+  // ВАЖЛИВО: цей winston-інстанс має бути створений у LoggerModule
+  // і інжектитись сюди (як у тебе зараз).
+  constructor(private readonly winston: WinstonLogger) {}
+
   private context?: string;
 
-  constructor(private readonly logger: winston.Logger) {}
-
-  setContext(context: string) {
-    this.context = context || 'App';
+  setContext(ctx: string) {
+    this.context = ctx;
   }
 
-  private base(context?: string, meta?: Meta): Meta {
+  // ---- centralized sanitization ----
+  private withBaseMeta(meta?: Meta): Meta {
     const requestId = getRequestId();
-
-    const merged: Meta = {
-      ...(meta ?? {}),
-      context: context || this.context || 'App',
+    const base: Meta = {
       ...(requestId ? { requestId } : {}),
     };
 
+    // 1) об’єднали meta
+    const merged = meta ? { ...base, ...meta } : base;
+
+    // 2) санітизували ВСЕ
     return sanitizeMeta(merged);
   }
 
-  log(message: string, context?: string, meta?: Meta) {
-    this.logger.info(message, this.base(context, meta));
+  private safeMessage(message: unknown): string {
+    const s = typeof message === 'string' ? message : String(message);
+    return sanitizeString(s);
   }
 
-  warn(message: string, context?: string, meta?: Meta) {
-    this.logger.warn(message, this.base(context, meta));
+  private safeContext(ctx?: string): string | undefined {
+    const c = (ctx ?? this.context)?.trim();
+    return c ? c : undefined;
   }
 
-  debug(message: string, context?: string, meta?: Meta) {
-    this.logger.debug(message, this.base(context, meta));
+  log(message: unknown, context?: string, meta?: Meta) {
+    this.winston.info(this.safeMessage(message), {
+      context: this.safeContext(context),
+      ...this.withBaseMeta(meta),
+    });
   }
 
-  verbose(message: string, context?: string, meta?: Meta) {
-    this.logger.verbose(message, this.base(context, meta));
+  error(message: unknown, trace?: string, context?: string, meta?: Meta) {
+    // trace теж може містити токени (рідко, але буває) — санітизуємо
+    const safeTrace = trace ? sanitizeString(trace) : undefined;
+
+    this.winston.error(this.safeMessage(message), {
+      context: this.safeContext(context),
+      ...(safeTrace ? { trace: safeTrace } : {}),
+      ...this.withBaseMeta(meta),
+    });
   }
 
-  silly(message: string, context?: string, meta?: Meta) {
-    this.logger.silly(message, this.base(context, meta));
+  warn(message: unknown, context?: string, meta?: Meta) {
+    this.winston.warn(this.safeMessage(message), {
+      context: this.safeContext(context),
+      ...this.withBaseMeta(meta),
+    });
   }
 
-  error(message: string, trace?: string, context?: string, meta?: Meta) {
-    const base = this.base(context, meta);
-    this.logger.error(message, { ...base, trace });
+  debug(message: unknown, context?: string, meta?: Meta) {
+    this.winston.debug(this.safeMessage(message), {
+      context: this.safeContext(context),
+      ...this.withBaseMeta(meta),
+    });
+  }
+
+  verbose(message: unknown, context?: string, meta?: Meta) {
+    this.winston.verbose(this.safeMessage(message), {
+      context: this.safeContext(context),
+      ...this.withBaseMeta(meta),
+    });
   }
 }

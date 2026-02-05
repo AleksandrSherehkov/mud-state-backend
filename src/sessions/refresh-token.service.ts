@@ -346,16 +346,40 @@ export class RefreshTokenService {
         },
       );
 
+      const now = new Date();
+
+      // Scoped response: гасимо ТІЛЬКИ компрометований ланцюжок (jti + sid),
+      // щоб старий токен не міг "вибивати" нові сесії користувача.
       await this.prisma.$transaction([
         this.prisma.refreshToken.updateMany({
-          where: { userId: params.userId, revoked: false },
+          where: {
+            userId: params.userId,
+            jti: params.jti,
+            revoked: false,
+          },
           data: { revoked: true },
         }),
         this.prisma.session.updateMany({
-          where: { userId: params.userId, isActive: true },
-          data: { isActive: false, endedAt: new Date() },
+          where: {
+            id: params.sid,
+            userId: params.userId,
+            isActive: true,
+            endedAt: null,
+          },
+          data: { isActive: false, endedAt: now },
         }),
       ]);
+
+      this.logger.warn(
+        'Refresh fingerprint mismatch response applied (scoped revoke + terminate)',
+        RefreshTokenService.name,
+        {
+          event: 'auth.refresh.fingerprint_mismatch_response_applied',
+          userId: params.userId,
+          jti: params.jti,
+          sid: params.sid,
+        },
+      );
 
       throw new UnauthorizedException('Токен відкликано або недійсний');
     }

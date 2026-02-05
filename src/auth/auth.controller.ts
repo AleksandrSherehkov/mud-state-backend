@@ -88,29 +88,88 @@ export class AuthController {
     return xfProto?.toLowerCase() === 'https';
   }
 
+  private cookieSameSite(): 'lax' | 'strict' | 'none' {
+    // safe default:
+    // - prod: lax
+    // - non-prod: lax
+    const raw = (
+      this.config.get<string>('COOKIE_SAMESITE') ?? ''
+    ).toLowerCase();
+
+    if (raw === 'lax' || raw === 'strict' || raw === 'none') return raw;
+
+    return 'lax';
+  }
+
+  private isCrossSiteCookiesEnabled(): boolean {
+    // Явний прапор: щоб "none" не увімкнули випадково
+    return (
+      String(this.config.get('COOKIE_CROSS_SITE') ?? '')
+        .toLowerCase()
+        .trim() === 'true'
+    );
+  }
+
   private refreshCookieOptions(req: Request): CookieOptions {
-    const secure = this.isProd() ? true : this.isRequestSecure(req);
     const maxAge = this.refreshCookieMaxAgeMs();
+
+    const secure = this.isProd() ? true : this.isRequestSecure(req);
+
+    // 1) визначаємо sameSite
+    let sameSite: 'lax' | 'strict' | 'none' = this.cookieSameSite();
+
+    // 2) в prod дозволяємо none ТІЛЬКИ якщо явно увімкнули cross-site
+    if (
+      this.isProd() &&
+      sameSite === 'none' &&
+      !this.isCrossSiteCookiesEnabled()
+    ) {
+      sameSite = 'lax';
+    }
+
+    // 3) якщо none — то ТІЛЬКИ https (fail-closed)
+    if (sameSite === 'none' && !secure) {
+      // Це не “401”, це саме помилка конфіг/проксі/https
+      throw new Error(
+        'Cookie misconfiguration: SameSite=None requires Secure (HTTPS). Check TLS termination / proxy / BASE_URL.',
+      );
+    }
 
     return {
       httpOnly: true,
       secure,
-      sameSite: this.isProd() ? 'none' : 'lax',
+      sameSite,
       path: this.apiPath(),
       signed: true,
       maxAge,
       expires: new Date(Date.now() + maxAge),
     };
   }
+
   private csrfCookieOptions(req: Request): CookieOptions {
     const secure = this.isProd() ? true : this.isRequestSecure(req);
 
+    let sameSite: 'lax' | 'strict' | 'none' = this.cookieSameSite();
+    if (
+      this.isProd() &&
+      sameSite === 'none' &&
+      !this.isCrossSiteCookiesEnabled()
+    ) {
+      sameSite = 'lax';
+    }
+
+    if (sameSite === 'none' && !secure) {
+      throw new Error(
+        'Cookie misconfiguration: SameSite=None requires Secure (HTTPS). Check TLS termination / proxy.',
+      );
+    }
+
     return {
-      httpOnly: false, // double-submit: JS читает и кладёт в header
+      httpOnly: false,
       secure,
-      sameSite: this.isProd() ? 'none' : 'lax',
+      sameSite,
       path: this.apiPath(),
-      maxAge: 15 * 60 * 1000, // 15 минут
+      maxAge: 15 * 60 * 1000,
     };
   }
   private setCsrfCookie(res: ExpressResponse, req: Request): string {
@@ -119,12 +178,21 @@ export class AuthController {
     return csrfToken;
   }
 
-  private setAuthCookies(
+  private setRefreshCookie(
     res: ExpressResponse,
     req: Request,
     refreshToken: string,
   ): void {
     res.cookie('refreshToken', refreshToken, this.refreshCookieOptions(req));
+  }
+
+  private setAuthCookies(
+    res: ExpressResponse,
+    req: Request,
+    refreshToken: string,
+  ): void {
+    // Використовуємо тільки там, де треба “видати пару” (login/register)
+    this.setRefreshCookie(res, req, refreshToken);
     this.setCsrfCookie(res, req);
   }
 
@@ -284,8 +352,8 @@ export class AuthController {
 
     const result = await this.authService.refresh(refreshToken, ip, userAgent);
 
-    // rotate BOTH refresh + csrf
-    this.setAuthCookies(res, req, result.refreshToken);
+    // rotate BOTH refresh
+    this.setRefreshCookie(res, req, result.refreshToken);
 
     return new TokenResponseDto({
       accessToken: result.accessToken,

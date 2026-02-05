@@ -11,6 +11,72 @@ import helmet from 'helmet';
 import * as cookieParser from 'cookie-parser';
 import { setupSwagger } from './common/swagger/setup-swagger';
 
+function parseList(value?: string): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function validateSecurityConfig(config: ConfigService) {
+  const appEnv = config.get<string>('APP_ENV') ?? 'development';
+  const isProd = appEnv === 'production';
+
+  const baseUrl = config.get<string>('BASE_URL', 'http://localhost:3000');
+
+  const cookieSameSite = config.get<string>('COOKIE_SAMESITE');
+  const cookieCrossSite = config.get<boolean>('COOKIE_CROSS_SITE');
+
+  const corsOrigins = parseList(config.get<string>('CORS_ORIGINS'));
+  const csrfOrigins = parseList(config.get<string>('CSRF_TRUSTED_ORIGINS'));
+
+  // ---- ALWAYS: require explicit CORS_ORIGINS ----
+  if (corsOrigins.length === 0) {
+    throw new Error(
+      'SECURITY: CORS_ORIGINS має бути визначено (у dev/test/prod), щоб уникнути "allow all" за замовчуванням',
+    );
+  }
+
+  // ---- ALWAYS: forbid wildcard ----
+  if (corsOrigins.includes('*')) {
+    throw new Error(
+      'SECURITY: wildcard CORS (*) заборонено (і несумісно з credentials=true)',
+    );
+  }
+
+  // ---- PROD-only hard checks ----
+  if (!isProd) return;
+
+  // HTTPS required for SameSite=None
+  if (cookieSameSite === 'none') {
+    if (!baseUrl.startsWith('https://')) {
+      throw new Error(
+        'SECURITY: COOKIE_SAMESITE=none вимагає HTTPS BASE_URL у production',
+      );
+    }
+
+    if (!cookieCrossSite) {
+      throw new Error(
+        'SECURITY: COOKIE_SAMESITE=none вимагає увімкнення COOKIE_CROSS_SITE=true',
+      );
+    }
+
+    if (corsOrigins.some((o) => o.startsWith('http://'))) {
+      throw new Error(
+        'SECURITY: HTTP origins заборонені, коли увімкнено SameSite=None у production',
+      );
+    }
+  }
+
+  // forbid localhost in production
+  if (
+    corsOrigins.some((o) => o.includes('localhost')) ||
+    csrfOrigins.some((o) => o.includes('localhost'))
+  ) {
+    throw new Error('SECURITY: localhost origins заборонені у production');
+  }
+}
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
@@ -20,7 +86,7 @@ async function bootstrap() {
   app.useLogger(logger);
 
   const configService = app.get(ConfigService);
-  // ---- trust proxy ----
+
   const trustProxy = Number(configService.get('TRUST_PROXY_HOPS') ?? 1);
   app.set('trust proxy', trustProxy);
 
@@ -33,7 +99,10 @@ async function bootstrap() {
   const appEnv = configService.get<string>('APP_ENV') ?? 'development';
   const isProd = appEnv === 'production';
 
-  // ---- security middleware ----
+  // ---- SECURITY CONFIG VALIDATION ----
+  validateSecurityConfig(configService);
+
+  // ---- Helmet ----
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -43,10 +112,6 @@ async function bootstrap() {
           baseUri: ["'none'"],
           frameAncestors: ["'none'"],
           formAction: ["'none'"],
-          // Если вдруг будет HTML/Swagger-UI, эти директивы можно расширять точечно.
-          // scriptSrc: ["'self'"],
-          // styleSrc: ["'self'", "'unsafe-inline'"],
-          // imgSrc: ["'self'", "data:"],
         },
       },
 
@@ -55,7 +120,6 @@ async function bootstrap() {
         : false,
 
       crossOriginResourcePolicy: { policy: 'same-site' },
-
       referrerPolicy: { policy: 'no-referrer' },
     }),
   );
@@ -65,21 +129,23 @@ async function bootstrap() {
   app.use(cookieParser(cookieSecret));
 
   // ---- CORS ----
-  const originsRaw = configService.get<string>('CORS_ORIGINS') ?? '';
-  const origins = originsRaw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const origins = parseList(configService.get<string>('CORS_ORIGINS'));
 
   app.enableCors({
-    origin: origins.length ? origins : true,
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+
+      if (origins.includes(origin)) return cb(null, true);
+
+      return cb(new Error(`CORS blocked for origin: ${origin}`), false);
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'X-CSRF-Token'],
+    credentials: true,
     maxAge: 600,
-    credentials: true, // <-- важно для cookie
   });
 
-  // ---- validation ----
+  // ---- Validation ----
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -88,8 +154,6 @@ async function bootstrap() {
     }),
   );
 
-  // ---- base settings ----
-
   app.setGlobalPrefix(apiPrefix);
 
   app.enableVersioning({
@@ -97,11 +161,8 @@ async function bootstrap() {
     defaultVersion: apiVersion,
   });
 
-  // ---- swagger ----
-
   const { shouldEnableSwagger, apiBase } = setupSwagger(app, configService);
 
-  // ---- start ----
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
 
@@ -120,7 +181,9 @@ async function bootstrap() {
 
 bootstrap().catch((err: unknown) => {
   bootstrapLogger.error(
-    `❌ Failed to start application: ${err instanceof Error ? err.stack : String(err)}`,
+    `❌ Failed to start application: ${
+      err instanceof Error ? err.stack : String(err)
+    }`,
   );
   process.exit(1);
 });

@@ -75,6 +75,16 @@ const isTest =
           then: Joi.string().min(1).required(),
           otherwise: Joi.string().default(''),
         }),
+        COOKIE_SAMESITE: Joi.string()
+          .valid('lax', 'strict', 'none')
+          .default('lax'),
+
+        COOKIE_CROSS_SITE: Joi.boolean().default(false),
+        CSRF_TRUSTED_ORIGINS: Joi.when('APP_ENV', {
+          is: 'production',
+          then: Joi.string().min(1).required(),
+          otherwise: Joi.string().default(''),
+        }),
         TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(10).default(1),
         SWAGGER_ENABLED: Joi.boolean().default(true),
         AUTH_DUMMY_PASSWORD_HASH: Joi.string().min(20).optional(),

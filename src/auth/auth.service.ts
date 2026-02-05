@@ -221,21 +221,28 @@ export class AuthService {
         },
       );
 
-      const [revokeRes, terminateRes] = await Promise.all([
-        this.refreshTokenService.revokeAll(userId),
-        this.sessionService.terminateAll(userId),
-      ]);
-
-      this.logger.warn(
-        'Refresh reuse response applied (global revoke + terminate)',
-        AuthService.name,
-        {
-          event: 'auth.refresh.reuse_response_applied',
+      // Scoped response: блокуємо ТІЛЬКИ цей jti/sid ланцюжок.
+      // Важливо: НЕ terminateAll(userId), інакше старий токен може вибивати нові сесії (DoS).
+      const [revoked, terminated] = await Promise.all([
+        this.refreshTokenService.revokeManyByJtis([payload.jti], {
           userId,
           jti: payload.jti,
           sid: payload.sid,
-          revokedTokens: revokeRes.count,
-          terminatedSessions: terminateRes.count,
+          reason: 'reuse_detected_scoped',
+        }),
+        this.sessionService.terminateByRefreshToken(payload.jti),
+      ]);
+
+      this.logger.warn(
+        'Refresh reuse response applied (scoped revoke + terminate)',
+        AuthService.name,
+        {
+          event: 'auth.refresh.reuse_response_applied_scoped',
+          userId,
+          jti: payload.jti,
+          sid: payload.sid,
+          revokedTokens: revoked.count,
+          terminatedSessions: terminated.count,
         },
       );
 
