@@ -3,9 +3,6 @@ import { AppLogger } from './logger.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as winston from 'winston';
 import { createWinstonTransports } from './winston.config';
-import { sanitizeFormat } from './formats/sanitize.format';
-
-const { combine, timestamp, errors, json } = winston.format;
 
 function resolveLevel(config: ConfigService): string {
   const explicit = config.get<string>('LOG_LEVEL');
@@ -28,14 +25,8 @@ function resolveLevel(config: ConfigService): string {
           level: resolveLevel(config),
           levels: winston.config.npm.levels,
 
-          // ✅ ВАЖЛИВО: sanitizeFormat — ПЕРШИМ
-          format: combine(
-            sanitizeFormat(),
-            timestamp(),
-            errors({ stack: true }),
-            json(),
-          ),
-
+          // ❗️ВАЖЛИВО: НЕ задаємо format глобально
+          // Увесь format (sanitize/timestamp/printf/json) буде в transport-ах
           transports: createWinstonTransports(config),
         });
 

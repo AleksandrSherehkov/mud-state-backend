@@ -11,7 +11,11 @@ import { ConfigService } from '@nestjs/config';
 import { AppLogger } from 'src/logger/logger.service';
 import { extractRequestInfo } from 'src/common/helpers/request-info';
 import { getRequestId } from 'src/common/request-context/request-context';
-import { maskIp } from 'src/common/helpers/log-sanitize';
+import {
+  maskIp,
+  hashId,
+  normalizeUserAgent,
+} from 'src/common/helpers/log-sanitize';
 import { UserFromJwt } from 'src/common/types/user-from-jwt';
 
 type ErrorBody = {
@@ -74,6 +78,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     const requestId = getRequestId();
 
+    const ua = normalizeUserAgent(userAgent);
+
     const meta = {
       event: 'http.exception',
       requestId,
@@ -84,7 +90,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       role: user?.role,
       sid: user?.sid,
       ipMasked: maskIp(ip),
-      userAgent,
+      uaHash: ua ? hashId(ua) : undefined,
     };
 
     const details =

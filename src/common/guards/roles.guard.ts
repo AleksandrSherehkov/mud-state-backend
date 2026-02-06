@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import type { Request } from 'express';
@@ -27,13 +32,19 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const user = request.user as RequestUserWithRole | undefined;
 
+    // Після JwtAuthGuard це зазвичай не трапляється, але якщо трапилось —
+    // краще явно 403 з контрольованим повідомленням (а не "return false").
     if (!user) {
       this.logger.warn('Forbidden: missing user in request', RolesGuard.name, {
         event: 'authz.deny',
         reason: 'missing_user',
         requiredRoles,
       });
-      return false;
+
+      throw new ForbiddenException({
+        message: 'Недостатньо прав доступу',
+        reason: 'missing_user',
+      });
     }
 
     const allowed = requiredRoles.includes(user.role);
@@ -47,8 +58,14 @@ export class RolesGuard implements CanActivate {
         userId: user.userId,
         sid: user.sid,
       });
+
+      throw new ForbiddenException({
+        message: 'Недостатньо прав доступу',
+        reason: 'role_mismatch',
+        requiredRoles,
+      });
     }
 
-    return allowed;
+    return true;
   }
 }

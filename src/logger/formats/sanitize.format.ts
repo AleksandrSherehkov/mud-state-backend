@@ -2,12 +2,18 @@ import { format } from 'winston';
 import { sanitizeMeta, sanitizeString } from 'src/common/helpers/log-sanitize';
 
 export const sanitizeFormat = format((info) => {
-  info.message = sanitizeString(String(info.message));
+  const safeMessage = sanitizeString(
+    typeof info.message === 'string' ? info.message : String(info.message),
+  );
 
-  // НЕ чіпаємо level/timestamp
-  const { level, message, ...rest } = info;
+  const level =
+    typeof info.level === 'string' ? info.level : String(info.level);
 
-  const cleaned = sanitizeMeta(rest);
+  // meta: беремо все, крім level/message
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { level: __level, message: __message, ...rest } = info;
 
-  return { level, message, ...cleaned };
+  const cleaned = sanitizeMeta(rest) as Record<string, unknown>;
+
+  return { ...cleaned, level, message: safeMessage };
 });

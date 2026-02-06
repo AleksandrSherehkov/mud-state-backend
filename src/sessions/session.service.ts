@@ -223,4 +223,73 @@ export class SessionService {
     });
     return !!session;
   }
+  async updateRefreshBinding(params: {
+    sid: string;
+    userId: string;
+    newJti: string;
+    ip?: string | null;
+    userAgent?: string | null;
+    tx?: Prisma.TransactionClient;
+  }): Promise<void> {
+    const db = params.tx ?? this.prisma;
+
+    const nip = params.ip ? normalizeIp(params.ip) : null;
+    const ua = (params.userAgent ?? '').trim() || null;
+
+    const updated = await db.session.updateMany({
+      where: {
+        id: params.sid,
+        userId: params.userId,
+        isActive: true,
+        endedAt: null,
+      },
+      data: {
+        refreshTokenJti: params.newJti,
+        // опційно: якщо хочеш фіксувати останній IP/UA в сесії
+        ip: nip,
+        userAgent: ua,
+      },
+    });
+
+    if (updated.count === 0) {
+      this.logger.warn(
+        'Session refresh binding update failed (session inactive or missing)',
+        SessionService.name,
+        {
+          event: 'session.refresh_binding.update_failed',
+          userId: params.userId,
+          sid: params.sid,
+          newJti: params.newJti,
+          ipMasked: nip ? maskIp(nip) : undefined,
+          uaHash: ua ? hashId(ua) : undefined,
+        },
+      );
+    } else {
+      this.logger.debug(
+        'Session refresh binding updated',
+        SessionService.name,
+        {
+          event: 'session.refresh_binding.updated',
+          userId: params.userId,
+          sid: params.sid,
+          newJti: params.newJti,
+        },
+      );
+    }
+  }
+
+  async terminateById(params: {
+    sid: string;
+    userId: string;
+    reason?: string;
+  }): Promise<Prisma.BatchPayload> {
+    return this.terminateSessions(
+      { id: params.sid, userId: params.userId },
+      {
+        userId: params.userId,
+        sid: params.sid,
+        reason: params.reason ?? 'by_sid',
+      },
+    );
+  }
 }

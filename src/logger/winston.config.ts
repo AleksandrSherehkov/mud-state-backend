@@ -3,6 +3,7 @@ import 'winston-daily-rotate-file';
 import { ConfigService } from '@nestjs/config';
 import { getRequestId } from 'src/common/request-context/request-context';
 import * as util from 'node:util';
+import { sanitizeFormat } from './formats/sanitize.format';
 
 type LogInfo = winston.Logform.TransformableInfo & {
   context?: string;
@@ -31,8 +32,8 @@ const addRequestId = winston.format((info: LogInfo) => {
 });
 
 const consoleFormat = winston.format.combine(
+  sanitizeFormat(), // ✅ sanitize першим
   addRequestId(),
-  winston.format.colorize(),
   winston.format.timestamp(),
   winston.format.printf((info: LogInfo) => {
     const {
@@ -45,7 +46,7 @@ const consoleFormat = winston.format.combine(
     } = info as unknown as Record<string, unknown>;
 
     const timestamp = stringifyMessage(ts) || '';
-    const level = stringifyMessage(lvl) || '';
+    const level = stringifyMessage(lvl) || ''; // буде просто "info"/"error"
     const ctx = typeof context === 'string' ? context : 'App';
     const rid = typeof requestId === 'string' ? ` rid=${requestId}` : '';
 
@@ -59,6 +60,7 @@ const consoleFormat = winston.format.combine(
 );
 
 const fileFormat = winston.format.combine(
+  sanitizeFormat(), // ✅ ПЕРШИМ у file transport
   addRequestId(),
   winston.format.timestamp(),
   winston.format.json(),
@@ -75,6 +77,9 @@ export const createWinstonTransports = (
 
   const consoleTransport = new winston.transports.Console({
     format: consoleFormat,
+    // ✅ допомагає бачити error в stderr (інколи корисно в докері/CI)
+    stderrLevels: ['error'],
+    handleExceptions: true,
   });
 
   const fileTransport = new winston.transports.DailyRotateFile({
@@ -85,6 +90,7 @@ export const createWinstonTransports = (
     maxSize: config.get('LOG_MAX_SIZE', '10m'),
     maxFiles: config.get('LOG_MAX_FILES', '14d'),
     format: fileFormat,
+    handleExceptions: true,
   });
 
   if (isTest) return [fileTransport];

@@ -230,7 +230,11 @@ export class AuthService {
           sid: payload.sid,
           reason: 'reuse_detected_scoped',
         }),
-        this.sessionService.terminateByRefreshToken(payload.jti),
+        this.sessionService.terminateById({
+          sid: payload.sid,
+          userId,
+          reason: 'reuse_detected_scoped',
+        }),
       ]);
 
       this.logger.warn(
@@ -249,7 +253,10 @@ export class AuthService {
       throw new UnauthorizedException('Токен відкликано або недійсний');
     }
 
-    await this.sessionService.terminateByRefreshToken(payload.jti);
+    // IMPORTANT:
+    // - НЕ завершуємо сесію при нормальному refresh
+    // - sid має лишатися стабільним (session = device/login)
+    // - ротируємо лише refresh jti і переприв'язуємо його до існуючої сесії
 
     const user = await this.usersService.findById(userId);
     if (!user) {
@@ -263,15 +270,63 @@ export class AuthService {
       throw new UnauthorizedException('Користувача не знайдено');
     }
 
-    this.logger.log('Refresh success', AuthService.name, {
-      event: 'auth.refresh.success',
-      userId,
+    const nip: string | null = ip ? normalizeIp(ip) : null;
+    const ua: string | null = userAgent?.trim() || null;
+
+    const newJti = randomUUID();
+
+    const newPayload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
       role: user.role,
-      jti: payload.jti,
-      sid: payload.sid,
+      sid: payload.sid, // ✅ sid стабільний
+      jti: newJti, // ✅ ротируємо тільки jti
+    };
+
+    const [accessToken, newRefreshToken] = await Promise.all([
+      this.tokenService.signAccessToken(newPayload),
+      this.tokenService.signRefreshToken(newPayload),
+    ]);
+
+    const newTokenHash = this.tokenService.hashRefreshToken(newRefreshToken);
+
+    // Атомарно:
+    // 1) створюємо новий refresh token (newJti)
+    // 2) переприв'язуємо session.refreshTokenJti -> newJti
+    await this.tx.run(async (tx) => {
+      await this.refreshTokenService.create(
+        user.id,
+        newJti,
+        newTokenHash,
+        nip ?? undefined,
+        ua ?? undefined,
+        tx,
+      );
+
+      await this.sessionService.updateRefreshBinding({
+        sid: payload.sid,
+        userId: user.id,
+        newJti,
+        ip: nip,
+        userAgent: ua,
+        tx,
+      });
     });
 
-    return this.issueTokens(user.id, user.email, user.role, ip, userAgent);
+    this.logger.log(
+      'Refresh success (session stable, jti rotated)',
+      AuthService.name,
+      {
+        event: 'auth.refresh.success',
+        userId: user.id,
+        role: user.role,
+        oldJti: payload.jti,
+        newJti,
+        sid: payload.sid,
+      },
+    );
+
+    return { accessToken, refreshToken: newRefreshToken, jti: newJti };
   }
 
   async logout(
