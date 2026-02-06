@@ -30,24 +30,20 @@ function validateSecurityConfig(config: ConfigService) {
   const corsOrigins = parseList(config.get<string>('CORS_ORIGINS'));
   const csrfOrigins = parseList(config.get<string>('CSRF_TRUSTED_ORIGINS'));
 
-  // ---- ALWAYS: require explicit CORS_ORIGINS ----
   if (corsOrigins.length === 0) {
     throw new Error(
       'SECURITY: CORS_ORIGINS має бути визначено (у dev/test/prod), щоб уникнути "allow all" за замовчуванням',
     );
   }
 
-  // ---- ALWAYS: forbid wildcard ----
   if (corsOrigins.includes('*')) {
     throw new Error(
       'SECURITY: wildcard CORS (*) заборонено (і несумісно з credentials=true)',
     );
   }
 
-  // ---- PROD-only hard checks ----
   if (!isProd) return;
 
-  // HTTPS required for SameSite=None
   if (cookieSameSite === 'none') {
     if (!baseUrl.startsWith('https://')) {
       throw new Error(
@@ -68,7 +64,6 @@ function validateSecurityConfig(config: ConfigService) {
     }
   }
 
-  // forbid localhost in production
   if (
     corsOrigins.some((o) => o.includes('localhost')) ||
     csrfOrigins.some((o) => o.includes('localhost'))

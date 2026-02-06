@@ -25,8 +25,6 @@ function resolveLevel(config: ConfigService): string {
           level: resolveLevel(config),
           levels: winston.config.npm.levels,
 
-          // ❗️ВАЖЛИВО: НЕ задаємо format глобально
-          // Увесь format (sanitize/timestamp/printf/json) буде в transport-ах
           transports: createWinstonTransports(config),
         });
 

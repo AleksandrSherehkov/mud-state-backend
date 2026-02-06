@@ -273,6 +273,125 @@ export class RefreshTokenService {
 
     return result;
   }
+
+  private isFingerprintBindingEnabled(): { bindUa: boolean; bindIp: boolean } {
+    const bindUa = Boolean(this.config.get<boolean>('REFRESH_BIND_UA'));
+    const bindIp = Boolean(this.config.get<boolean>('REFRESH_BIND_IP'));
+    return { bindUa, bindIp };
+  }
+
+  private normalizeFingerprint(params: {
+    ip?: string | null;
+    userAgent?: string | null;
+  }) {
+    const reqIp = params.ip ? normalizeIp(params.ip) : null;
+    const reqUa = (params.userAgent ?? '').trim() || null;
+    return { reqIp, reqUa };
+  }
+
+  private normalizeStored(ip?: string | null, ua?: string | null) {
+    const nIp = ip ?? null;
+    const nUa = (ua ?? '').trim() || null;
+    return { ip: nIp, ua: nUa };
+  }
+
+  private computeMismatch(opts: {
+    bindUa: boolean;
+    bindIp: boolean;
+    reqIp: string | null;
+    reqUa: string | null;
+    tokenIp: string | null;
+    tokenUa: string | null;
+    sessIp: string | null;
+    sessUa: string | null;
+  }) {
+    const uaMismatch =
+      opts.bindUa &&
+      ((!!opts.tokenUa && (!opts.reqUa || opts.tokenUa !== opts.reqUa)) ||
+        (!!opts.sessUa && (!opts.reqUa || opts.sessUa !== opts.reqUa)));
+
+    const ipMismatch =
+      opts.bindIp &&
+      ((!!opts.tokenIp && (!opts.reqIp || opts.tokenIp !== opts.reqIp)) ||
+        (!!opts.sessIp && (!opts.reqIp || opts.sessIp !== opts.reqIp)));
+
+    return { uaMismatch, ipMismatch };
+  }
+
+  private async applyFingerprintMismatchResponse(params: {
+    userId: string;
+    jti: string;
+    sid: string;
+  }) {
+    const now = new Date();
+
+    await this.prisma.$transaction([
+      this.prisma.refreshToken.updateMany({
+        where: { userId: params.userId, jti: params.jti, revoked: false },
+        data: { revoked: true },
+      }),
+      this.prisma.session.updateMany({
+        where: {
+          id: params.sid,
+          userId: params.userId,
+          isActive: true,
+          endedAt: null,
+        },
+        data: { isActive: false, endedAt: now },
+      }),
+    ]);
+  }
+
+  private logFingerprintMismatch(params: {
+    userId: string;
+    jti: string;
+    sid: string;
+    bindUa: boolean;
+    bindIp: boolean;
+    ipMismatch: boolean;
+    uaMismatch: boolean;
+    tokenIp: string | null;
+    sessIp: string | null;
+    reqIp: string | null;
+    tokenUa: string | null;
+    sessUa: string | null;
+    reqUa: string | null;
+  }) {
+    this.logger.warn('Refresh fingerprint mismatch', RefreshTokenService.name, {
+      event: 'auth.refresh.fingerprint_mismatch',
+      userId: params.userId,
+      jti: params.jti,
+      sid: params.sid,
+      bindUa: params.bindUa,
+      bindIp: params.bindIp,
+      ipMismatch: params.ipMismatch,
+      uaMismatch: params.uaMismatch,
+      tokenIpMasked: params.tokenIp ? maskIp(params.tokenIp) : undefined,
+      sessionIpMasked: params.sessIp ? maskIp(params.sessIp) : undefined,
+      reqIpMasked: params.reqIp ? maskIp(params.reqIp) : undefined,
+      tokenUaHash: params.tokenUa ? hashId(params.tokenUa) : undefined,
+      sessionUaHash: params.sessUa ? hashId(params.sessUa) : undefined,
+      reqUaHash: params.reqUa ? hashId(params.reqUa) : undefined,
+    });
+  }
+
+  private logFingerprintMismatchApplied(params: {
+    userId: string;
+    jti: string;
+    sid: string;
+  }) {
+    this.logger.warn(
+      'Refresh fingerprint mismatch response applied (scoped revoke + terminate)',
+      RefreshTokenService.name,
+      {
+        event: 'auth.refresh.fingerprint_mismatch_response_applied',
+        userId: params.userId,
+        jti: params.jti,
+        sid: params.sid,
+      },
+    );
+  }
+
   async assertFingerprint(params: {
     userId: string;
     jti: string;
@@ -280,108 +399,82 @@ export class RefreshTokenService {
     ip?: string | null;
     userAgent?: string | null;
   }) {
-    const bindUa = Boolean(this.config.get<boolean>('REFRESH_BIND_UA'));
-    const bindIp = Boolean(this.config.get<boolean>('REFRESH_BIND_IP'));
-
+    const { bindUa, bindIp } = this.isFingerprintBindingEnabled();
     if (!bindUa && !bindIp) return;
 
-    const token = await this.prisma.refreshToken.findFirst({
-      where: { userId: params.userId, jti: params.jti, revoked: false },
-      select: { ip: true, userAgent: true },
-    });
-
-    const session = await this.prisma.session.findFirst({
-      where: {
-        id: params.sid,
-        userId: params.userId,
-        refreshTokenJti: params.jti,
-        isActive: true,
-        endedAt: null,
-      },
-      select: { ip: true, userAgent: true },
-    });
+    const [token, session] = await Promise.all([
+      this.prisma.refreshToken.findFirst({
+        where: { userId: params.userId, jti: params.jti, revoked: false },
+        select: { ip: true, userAgent: true },
+      }),
+      this.prisma.session.findFirst({
+        where: {
+          id: params.sid,
+          userId: params.userId,
+          refreshTokenJti: params.jti,
+          isActive: true,
+          endedAt: null,
+        },
+        select: { ip: true, userAgent: true },
+      }),
+    ]);
 
     if (!token || !session) {
       throw new UnauthorizedException('Токен відкликано або недійсний');
     }
 
-    const reqIp = params.ip ? normalizeIp(params.ip) : null;
-    const reqUa = (params.userAgent ?? '').trim() || null;
+    const { reqIp, reqUa } = this.normalizeFingerprint(params);
 
-    const tokenIp = token.ip ?? null;
-    const tokenUa = (token.userAgent ?? '').trim() || null;
+    const { ip: tokenIp, ua: tokenUa } = this.normalizeStored(
+      token.ip,
+      token.userAgent,
+    );
+    const { ip: sessIp, ua: sessUa } = this.normalizeStored(
+      session.ip,
+      session.userAgent,
+    );
 
-    const sessIp = session.ip ?? null;
-    const sessUa = (session.userAgent ?? '').trim() || null;
+    const { uaMismatch, ipMismatch } = this.computeMismatch({
+      bindUa,
+      bindIp,
+      reqIp,
+      reqUa,
+      tokenIp,
+      tokenUa,
+      sessIp,
+      sessUa,
+    });
 
-    const uaMismatch =
-      bindUa &&
-      ((!!tokenUa && (!reqUa || tokenUa !== reqUa)) ||
-        (!!sessUa && (!reqUa || sessUa !== reqUa)));
+    if (!uaMismatch && !ipMismatch) return;
 
-    const ipMismatch =
-      bindIp &&
-      ((!!tokenIp && (!reqIp || tokenIp !== reqIp)) ||
-        (!!sessIp && (!reqIp || sessIp !== reqIp)));
+    this.logFingerprintMismatch({
+      userId: params.userId,
+      jti: params.jti,
+      sid: params.sid,
+      bindUa,
+      bindIp,
+      ipMismatch,
+      uaMismatch,
+      tokenIp,
+      sessIp,
+      reqIp,
+      tokenUa,
+      sessUa,
+      reqUa,
+    });
 
-    if (uaMismatch || ipMismatch) {
-      this.logger.warn(
-        'Refresh fingerprint mismatch',
-        RefreshTokenService.name,
-        {
-          event: 'auth.refresh.fingerprint_mismatch',
-          userId: params.userId,
-          jti: params.jti,
-          sid: params.sid,
-          bindUa,
-          bindIp,
-          ipMismatch,
-          uaMismatch,
-          tokenIpMasked: tokenIp ? maskIp(tokenIp) : undefined,
-          sessionIpMasked: sessIp ? maskIp(sessIp) : undefined,
-          reqIpMasked: reqIp ? maskIp(reqIp) : undefined,
-          tokenUaHash: tokenUa ? hashId(tokenUa) : undefined,
-          sessionUaHash: sessUa ? hashId(sessUa) : undefined,
-          reqUaHash: reqUa ? hashId(reqUa) : undefined,
-        },
-      );
+    await this.applyFingerprintMismatchResponse({
+      userId: params.userId,
+      jti: params.jti,
+      sid: params.sid,
+    });
 
-      const now = new Date();
+    this.logFingerprintMismatchApplied({
+      userId: params.userId,
+      jti: params.jti,
+      sid: params.sid,
+    });
 
-      // Scoped response: гасимо ТІЛЬКИ компрометований ланцюжок (jti + sid),
-      // щоб старий токен не міг "вибивати" нові сесії користувача.
-      await this.prisma.$transaction([
-        this.prisma.refreshToken.updateMany({
-          where: {
-            userId: params.userId,
-            jti: params.jti,
-            revoked: false,
-          },
-          data: { revoked: true },
-        }),
-        this.prisma.session.updateMany({
-          where: {
-            id: params.sid,
-            userId: params.userId,
-            isActive: true,
-            endedAt: null,
-          },
-          data: { isActive: false, endedAt: now },
-        }),
-      ]);
-
-      this.logger.warn(
-        'Refresh fingerprint mismatch response applied (scoped revoke + terminate)',
-        RefreshTokenService.name,
-        {
-          event: 'auth.refresh.fingerprint_mismatch_response_applied',
-          userId: params.userId,
-          jti: params.jti,
-          sid: params.sid,
-        },
-      );
-
-      throw new UnauthorizedException('Токен відкликано або недійсний');
-    }
+    throw new UnauthorizedException('Токен відкликано або недійсний');
   }
 }

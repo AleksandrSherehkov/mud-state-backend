@@ -66,9 +66,7 @@ export const ApiSessionsLinks = {
         description: 'Список сессий указанного пользователя',
         type: FullSessionDto,
         isArray: true,
-        links: {
-          // можна залишити порожнім або додати переходи на users_* operationId, якщо потрібно
-        },
+        links: {},
       }),
     );
   },

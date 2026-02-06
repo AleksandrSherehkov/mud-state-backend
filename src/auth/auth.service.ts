@@ -120,213 +120,45 @@ export class AuthService {
     ip?: string,
     userAgent?: string,
   ): Promise<Tokens> {
-    let payload: JwtPayload;
+    const payload = await this.verifyRefreshOrThrow(refreshToken);
 
-    try {
-      payload = await this.tokenService.verifyRefreshToken(refreshToken);
-    } catch {
-      this.logger.warn(
-        'Refresh failed: invalid token signature',
-        AuthService.name,
-        {
-          event: 'auth.refresh.fail',
-          reason: 'invalid_token',
-        },
-      );
-      throw new UnauthorizedException('Недійсний токен');
-    }
-    const userId = payload.sub;
-    if (!userId) {
-      this.logger.warn(
-        'Refresh failed: missing sub in token',
-        AuthService.name,
-        {
-          event: 'auth.refresh.fail',
-          reason: 'missing_sub',
-          jti: payload.jti,
-          sid: payload.sid,
-        },
-      );
-      throw new UnauthorizedException('Недійсний токен');
-    }
-    if (!payload.sid) {
-      this.logger.warn(
-        'Refresh failed: session missing in token',
-        AuthService.name,
-        {
-          event: 'auth.refresh.fail',
-          reason: 'missing_sid',
-          userId,
-          jti: payload.jti,
-        },
-      );
-      throw new UnauthorizedException('Недійсний токен');
-    }
+    const userId = this.requireUserId(payload);
+    const sid = this.requireSid(payload, userId);
 
-    const sessionActive = await this.sessionService.isSessionActive(
-      payload.sid,
+    await this.assertSessionActiveOrThrow({
+      sid,
       userId,
-    );
-    if (!sessionActive) {
-      const nip = ip ? normalizeIp(ip) : null;
-      const ua = userAgent?.trim() || null;
-
-      this.logger.warn(
-        'Refresh blocked: session is not active',
-        AuthService.name,
-        {
-          event: 'auth.refresh.blocked',
-          reason: 'session_inactive',
-          userId,
-          jti: payload.jti,
-          sid: payload.sid,
-          ipMasked: nip ? maskIp(nip) : undefined,
-          uaHash: ua ? hashId(ua) : undefined,
-        },
-      );
-
-      throw new UnauthorizedException('Сесію завершено або недійсна');
-    }
+      payload,
+      ip,
+      userAgent,
+    });
 
     await this.refreshTokenService.assertFingerprint({
       userId,
       jti: payload.jti,
-      sid: payload.sid,
+      sid,
       ip: ip ? normalizeIp(ip) : null,
       userAgent: userAgent?.trim() || null,
     });
 
-    const tokenHash = this.tokenService.hashRefreshToken(refreshToken);
-
-    const claim = await this.refreshTokenService.revokeIfActiveByHash(
-      payload.jti,
+    await this.claimRefreshOrHandleReuse({
+      refreshToken,
+      payload,
       userId,
-      tokenHash,
-    );
-
-    if (claim.count === 0) {
-      const nip = ip ? normalizeIp(ip) : null;
-      const ua = userAgent?.trim() || null;
-
-      this.logger.warn(
-        'Refresh reuse detected or token already revoked',
-        AuthService.name,
-        {
-          event: 'auth.refresh.reuse_detected',
-          userId,
-          jti: payload.jti,
-          sid: payload.sid,
-          ipMasked: nip ? maskIp(nip) : undefined,
-          uaHash: ua ? hashId(ua) : undefined,
-        },
-      );
-
-      // Scoped response: блокуємо ТІЛЬКИ цей jti/sid ланцюжок.
-      // Важливо: НЕ terminateAll(userId), інакше старий токен може вибивати нові сесії (DoS).
-      const [revoked, terminated] = await Promise.all([
-        this.refreshTokenService.revokeManyByJtis([payload.jti], {
-          userId,
-          jti: payload.jti,
-          sid: payload.sid,
-          reason: 'reuse_detected_scoped',
-        }),
-        this.sessionService.terminateById({
-          sid: payload.sid,
-          userId,
-          reason: 'reuse_detected_scoped',
-        }),
-      ]);
-
-      this.logger.warn(
-        'Refresh reuse response applied (scoped revoke + terminate)',
-        AuthService.name,
-        {
-          event: 'auth.refresh.reuse_response_applied_scoped',
-          userId,
-          jti: payload.jti,
-          sid: payload.sid,
-          revokedTokens: revoked.count,
-          terminatedSessions: terminated.count,
-        },
-      );
-
-      throw new UnauthorizedException('Токен відкликано або недійсний');
-    }
-
-    // IMPORTANT:
-    // - НЕ завершуємо сесію при нормальному refresh
-    // - sid має лишатися стабільним (session = device/login)
-    // - ротируємо лише refresh jti і переприв'язуємо його до існуючої сесії
-
-    const user = await this.usersService.findById(userId);
-    if (!user) {
-      this.logger.warn('Refresh failed: user not found', AuthService.name, {
-        event: 'auth.refresh.fail',
-        reason: 'user_not_found',
-        userId,
-        jti: payload.jti,
-        sid: payload.sid,
-      });
-      throw new UnauthorizedException('Користувача не знайдено');
-    }
-
-    const nip: string | null = ip ? normalizeIp(ip) : null;
-    const ua: string | null = userAgent?.trim() || null;
-
-    const newJti = randomUUID();
-
-    const newPayload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      sid: payload.sid, // ✅ sid стабільний
-      jti: newJti, // ✅ ротируємо тільки jti
-    };
-
-    const [accessToken, newRefreshToken] = await Promise.all([
-      this.tokenService.signAccessToken(newPayload),
-      this.tokenService.signRefreshToken(newPayload),
-    ]);
-
-    const newTokenHash = this.tokenService.hashRefreshToken(newRefreshToken);
-
-    // Атомарно:
-    // 1) створюємо новий refresh token (newJti)
-    // 2) переприв'язуємо session.refreshTokenJti -> newJti
-    await this.tx.run(async (tx) => {
-      await this.refreshTokenService.create(
-        user.id,
-        newJti,
-        newTokenHash,
-        nip ?? undefined,
-        ua ?? undefined,
-        tx,
-      );
-
-      await this.sessionService.updateRefreshBinding({
-        sid: payload.sid,
-        userId: user.id,
-        newJti,
-        ip: nip,
-        userAgent: ua,
-        tx,
-      });
+      sid,
+      ip,
+      userAgent,
     });
 
-    this.logger.log(
-      'Refresh success (session stable, jti rotated)',
-      AuthService.name,
-      {
-        event: 'auth.refresh.success',
-        userId: user.id,
-        role: user.role,
-        oldJti: payload.jti,
-        newJti,
-        sid: payload.sid,
-      },
-    );
+    const user = await this.getUserOrThrow(userId, payload);
 
-    return { accessToken, refreshToken: newRefreshToken, jti: newJti };
+    return this.rotateAndIssueTokens({
+      user,
+      sid,
+      oldJti: payload.jti,
+      ip,
+      userAgent,
+    });
   }
 
   async logout(
@@ -458,5 +290,262 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken, jti: refreshJti };
+  }
+  private async verifyRefreshOrThrow(
+    refreshToken: string,
+  ): Promise<JwtPayload> {
+    try {
+      return await this.tokenService.verifyRefreshToken(refreshToken);
+    } catch {
+      this.logger.warn(
+        'Refresh failed: invalid token signature',
+        AuthService.name,
+        {
+          event: 'auth.refresh.fail',
+          reason: 'invalid_token',
+        },
+      );
+      throw new UnauthorizedException('Недійсний токен');
+    }
+  }
+
+  private requireUserId(payload: JwtPayload): string {
+    const userId = payload.sub;
+
+    if (!userId) {
+      this.logger.warn(
+        'Refresh failed: missing sub in token',
+        AuthService.name,
+        {
+          event: 'auth.refresh.fail',
+          reason: 'missing_sub',
+          jti: payload.jti,
+          sid: payload.sid,
+        },
+      );
+      throw new UnauthorizedException('Недійсний токен');
+    }
+
+    return userId;
+  }
+
+  private requireSid(payload: JwtPayload, userId: string): string {
+    if (!payload.sid) {
+      this.logger.warn(
+        'Refresh failed: session missing in token',
+        AuthService.name,
+        {
+          event: 'auth.refresh.fail',
+          reason: 'missing_sid',
+          userId,
+          jti: payload.jti,
+        },
+      );
+      throw new UnauthorizedException('Недійсний токен');
+    }
+
+    return payload.sid;
+  }
+
+  private async assertSessionActiveOrThrow(args: {
+    sid: string;
+    userId: string;
+    payload: JwtPayload;
+    ip?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    const { sid, userId, payload, ip, userAgent } = args;
+
+    const sessionActive = await this.sessionService.isSessionActive(
+      sid,
+      userId,
+    );
+    if (sessionActive) return;
+
+    const nip = ip ? normalizeIp(ip) : null;
+    const ua = userAgent?.trim() || null;
+
+    this.logger.warn(
+      'Refresh blocked: session is not active',
+      AuthService.name,
+      {
+        event: 'auth.refresh.blocked',
+        reason: 'session_inactive',
+        userId,
+        jti: payload.jti,
+        sid,
+        ipMasked: nip ? maskIp(nip) : undefined,
+        uaHash: ua ? hashId(ua) : undefined,
+      },
+    );
+
+    throw new UnauthorizedException('Сесію завершено або недійсна');
+  }
+
+  private async claimRefreshOrHandleReuse(args: {
+    refreshToken: string;
+    payload: JwtPayload;
+    userId: string;
+    sid: string;
+    ip?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    const { refreshToken, payload, userId, sid, ip, userAgent } = args;
+
+    const tokenHash = this.tokenService.hashRefreshToken(refreshToken);
+
+    const claim = await this.refreshTokenService.revokeIfActiveByHash(
+      payload.jti,
+      userId,
+      tokenHash,
+    );
+
+    if (claim.count !== 0) return;
+
+    await this.handleRefreshReuseDetected({
+      payload,
+      userId,
+      sid,
+      ip,
+      userAgent,
+    });
+  }
+
+  private async handleRefreshReuseDetected(args: {
+    payload: JwtPayload;
+    userId: string;
+    sid: string;
+    ip?: string;
+    userAgent?: string;
+  }): Promise<never> {
+    const { payload, userId, sid, ip, userAgent } = args;
+
+    const nip = ip ? normalizeIp(ip) : null;
+    const ua = userAgent?.trim() || null;
+
+    this.logger.warn(
+      'Refresh reuse detected or token already revoked',
+      AuthService.name,
+      {
+        event: 'auth.refresh.reuse_detected',
+        userId,
+        jti: payload.jti,
+        sid,
+        ipMasked: nip ? maskIp(nip) : undefined,
+        uaHash: ua ? hashId(ua) : undefined,
+      },
+    );
+
+    const [revoked, terminated] = await Promise.all([
+      this.refreshTokenService.revokeManyByJtis([payload.jti], {
+        userId,
+        jti: payload.jti,
+        sid,
+        reason: 'reuse_detected_scoped',
+      }),
+      this.sessionService.terminateById({
+        sid,
+        userId,
+        reason: 'reuse_detected_scoped',
+      }),
+    ]);
+
+    this.logger.warn(
+      'Refresh reuse response applied (scoped revoke + terminate)',
+      AuthService.name,
+      {
+        event: 'auth.refresh.reuse_response_applied_scoped',
+        userId,
+        jti: payload.jti,
+        sid,
+        revokedTokens: revoked.count,
+        terminatedSessions: terminated.count,
+      },
+    );
+
+    throw new UnauthorizedException('Токен відкликано або недійсний');
+  }
+
+  private async getUserOrThrow(
+    userId: string,
+    payload: JwtPayload,
+  ): Promise<{ id: string; email: string; role: Role }> {
+    const user = await this.usersService.findById(userId);
+    if (user) return user;
+
+    this.logger.warn('Refresh failed: user not found', AuthService.name, {
+      event: 'auth.refresh.fail',
+      reason: 'user_not_found',
+      userId,
+      jti: payload.jti,
+      sid: payload.sid,
+    });
+
+    throw new UnauthorizedException('Користувача не знайдено');
+  }
+
+  private async rotateAndIssueTokens(args: {
+    user: { id: string; email: string; role: Role };
+    sid: string;
+    oldJti: string;
+    ip?: string;
+    userAgent?: string;
+  }): Promise<Tokens> {
+    const { user, sid, oldJti, ip, userAgent } = args;
+
+    const nip: string | null = ip ? normalizeIp(ip) : null;
+    const ua: string | null = userAgent?.trim() || null;
+
+    const newJti = randomUUID();
+
+    const newPayload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      sid,
+      jti: newJti,
+    };
+
+    const [accessToken, newRefreshToken] = await Promise.all([
+      this.tokenService.signAccessToken(newPayload),
+      this.tokenService.signRefreshToken(newPayload),
+    ]);
+
+    const newTokenHash = this.tokenService.hashRefreshToken(newRefreshToken);
+
+    await this.tx.run(async (tx) => {
+      await this.refreshTokenService.create(
+        user.id,
+        newJti,
+        newTokenHash,
+        nip ?? undefined,
+        ua ?? undefined,
+        tx,
+      );
+
+      await this.sessionService.updateRefreshBinding({
+        sid,
+        userId: user.id,
+        newJti,
+        ip: nip,
+        userAgent: ua,
+        tx,
+      });
+    });
+
+    this.logger.log(
+      'Refresh success (session stable, jti rotated)',
+      AuthService.name,
+      {
+        event: 'auth.refresh.success',
+        userId: user.id,
+        role: user.role,
+        oldJti,
+        newJti,
+        sid,
+      },
+    );
+
+    return { accessToken, refreshToken: newRefreshToken, jti: newJti };
   }
 }

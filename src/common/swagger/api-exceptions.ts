@@ -284,7 +284,6 @@ export function ApiQueryErrorResponses(
     opts.internalMessageExample ?? 'Щось пішло не так на сервері';
 
   const decorators = [
-    // ✅ ВАЖНО: добавляем модель в components.schemas
     ApiExtraModels(ApiErrorResponseDto),
 
     ...(includeBadRequest
@@ -416,7 +415,6 @@ export function ApiListErrorResponses(options?: QueryErrorsOptions) {
     options?.internalMessageExample ?? 'Щось пішло не так на сервері';
 
   const decorators = [
-    // ✅ ВАЖНО: добавляем модель в components.schemas
     ApiExtraModels(ApiErrorResponseDto),
 
     ...(includeBadRequest

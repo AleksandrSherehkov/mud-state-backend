@@ -11,7 +11,7 @@ type LogInfo = winston.Logform.TransformableInfo & {
 };
 
 function stringifyMessage(msg: unknown): string {
-  if (msg === null || typeof msg === 'undefined') return '';
+  if (msg === null || msg === undefined) return '';
   if (msg instanceof Error) return msg.stack ?? msg.message;
 
   if (typeof msg === 'string') return msg;
@@ -32,7 +32,7 @@ const addRequestId = winston.format((info: LogInfo) => {
 });
 
 const consoleFormat = winston.format.combine(
-  sanitizeFormat(), // ✅ sanitize першим
+  sanitizeFormat(),
   addRequestId(),
   winston.format.timestamp(),
   winston.format.printf((info: LogInfo) => {
@@ -46,7 +46,7 @@ const consoleFormat = winston.format.combine(
     } = info as unknown as Record<string, unknown>;
 
     const timestamp = stringifyMessage(ts) || '';
-    const level = stringifyMessage(lvl) || ''; // буде просто "info"/"error"
+    const level = stringifyMessage(lvl) || '';
     const ctx = typeof context === 'string' ? context : 'App';
     const rid = typeof requestId === 'string' ? ` rid=${requestId}` : '';
 
@@ -60,7 +60,7 @@ const consoleFormat = winston.format.combine(
 );
 
 const fileFormat = winston.format.combine(
-  sanitizeFormat(), // ✅ ПЕРШИМ у file transport
+  sanitizeFormat(),
   addRequestId(),
   winston.format.timestamp(),
   winston.format.json(),
@@ -77,7 +77,7 @@ export const createWinstonTransports = (
 
   const consoleTransport = new winston.transports.Console({
     format: consoleFormat,
-    // ✅ допомагає бачити error в stderr (інколи корисно в докері/CI)
+
     stderrLevels: ['error'],
     handleExceptions: true,
   });

@@ -32,8 +32,6 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const user = request.user as RequestUserWithRole | undefined;
 
-    // Після JwtAuthGuard це зазвичай не трапляється, але якщо трапилось —
-    // краще явно 403 з контрольованим повідомленням (а не "return false").
     if (!user) {
       this.logger.warn('Forbidden: missing user in request', RolesGuard.name, {
         event: 'authz.deny',

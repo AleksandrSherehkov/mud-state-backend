@@ -128,48 +128,106 @@ function normalizeErrorBody(
   const timestamp = new Date().toISOString();
 
   if (exception instanceof HttpException) {
-    const r = exception.getResponse();
-
-    // Nest ValidationPipe обычно отдаёт { statusCode, message: string[], error }
-    if (r && typeof r === 'object') {
-      const o = r as Record<string, unknown>;
-
-      const message = Array.isArray(o.message)
-        ? o.message.filter((x) => typeof x === 'string')
-        : typeof o.message === 'string'
-          ? o.message
-          : exception.message;
-
-      const error =
-        typeof o.error === 'string'
-          ? o.error
-          : typeof o.statusCode === 'number'
-            ? (HttpStatus[status] ?? 'Error')
-            : 'Error';
-
-      return {
-        statusCode: status,
-        message,
-        error,
-        timestamp,
-        path,
-        requestId,
-      };
-    }
-
-    // если getResponse() строка — приводим к нормальной форме
-    const msg = typeof r === 'string' ? r : exception.message;
-
-    return {
-      statusCode: status,
-      message: msg,
-      error: HttpStatus[status] ?? 'Error',
-      timestamp,
+    return normalizeHttpExceptionBody(
+      exception,
+      status,
       path,
+      timestamp,
       requestId,
-    };
+    );
   }
 
+  return normalizeNonHttpExceptionBody(status, path, timestamp, requestId);
+}
+
+function normalizeHttpExceptionBody(
+  ex: HttpException,
+  status: number,
+  path: string,
+  timestamp: string,
+  requestId?: string,
+): ErrorBody {
+  const r = ex.getResponse();
+
+  if (r && typeof r === 'object') {
+    return normalizeHttpExceptionObjectResponse(
+      ex,
+      r as Record<string, unknown>,
+      status,
+      path,
+      timestamp,
+      requestId,
+    );
+  }
+
+  const msg = typeof r === 'string' ? r : ex.message;
+
+  return {
+    statusCode: status,
+    message: msg,
+    error: HttpStatus[status] ?? 'Error',
+    timestamp,
+    path,
+    requestId,
+  };
+}
+
+function normalizeHttpExceptionObjectResponse(
+  ex: HttpException,
+  o: Record<string, unknown>,
+  status: number,
+  path: string,
+  timestamp: string,
+  requestId?: string,
+): ErrorBody {
+  const message = pickMessageFromHttpExceptionResponse(o, ex);
+  const error = pickErrorFromHttpExceptionResponse(o, status);
+
+  return {
+    statusCode: status,
+    message,
+    error,
+    timestamp,
+    path,
+    requestId,
+  };
+}
+
+function pickMessageFromHttpExceptionResponse(
+  o: Record<string, unknown>,
+  ex: HttpException,
+): string | string[] {
+  const raw = o.message;
+
+  if (Array.isArray(raw)) {
+    const arr = raw.filter((x): x is string => typeof x === 'string');
+    return arr.length > 0 ? arr : ex.message;
+  }
+
+  if (typeof raw === 'string') return raw;
+
+  return ex.message;
+}
+
+function pickErrorFromHttpExceptionResponse(
+  o: Record<string, unknown>,
+  status: number,
+): string {
+  if (typeof o.error === 'string') return o.error;
+
+  if (typeof o.statusCode === 'number') {
+    return HttpStatus[status] ?? 'Error';
+  }
+
+  return 'Error';
+}
+
+function normalizeNonHttpExceptionBody(
+  status: number,
+  path: string,
+  timestamp: string,
+  requestId?: string,
+): ErrorBody {
   return {
     statusCode: status,
     message: status >= 500 ? 'Internal server error' : 'Error',

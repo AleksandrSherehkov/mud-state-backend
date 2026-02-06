@@ -46,15 +46,10 @@ export function hashId(value: string, len = 12): string {
 
 export function sanitizeString(input: string): string {
   return input
-    .replace(JWT_LIKE, '[REDACTED_JWT]')
-    .replace(BEARER_LIKE, 'Bearer [REDACTED]');
+    .replaceAll(JWT_LIKE, '[REDACTED_JWT]')
+    .replaceAll(BEARER_LIKE, 'Bearer [REDACTED]');
 }
 
-/**
- * Глубокая санация метаданных:
- * - редакт по ключам
- * - санация строковых значений (JWT/Bearer)
- */
 function isUnknownArray(v: unknown): v is unknown[] {
   return Array.isArray(v);
 }
@@ -68,33 +63,26 @@ export function sanitizeMeta(value: unknown): unknown {
   if (typeof value === 'string') return sanitizeString(value);
   if (typeof value === 'number' || typeof value === 'boolean') return value;
 
-  if (isUnknownArray(value)) {
-    return value.map((v) => sanitizeMeta(v));
+  if (isUnknownArray(value)) return value.map((v) => sanitizeMeta(v));
+
+  if (typeof value !== 'object') return value;
+
+  const obj = value as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+
+  for (const [k, v] of Object.entries(obj)) {
+    out[k] = isSensitiveKey(k) ? redactSensitiveValue(v) : sanitizeMeta(v);
   }
 
-  if (typeof value === 'object') {
-    const obj = value as Record<string, unknown>;
-    const out: Record<string, unknown> = {};
+  return out;
+}
 
-    for (const [k, v] of Object.entries(obj)) {
-      const lk = k.toLowerCase();
-      const isSensitiveKey = SENSITIVE_KEY_SUBSTRINGS.some((s) =>
-        lk.includes(s),
-      );
+function isSensitiveKey(key: string): boolean {
+  const lk = key.toLowerCase();
+  return SENSITIVE_KEY_SUBSTRINGS.some((s) => lk.includes(s));
+}
 
-      if (isSensitiveKey) {
-        if (typeof v === 'number' || typeof v === 'boolean') {
-          out[k] = v;
-        } else {
-          out[k] = '[REDACTED]';
-        }
-      } else {
-        out[k] = sanitizeMeta(v);
-      }
-    }
-
-    return out;
-  }
-
-  return value;
+function redactSensitiveValue(v: unknown): unknown {
+  if (typeof v === 'number' || typeof v === 'boolean') return v;
+  return '[REDACTED]';
 }

@@ -1,4 +1,3 @@
-// src/logger/logger.service.ts
 import { Injectable, LoggerService, Scope } from '@nestjs/common';
 import type { Logger as WinstonLogger } from 'winston';
 import { sanitizeMeta, sanitizeString } from 'src/common/helpers/log-sanitize';
@@ -8,8 +7,6 @@ type Meta = Record<string, unknown>;
 
 @Injectable({ scope: Scope.TRANSIENT })
 export class AppLogger implements LoggerService {
-  // ВАЖЛИВО: цей winston-інстанс має бути створений у LoggerModule
-  // і інжектитись сюди (як у тебе зараз).
   constructor(private readonly winston: WinstonLogger) {}
 
   private context?: string;
@@ -18,17 +15,14 @@ export class AppLogger implements LoggerService {
     this.context = ctx;
   }
 
-  // ---- centralized sanitization ----
   private withBaseMeta(meta?: Meta): Meta {
     const requestId = getRequestId();
     const base: Meta = {
       ...(requestId ? { requestId } : {}),
     };
 
-    // 1) об’єднали meta
     const merged = meta ? { ...base, ...meta } : base;
 
-    // 2) санітизували ВСЕ
     return sanitizeMeta(merged);
   }
 
@@ -38,8 +32,8 @@ export class AppLogger implements LoggerService {
   }
 
   private safeContext(ctx?: string): string | undefined {
-    const c = (ctx ?? this.context)?.trim();
-    return c ? c : undefined;
+    const value = (ctx ?? this.context)?.trim();
+    return value || undefined;
   }
 
   log(message: unknown, context?: string, meta?: Meta) {
@@ -50,7 +44,6 @@ export class AppLogger implements LoggerService {
   }
 
   error(message: unknown, trace?: string, context?: string, meta?: Meta) {
-    // trace теж може містити токени (рідко, але буває) — санітизуємо
     const safeTrace = trace ? sanitizeString(trace) : undefined;
 
     this.winston.error(this.safeMessage(message), {

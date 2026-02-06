@@ -187,8 +187,6 @@ export class SessionsController {
   async getUserSessions(
     @Param('userId', new ParseUUIDPipe({ version: '4' })) userId: string,
   ): Promise<FullSessionDto[]> {
-    // Якщо хочеш суворий 404, коли користувача немає — можна додатково перевіряти через UsersService.
-    // Зараз поведінка як була: поверне [] якщо сесій немає.
     return this.listUserSessions(userId);
   }
 }

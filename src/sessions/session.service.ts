@@ -245,7 +245,7 @@ export class SessionService {
       },
       data: {
         refreshTokenJti: params.newJti,
-        // опційно: якщо хочеш фіксувати останній IP/UA в сесії
+
         ip: nip,
         userAgent: ua,
       },

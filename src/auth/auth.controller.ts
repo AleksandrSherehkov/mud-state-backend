@@ -48,6 +48,8 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { getRefreshTokenFromRequest } from 'src/common/http/refresh-token';
 import * as ms from 'ms';
 
+type CookieSameSite = 'lax' | 'strict' | 'none';
+
 @ApiTags('auth')
 @Controller({
   path: 'auth',
@@ -81,17 +83,13 @@ export class AuthController {
     return this.tryParseMs(raw) ?? 7 * 24 * 60 * 60 * 1000;
   }
   private isRequestSecure(req: Request): boolean {
-    // req.secure работает корректно при trust proxy
     if (req.secure) return true;
 
     const xfProto = req.header('x-forwarded-proto');
     return xfProto?.toLowerCase() === 'https';
   }
 
-  private cookieSameSite(): 'lax' | 'strict' | 'none' {
-    // safe default:
-    // - prod: lax
-    // - non-prod: lax
+  private cookieSameSite(): CookieSameSite {
     const raw = (
       this.config.get<string>('COOKIE_SAMESITE') ?? ''
     ).toLowerCase();
@@ -102,7 +100,6 @@ export class AuthController {
   }
 
   private isCrossSiteCookiesEnabled(): boolean {
-    // Явний прапор: щоб "none" не увімкнули випадково
     return (
       String(this.config.get('COOKIE_CROSS_SITE') ?? '')
         .toLowerCase()
@@ -115,10 +112,8 @@ export class AuthController {
 
     const secure = this.isProd() ? true : this.isRequestSecure(req);
 
-    // 1) визначаємо sameSite
-    let sameSite: 'lax' | 'strict' | 'none' = this.cookieSameSite();
+    let sameSite: CookieSameSite = this.cookieSameSite();
 
-    // 2) в prod дозволяємо none ТІЛЬКИ якщо явно увімкнули cross-site
     if (
       this.isProd() &&
       sameSite === 'none' &&
@@ -127,9 +122,7 @@ export class AuthController {
       sameSite = 'lax';
     }
 
-    // 3) якщо none — то ТІЛЬКИ https (fail-closed)
     if (sameSite === 'none' && !secure) {
-      // Це не “401”, це саме помилка конфіг/проксі/https
       throw new Error(
         'Cookie misconfiguration: SameSite=None requires Secure (HTTPS). Check TLS termination / proxy / BASE_URL.',
       );
@@ -149,7 +142,8 @@ export class AuthController {
   private csrfCookieOptions(req: Request): CookieOptions {
     const secure = this.isProd() ? true : this.isRequestSecure(req);
 
-    let sameSite: 'lax' | 'strict' | 'none' = this.cookieSameSite();
+    let sameSite: CookieSameSite = this.cookieSameSite();
+
     if (
       this.isProd() &&
       sameSite === 'none' &&
@@ -191,7 +185,6 @@ export class AuthController {
     req: Request,
     refreshToken: string,
   ): void {
-    // Використовуємо тільки там, де треба “видати пару” (login/register)
     this.setRefreshCookie(res, req, refreshToken);
     this.setCsrfCookie(res, req);
   }
@@ -352,7 +345,6 @@ export class AuthController {
 
     const result = await this.authService.refresh(refreshToken, ip, userAgent);
 
-    // rotate BOTH refresh
     this.setRefreshCookie(res, req, result.refreshToken);
 
     return new TokenResponseDto({

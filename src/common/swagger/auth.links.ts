@@ -15,7 +15,7 @@ const SET_COOKIE_HEADER = {
       'Sets authentication cookies: refreshToken (HttpOnly) and csrfToken (readable by JS). ' +
       'Exact attributes depend on env (Secure/SameSite/Path).',
     schema: { type: 'string' },
-    // пример лучше сделать универсальным (без конкретного path)
+
     example:
       'refreshToken=eyJ...; Path=/api; HttpOnly; SameSite=Lax; Secure; ' +
       'csrfToken=550e8400-e29b-41d4-a716-446655440000; Path=/api; SameSite=Lax; Secure',
