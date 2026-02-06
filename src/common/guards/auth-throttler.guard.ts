@@ -85,6 +85,19 @@ function isPostAndEndsWith(req: ReqLike, suffix: string): boolean {
   return path.endsWith(suffix);
 }
 
+type AuthedUser = { userId?: unknown };
+
+function getUserIdFromReq(req: Record<string, unknown>): string | undefined {
+  const u = (req as { user?: AuthedUser }).user;
+  const raw = u?.userId;
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : undefined;
+}
+
+function isPathContains(req: ReqLike, segment: string): boolean {
+  const path = getPath(req);
+  return path.includes(segment);
+}
+
 @Injectable()
 export class AuthThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Record<string, any>): Promise<string> {
@@ -103,6 +116,16 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     }
 
     if (isRefresh) return ip;
+
+    // ✅ authenticated endpoints: sessions/* + auth/logout → per-user limiter
+    const userId = getUserIdFromReq(req);
+    const isSessions = isPathContains(r, '/sessions');
+    const isLogout = isPostAndEndsWith(r, '/auth/logout');
+    const isMe = getPath(r).endsWith('/auth/me');
+
+    if (userId && (isSessions || isLogout || isMe)) {
+      return `${ip}:${userId}`;
+    }
 
     return ip;
   }

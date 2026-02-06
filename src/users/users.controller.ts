@@ -27,12 +27,13 @@ import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
-import { SkipThrottle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { GetUserByEmailQueryDto } from './dto/get-user-by-email.query';
 import { USERS_SIDE_EFFECTS } from 'src/common/swagger/users.swagger';
 import { ApiRolesAccess } from 'src/common/swagger/api-roles';
 import { ApiUsersLinks } from 'src/common/swagger/users.links';
+import { THROTTLE_USERS } from 'src/common/throttle/throttle-env';
 
 @ApiTags('users')
 @Controller({
@@ -44,7 +45,7 @@ export class UsersController {
 
   @Get('id/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @SkipThrottle()
+  @Throttle({ default: THROTTLE_USERS.byId })
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({
@@ -77,7 +78,7 @@ export class UsersController {
 
   @Get('by-email')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @SkipThrottle()
+  @Throttle({ default: THROTTLE_USERS.byEmail })
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({
@@ -113,7 +114,7 @@ export class UsersController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @SkipThrottle()
+  @Throttle({ default: THROTTLE_USERS.update })
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({
@@ -150,7 +151,7 @@ export class UsersController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @SkipThrottle()
+  @Throttle({ default: THROTTLE_USERS.delete })
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({

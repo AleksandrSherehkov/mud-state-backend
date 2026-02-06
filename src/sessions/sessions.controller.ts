@@ -28,7 +28,7 @@ import {
 } from 'src/common/swagger/api-exceptions';
 import { ApiRolesAccess } from 'src/common/swagger/api-roles';
 
-import { SkipThrottle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 
 import { SessionService } from './session.service';
 import { TerminateSessionDto } from './dto/terminate-session.dto';
@@ -39,6 +39,7 @@ import { TerminateResultDto } from './dto/terminate-result.dto';
 import { UserFromJwt } from 'src/common/types/user-from-jwt';
 import { SESSIONS_SIDE_EFFECTS } from 'src/common/swagger/sessions.swagger';
 import { ApiSessionsLinks } from 'src/common/swagger/sessions.links';
+import { THROTTLE_SESSIONS } from 'src/common/throttle/throttle-env';
 
 @ApiTags('sessions')
 @Controller({ path: 'sessions', version: '1' })
@@ -64,7 +65,7 @@ export class SessionsController {
   }
 
   @Get('me')
-  @SkipThrottle()
+  @Throttle({ default: THROTTLE_SESSIONS.me })
   @ApiOperation({
     summary: 'Отримати список своїх сесій',
     operationId: 'sessions_mySessions',
@@ -88,7 +89,7 @@ export class SessionsController {
   }
 
   @Post('terminate-others')
-  @SkipThrottle()
+  @Throttle({ default: THROTTLE_SESSIONS.terminateOthers })
   @HttpCode(200)
   @ApiOperation({
     summary: 'Завершити всі інші активні сесії (крім поточної)',
@@ -123,7 +124,7 @@ export class SessionsController {
   }
 
   @Post('terminate')
-  @SkipThrottle()
+  @Throttle({ default: THROTTLE_SESSIONS.terminate })
   @HttpCode(200)
   @ApiOperation({
     summary: 'Завершити конкретну сесію за IP та User-Agent',
@@ -160,7 +161,7 @@ export class SessionsController {
   }
 
   @Get(':userId')
-  @SkipThrottle()
+  @Throttle({ default: THROTTLE_SESSIONS.getUser })
   @Roles(Role.ADMIN, Role.MODERATOR)
   @ApiOperation({
     summary: 'Отримати сесії користувача (ADMIN/MODERATOR)',

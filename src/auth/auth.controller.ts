@@ -29,7 +29,7 @@ import {
   ApiQueryErrorResponses,
 } from 'src/common/swagger/api-exceptions';
 
-import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 
 import { TokenResponseDto } from './dto/token-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
@@ -47,6 +47,7 @@ import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { getRefreshTokenFromRequest } from 'src/common/http/refresh-token';
 import * as ms from 'ms';
+import { THROTTLE_AUTH } from 'src/common/throttle/throttle-env';
 
 type CookieSameSite = 'lax' | 'strict' | 'none';
 
@@ -203,7 +204,7 @@ export class AuthController {
     required: true,
     description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
   })
-  @Throttle({ default: { limit: 3, ttl: 60 } })
+  @Throttle({ default: THROTTLE_AUTH.register })
   @ApiOperation({
     summary: 'Реєстрація нового користувача',
     operationId: 'auth_register',
@@ -250,7 +251,7 @@ export class AuthController {
     description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
   })
   @HttpCode(200)
-  @Throttle({ default: { limit: 5, ttl: 60 } })
+  @Throttle({ default: THROTTLE_AUTH.login })
   @ApiOperation({ summary: 'Вхід користувача', operationId: 'auth_login' })
   @ApiRolesAccess('PUBLIC', {
     sideEffects: AUTH_SIDE_EFFECTS.login,
@@ -284,7 +285,7 @@ export class AuthController {
 
   @Get('csrf')
   @HttpCode(204)
-  @SkipThrottle()
+  @Throttle({ default: THROTTLE_AUTH.csrf })
   @ApiOperation({
     summary: 'Видати CSRF cookie (double-submit)',
     operationId: 'auth_csrf',
@@ -314,7 +315,7 @@ export class AuthController {
     required: true,
     description: 'CSRF token (должен совпадать со значением cookie csrfToken)',
   })
-  @Throttle({ default: { limit: 10, ttl: 60 } })
+  @Throttle({ default: THROTTLE_AUTH.refresh })
   @ApiOperation({ summary: 'Оновлення токенів', operationId: 'auth_refresh' })
   @ApiRolesAccess('PUBLIC', {
     sideEffects: AUTH_SIDE_EFFECTS.refresh,
@@ -362,7 +363,7 @@ export class AuthController {
     required: true,
     description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
   })
-  @SkipThrottle()
+  @Throttle({ default: THROTTLE_AUTH.logout })
   @ApiBearerAuth('access_bearer')
   @HttpCode(200)
   @ApiOperation({
@@ -403,7 +404,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  @SkipThrottle()
+  @Throttle({ default: THROTTLE_AUTH.me })
   @ApiBearerAuth('access_bearer')
   @ApiOperation({
     summary: 'Отримати інформацію про себе',
