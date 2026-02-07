@@ -126,16 +126,32 @@ async function bootstrap() {
   // ---- CORS ----
   const origins = parseList(configService.get<string>('CORS_ORIGINS'));
 
+  const corsAllowNoOrigin =
+    String(configService.get('CORS_ALLOW_NO_ORIGIN') ?? '')
+      .toLowerCase()
+      .trim() === 'true';
+
   app.enableCors({
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
+      if (!origin) {
+        if (isProd && !corsAllowNoOrigin) {
+          return cb(new Error('CORS blocked: missing Origin'), false);
+        }
+        return cb(null, true);
+      }
 
       if (origins.includes(origin)) return cb(null, true);
 
       return cb(new Error(`CORS blocked for origin: ${origin}`), false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'X-CSRF-Token'],
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'Accept',
+      'X-CSRF-Token',
+      'X-CSRF-API-Key',
+    ],
     credentials: true,
     maxAge: 600,
   });

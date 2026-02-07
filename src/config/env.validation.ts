@@ -211,6 +211,11 @@ export const envValidationSchema = Joi.object({
     then: Joi.string().min(1).required(),
     otherwise: Joi.string().default(''),
   }),
+  CORS_ALLOW_NO_ORIGIN: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.boolean().valid(false).default(false),
+    otherwise: Joi.boolean().default(true),
+  }),
 
   COOKIE_SAMESITE: Joi.string().valid('lax', 'strict', 'none').default('lax'),
   COOKIE_CROSS_SITE: Joi.boolean().default(false),
