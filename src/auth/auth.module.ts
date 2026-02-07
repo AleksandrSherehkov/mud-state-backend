@@ -15,6 +15,7 @@ import { AuthTransactionService } from './auth-transaction.service';
 import { SessionsModule } from 'src/sessions/sessions.module';
 import { UsersModule } from 'src/users/users.module';
 import { CsrfGuard } from 'src/common/guards/csrf.guard';
+import { AuthCookieService } from './auth-cookie.service';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { CsrfGuard } from 'src/common/guards/csrf.guard';
     JwtStrategy,
     TokenService,
     CsrfGuard,
+    AuthCookieService,
   ],
   exports: [AuthService, AuthMaintenanceService],
   controllers: [AuthController],

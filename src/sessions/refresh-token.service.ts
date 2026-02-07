@@ -430,7 +430,6 @@ export class RefreshTokenService {
     refreshToken: string,
     salt?: string | null,
   ): string {
-    // fallback на legacy (на випадок старих записів без salt)
     if (!salt) {
       const pepper = this.getPepper();
       return createHmac('sha256', pepper).update(refreshToken).digest('hex');

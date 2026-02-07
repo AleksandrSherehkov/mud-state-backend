@@ -39,15 +39,12 @@ import { RegisterResponseDto } from './dto/register-response.dto';
 import { ApiRolesAccess } from 'src/common/swagger/api-roles';
 import { AUTH_SIDE_EFFECTS } from 'src/common/swagger/auth.swagger';
 import { ApiAuthLinks } from 'src/common/swagger/auth.links';
-import { randomUUID } from 'node:crypto';
 import { CsrfGuard } from 'src/common/guards/csrf.guard';
-import type { CookieOptions } from 'express-serve-static-core';
-import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { getRefreshTokenFromRequest } from 'src/common/http/refresh-token';
-import * as ms from 'ms';
 import { THROTTLE_AUTH } from 'src/common/throttle/throttle-env';
+import { AuthCookieService } from './auth-cookie.service';
 
 type CookieSameSite = 'lax' | 'strict' | 'none';
 
@@ -61,152 +58,8 @@ export class AuthController {
   private readonly appEnv: string;
   constructor(
     private readonly authService: AuthService,
-    private readonly config: ConfigService,
-  ) {
-    this.apiPrefix = this.config.get<string>('API_PREFIX', 'api');
-    this.appEnv = this.config.get<string>('APP_ENV', 'development');
-  }
-  private apiPath(): string {
-    return `/${this.apiPrefix}`;
-  }
-  private isProd(): boolean {
-    return this.appEnv === 'production';
-  }
-  private tryParseMs(raw: string): number | undefined {
-    const value = ms(raw as ms.StringValue);
-    return typeof value === 'number' && Number.isFinite(value)
-      ? value
-      : undefined;
-  }
-
-  private refreshCookieMaxAgeMs(): number {
-    const raw = this.config.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d';
-    return this.tryParseMs(raw) ?? 7 * 24 * 60 * 60 * 1000;
-  }
-  private isRequestSecure(req: Request): boolean {
-    if (req.secure) return true;
-
-    const xfProto = req.header('x-forwarded-proto');
-    return xfProto?.toLowerCase() === 'https';
-  }
-
-  private cookieSameSite(): CookieSameSite {
-    const raw = (
-      this.config.get<string>('COOKIE_SAMESITE') ?? ''
-    ).toLowerCase();
-
-    if (raw === 'lax' || raw === 'strict' || raw === 'none') return raw;
-
-    return 'lax';
-  }
-
-  private isCrossSiteCookiesEnabled(): boolean {
-    return (
-      String(this.config.get('COOKIE_CROSS_SITE') ?? '')
-        .toLowerCase()
-        .trim() === 'true'
-    );
-  }
-
-  private refreshCookieOptions(req: Request): CookieOptions {
-    const maxAge = this.refreshCookieMaxAgeMs();
-
-    const secure = this.isProd() ? true : this.isRequestSecure(req);
-
-    let sameSite: CookieSameSite = this.cookieSameSite();
-
-    if (
-      this.isProd() &&
-      sameSite === 'none' &&
-      !this.isCrossSiteCookiesEnabled()
-    ) {
-      sameSite = 'lax';
-    }
-
-    if (sameSite === 'none' && !secure) {
-      throw new Error(
-        'Cookie misconfiguration: SameSite=None requires Secure (HTTPS). Check TLS termination / proxy / BASE_URL.',
-      );
-    }
-
-    return {
-      httpOnly: true,
-      secure,
-      sameSite,
-      path: this.apiPath(),
-      signed: true,
-      maxAge,
-      expires: new Date(Date.now() + maxAge),
-    };
-  }
-
-  private csrfCookieOptions(req: Request): CookieOptions {
-    const secure = this.isProd() ? true : this.isRequestSecure(req);
-
-    let sameSite: CookieSameSite = this.cookieSameSite();
-
-    if (
-      this.isProd() &&
-      sameSite === 'none' &&
-      !this.isCrossSiteCookiesEnabled()
-    ) {
-      sameSite = 'lax';
-    }
-
-    if (sameSite === 'none' && !secure) {
-      throw new Error(
-        'Cookie misconfiguration: SameSite=None requires Secure (HTTPS). Check TLS termination / proxy.',
-      );
-    }
-
-    return {
-      httpOnly: false,
-      secure,
-      sameSite,
-      path: this.apiPath(),
-      maxAge: 15 * 60 * 1000,
-    };
-  }
-  private setCsrfCookie(res: ExpressResponse, req: Request): string {
-    const csrfToken = randomUUID();
-    res.cookie('csrfToken', csrfToken, this.csrfCookieOptions(req));
-    return csrfToken;
-  }
-
-  private setRefreshCookie(
-    res: ExpressResponse,
-    req: Request,
-    refreshToken: string,
-  ): void {
-    res.cookie('refreshToken', refreshToken, this.refreshCookieOptions(req));
-  }
-
-  private setAuthCookies(
-    res: ExpressResponse,
-    req: Request,
-    refreshToken: string,
-  ): void {
-    this.setRefreshCookie(res, req, refreshToken);
-    this.setCsrfCookie(res, req);
-  }
-  private stripExpiry(opts: CookieOptions): CookieOptions {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { maxAge: _maxAge, expires: _expires, ...rest } = opts;
-    return rest;
-  }
-
-  private refreshCookieClearOptions(req: Request): CookieOptions {
-    return this.stripExpiry(this.refreshCookieOptions(req));
-  }
-
-  private csrfCookieClearOptions(req: Request): CookieOptions {
-    return this.stripExpiry(this.csrfCookieOptions(req));
-  }
-
-  private clearAuthCookies(res: ExpressResponse, req: Request): void {
-    res.clearCookie('refreshToken', this.refreshCookieClearOptions(req));
-    res.clearCookie('csrfToken', this.csrfCookieClearOptions(req));
-  }
+    private readonly cookies: AuthCookieService,
+  ) {}
 
   @Post('register')
   @UseGuards(CsrfGuard)
@@ -242,7 +95,7 @@ export class AuthController {
 
     const result = await this.authService.register(dto, ip, userAgent);
 
-    this.setAuthCookies(res, req, result.refreshToken);
+    this.cookies.setAuthCookies(res, req, result.refreshToken);
 
     return new RegisterResponseDto({
       id: result.id,
@@ -288,7 +141,7 @@ export class AuthController {
     const { ip, userAgent } = extractRequestInfo(req);
     const result = await this.authService.login(dto, ip, userAgent);
 
-    this.setAuthCookies(res, req, result.refreshToken);
+    this.cookies.setAuthCookies(res, req, result.refreshToken);
 
     return new TokenResponseDto({
       accessToken: result.accessToken,
@@ -314,7 +167,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): void {
-    this.setCsrfCookie(res, req);
+    this.cookies.setCsrfCookie(res, req);
   }
 
   @Post('refresh')
@@ -359,7 +212,7 @@ export class AuthController {
 
     const result = await this.authService.refresh(refreshToken, ip, userAgent);
 
-    this.setRefreshCookie(res, req, result.refreshToken);
+    this.cookies.setRefreshCookie(res, req, result.refreshToken);
 
     return new TokenResponseDto({
       accessToken: result.accessToken,
@@ -407,7 +260,7 @@ export class AuthController {
   ): Promise<LogoutResponseDto> {
     const result = await this.authService.logout(userId);
 
-    this.clearAuthCookies(res, req);
+    this.cookies.clearAuthCookies(res, req);
 
     return new LogoutResponseDto({
       loggedOut: Boolean(result),
