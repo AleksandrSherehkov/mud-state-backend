@@ -127,7 +127,7 @@ function getSignedCookie(req: ReqLike, name: string): string | undefined {
 }
 
 function base64UrlToUtf8(input: string): string {
-  const b64 = input.replace(/-/g, '+').replace(/_/g, '/');
+  const b64 = input.replaceAll('-', '+').replaceAll('_', '/');
   const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
   return Buffer.from(b64 + pad, 'base64').toString('utf8');
 }

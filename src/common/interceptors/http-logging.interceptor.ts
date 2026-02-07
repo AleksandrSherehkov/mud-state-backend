@@ -10,7 +10,11 @@ import type { Request, Response } from 'express';
 import { AppLogger } from 'src/logger/logger.service';
 import { extractRequestInfo } from 'src/common/helpers/request-info';
 import { getRequestId } from 'src/common/request-context/request-context';
-import { maskIp } from 'src/common/helpers/log-sanitize';
+import {
+  hashId,
+  maskIp,
+  normalizeUserAgent,
+} from 'src/common/helpers/log-sanitize';
 
 @Injectable()
 export class HttpLoggingInterceptor implements NestInterceptor {
@@ -25,7 +29,8 @@ export class HttpLoggingInterceptor implements NestInterceptor {
 
     const start = Date.now();
     const { ip, userAgent } = extractRequestInfo(req);
-
+    const ua = normalizeUserAgent(userAgent);
+    const uaHash = ua ? hashId(ua) : undefined;
     const path = req.path;
     const method = req.method;
 
@@ -52,7 +57,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
             role: user?.role,
             sid: user?.sid,
             ipMasked: maskIp(ip),
-            userAgent,
+            uaHash,
           },
         );
       }),

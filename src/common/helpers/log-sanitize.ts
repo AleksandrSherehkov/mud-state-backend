@@ -24,6 +24,9 @@ const SENSITIVE_KEY_SUBSTRINGS = [
 const JWT_LIKE = /eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g;
 const BEARER_LIKE = /Bearer\s+[A-Za-z0-9._-]+/gi;
 
+// eslint-disable-next-line no-control-regex
+const ASCII_CONTROL_CHARS = /[\x00-\x1F\x7F]/g;
+
 export function maskIp(raw?: string | null): string {
   const ip = normalizeIp(raw ?? '');
   const parts = ip.split('.');
@@ -32,12 +35,25 @@ export function maskIp(raw?: string | null): string {
 }
 
 export function normalizeUserAgent(ua: unknown): string {
-  if (typeof ua === 'string') {
-    const s = ua.trim();
-    return s.length > MAX_UA ? s.slice(0, MAX_UA) : s;
-  }
-  if (Array.isArray(ua)) return normalizeUserAgent(ua[0]);
-  return '';
+  const raw =
+    typeof ua === 'string'
+      ? ua
+      : Array.isArray(ua)
+        ? typeof ua[0] === 'string'
+          ? ua[0]
+          : ''
+        : '';
+
+  if (!raw) return '';
+
+  const cleaned = raw
+    .replaceAll(ASCII_CONTROL_CHARS, ' ')
+    .replaceAll(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) return '';
+
+  return cleaned.length > MAX_UA ? cleaned.slice(0, MAX_UA) : cleaned;
 }
 
 export function hashId(value: string, len = 12): string {
@@ -45,9 +61,12 @@ export function hashId(value: string, len = 12): string {
 }
 
 export function sanitizeString(input: string): string {
-  return input
+  const noCtl = input.replaceAll(ASCII_CONTROL_CHARS, ' ');
+  return noCtl
     .replaceAll(JWT_LIKE, '[REDACTED_JWT]')
-    .replaceAll(BEARER_LIKE, 'Bearer [REDACTED]');
+    .replaceAll(BEARER_LIKE, 'Bearer [REDACTED]')
+    .replaceAll(/\s+/g, ' ')
+    .trim();
 }
 
 function isUnknownArray(v: unknown): v is unknown[] {
