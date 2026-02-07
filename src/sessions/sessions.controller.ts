@@ -96,7 +96,7 @@ export class SessionsController {
     unauthorizedMessageExample: 'Session is not active',
   })
   terminateOthers(
-    @CurrentUser() user: UserFromJwt
+    @CurrentUser() user: UserFromJwt,
   ): Promise<TerminateCountResponseDto> {
     return this.http.terminateOthers({ userId: user.userId, sid: user.sid });
   }
@@ -127,7 +127,7 @@ export class SessionsController {
   })
   terminateSpecific(
     @CurrentUser('userId') userId: string,
-    @Body() dto: TerminateSessionDto
+    @Body() dto: TerminateSessionDto,
   ): Promise<TerminateResultDto> {
     return this.http.terminateSpecific(userId, dto);
   }
@@ -159,7 +159,7 @@ export class SessionsController {
   })
   getUserSessions(
     @Param('userId', new ParseUUIDPipe({ version: '4' })) userId: string,
-    @CurrentUser('role') role: Role
+    @CurrentUser('role') role: Role,
   ): Promise<FullSessionDto[]> {
     return this.http.getUserSessions(userId);
   }

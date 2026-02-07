@@ -25,7 +25,7 @@ export class SessionsHttpService {
 
   private async listUserSessions(userId: string): Promise<FullSessionDto[]> {
     const sessions = await this.sessions.getAllUserSessions(userId);
-    return sessions.map(s => this.toFullSessionDto(s));
+    return sessions.map((s) => this.toFullSessionDto(s));
   }
 
   mySessions(userId: string): Promise<FullSessionDto[]> {
@@ -38,19 +38,19 @@ export class SessionsHttpService {
   }): Promise<TerminateCountResponseDto> {
     const res = await this.sessions.terminateOtherSessions(
       params.userId,
-      params.sid
+      params.sid,
     );
     return { terminatedCount: res.count };
   }
 
   async terminateSpecific(
     userId: string,
-    dto: TerminateSessionDto
+    dto: TerminateSessionDto,
   ): Promise<TerminateResultDto> {
     const res = await this.sessions.terminateSpecificSession(
       userId,
       dto.ip,
-      dto.userAgent
+      dto.userAgent,
     );
     return { terminated: res.count > 0 };
   }

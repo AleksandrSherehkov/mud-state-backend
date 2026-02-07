@@ -3,14 +3,12 @@ import {
   Controller,
   Delete,
   Get,
-  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { UsersService } from './users.service';
 import {
   ApiTags,
   ApiOperation,
@@ -18,22 +16,25 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { PublicUserDto } from './dto/public-user.dto';
+import { Role } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
+
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
+
 import {
   ApiMutationErrorResponses,
   ApiQueryErrorResponses,
 } from 'src/common/swagger/api-exceptions';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
-import { Throttle } from '@nestjs/throttler';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { GetUserByEmailQueryDto } from './dto/get-user-by-email.query';
 import { USERS_SIDE_EFFECTS } from 'src/common/swagger/users.swagger';
 import { ApiRolesAccess } from 'src/common/swagger/api-roles';
 import { ApiUsersLinks } from 'src/common/swagger/users.links';
 import { THROTTLE_USERS } from 'src/common/throttle/throttle-env';
+
+import { UpdateUserDto } from './dto/update-user.dto';
+import { GetUserByEmailQueryDto } from './dto/get-user-by-email.query';
+import { UsersHttpService } from './users-http.service';
 
 @ApiTags('users')
 @Controller({
@@ -41,7 +42,7 @@ import { THROTTLE_USERS } from 'src/common/throttle/throttle-env';
   version: '1',
 })
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersHttp: UsersHttpService) {}
 
   @Get('id/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -71,9 +72,7 @@ export class UsersController {
     includeTooManyRequests: false,
   })
   async getById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
-    const user = await this.usersService.findById(id);
-    if (!user) throw new NotFoundException('Користувача не знайдено');
-    return new PublicUserDto(user);
+    return this.usersHttp.getById(id);
   }
 
   @Get('by-email')
@@ -107,9 +106,7 @@ export class UsersController {
     includeTooManyRequests: false,
   })
   async getByEmail(@Query() query: GetUserByEmailQueryDto) {
-    const user = await this.usersService.findByEmail(query.email);
-    if (!user) throw new NotFoundException('Користувача не знайдено');
-    return new PublicUserDto(user);
+    return this.usersHttp.getByEmail(query.email);
   }
 
   @Patch(':id')
@@ -145,8 +142,7 @@ export class UsersController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() dto: UpdateUserDto,
   ) {
-    const user = await this.usersService.updateUser(id, dto);
-    return new PublicUserDto(user);
+    return this.usersHttp.update(id, dto);
   }
 
   @Delete(':id')
@@ -178,7 +174,6 @@ export class UsersController {
     includeTooManyRequests: false,
   })
   async delete(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
-    const user = await this.usersService.deleteUser(id);
-    return new PublicUserDto(user);
+    return this.usersHttp.delete(id);
   }
 }
