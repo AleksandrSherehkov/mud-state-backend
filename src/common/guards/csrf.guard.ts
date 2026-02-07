@@ -29,6 +29,12 @@ function splitOrigins(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
+type OriginSignals = {
+  origin: string | null;
+  refererOrigin: string | null;
+  secFetchSite: string;
+};
+
 @Injectable()
 export class CsrfGuard implements CanActivate {
   constructor(private readonly config: ConfigService) {}
@@ -36,28 +42,40 @@ export class CsrfGuard implements CanActivate {
   canActivate(ctx: ExecutionContext): boolean {
     const req = ctx.switchToHttp().getRequest<Request>();
 
-    if (isSafeMethod(req.method)) return true;
+    return isSafeMethod(req.method) || this.validateUnsafeRequest(req);
+  }
 
-    const appEnv = (
-      this.config.get<string>('APP_ENV') ?? 'development'
-    ).toLowerCase();
-    const isProd = appEnv === 'production';
+  private validateUnsafeRequest(req: Request): boolean {
+    const isProd = this.isProdEnv();
+    const trusted = this.getTrustedOrigins();
+    const signals = this.getOriginSignals(req);
 
+    if (isProd) {
+      this.assertProdTrustedConfigured(trusted);
+      this.assertProdOriginOrApiKey(req, trusted, signals);
+    } else {
+      this.assertNonProdOriginIfPresent(trusted, signals);
+    }
+
+    return this.isDoubleSubmitValid(req);
+  }
+
+  private isProdEnv(): boolean {
+    const appEnv = (this.config.get<string>('APP_ENV') ?? 'development')
+      .toLowerCase()
+      .trim();
+    return appEnv === 'production';
+  }
+
+  private getTrustedOrigins(): string[] {
     const csrf = splitOrigins(this.config.get<string>('CSRF_TRUSTED_ORIGINS'));
+    if (csrf.length > 0) return csrf;
+
     const cors = splitOrigins(this.config.get<string>('CORS_ORIGINS'));
-    const trusted = csrf.length > 0 ? csrf : cors;
+    return cors;
+  }
 
-    const configuredApiKey = (
-      this.config.get<string>('CSRF_API_KEY') ?? ''
-    ).trim();
-
-    const requestApiKey = (req.header('x-csrf-api-key') ?? '').trim();
-
-    const allowNonBrowserByApiKey =
-      configuredApiKey.length > 0 &&
-      requestApiKey.length > 0 &&
-      requestApiKey === configuredApiKey;
-
+  private getOriginSignals(req: Request): OriginSignals {
     const originHeader = req.header('origin') || '';
     const refererHeader = req.header('referer') || '';
 
@@ -66,47 +84,92 @@ export class CsrfGuard implements CanActivate {
 
     const secFetchSite = (req.header('sec-fetch-site') || '').toLowerCase();
 
-    const allowByFetchSite =
-      secFetchSite === '' ||
-      secFetchSite === 'same-origin' ||
-      secFetchSite === 'same-site';
+    return { origin, refererOrigin, secFetchSite };
+  }
 
-    const allowByOrigin =
-      (origin && trusted.includes(origin)) ||
-      (refererOrigin && trusted.includes(refererOrigin));
+  private assertProdTrustedConfigured(trusted: string[]): void {
+    if (trusted.length === 0) {
+      throw new ForbiddenException(
+        'CSRF validation failed (trusted origins not configured)',
+      );
+    }
+  }
 
-    const hasOriginSignals = Boolean(origin || refererOrigin || secFetchSite);
+  private assertProdOriginOrApiKey(
+    req: Request,
+    trusted: string[],
+    signals: OriginSignals,
+  ): void {
+    const hasOriginSignals = Boolean(
+      signals.origin || signals.refererOrigin || signals.secFetchSite,
+    );
 
-    if (isProd) {
-      if (trusted.length === 0) {
-        throw new ForbiddenException(
-          'CSRF validation failed (trusted origins not configured)',
-        );
-      }
-
-      if (hasOriginSignals) {
-        if (!allowByFetchSite || !allowByOrigin) {
-          throw new ForbiddenException('CSRF validation failed (origin)');
-        }
-      } else {
-        if (!allowNonBrowserByApiKey) {
-          throw new ForbiddenException('CSRF validation failed (non-browser)');
-        }
-      }
-    } else if (
-      trusted.length > 0 &&
-      (origin || refererOrigin) &&
-      !allowByOrigin
-    ) {
-      throw new ForbiddenException('CSRF validation failed (origin)');
+    if (hasOriginSignals) {
+      this.assertProdOriginValid(trusted, signals);
+      return;
     }
 
+    this.assertNonBrowserAllowedByApiKey(req);
+  }
+
+  private assertProdOriginValid(
+    trusted: string[],
+    signals: OriginSignals,
+  ): void {
+    const allowByFetchSite =
+      signals.secFetchSite === '' ||
+      signals.secFetchSite === 'same-origin' ||
+      signals.secFetchSite === 'same-site';
+
+    const allowByOrigin =
+      (signals.origin && trusted.includes(signals.origin)) ||
+      (signals.refererOrigin && trusted.includes(signals.refererOrigin));
+
+    if (!allowByFetchSite || !allowByOrigin) {
+      throw new ForbiddenException('CSRF validation failed (origin)');
+    }
+  }
+
+  private assertNonBrowserAllowedByApiKey(req: Request): void {
+    const configuredApiKey = (
+      this.config.get<string>('CSRF_API_KEY') ?? ''
+    ).trim();
+    const requestApiKey = (req.header('x-csrf-api-key') ?? '').trim();
+
+    const allow =
+      configuredApiKey.length > 0 &&
+      requestApiKey.length > 0 &&
+      requestApiKey === configuredApiKey;
+
+    if (!allow) {
+      throw new ForbiddenException('CSRF validation failed (non-browser)');
+    }
+  }
+
+  private assertNonProdOriginIfPresent(
+    trusted: string[],
+    signals: OriginSignals,
+  ): void {
+    if (trusted.length === 0) return;
+
+    const hasOrigin = Boolean(signals.origin || signals.refererOrigin);
+    if (!hasOrigin) return;
+
+    const allowByOrigin =
+      (signals.origin && trusted.includes(signals.origin)) ||
+      (signals.refererOrigin && trusted.includes(signals.refererOrigin));
+
+    if (!allowByOrigin) {
+      throw new ForbiddenException('CSRF validation failed (origin)');
+    }
+  }
+
+  private isDoubleSubmitValid(req: Request): boolean {
     const csrfCookie = getCookieString(req, 'csrfToken');
     const csrfHeader = req.header('x-csrf-token');
 
-    if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
-      throw new ForbiddenException('CSRF validation failed');
-    }
+    const ok = Boolean(csrfCookie && csrfHeader && csrfCookie === csrfHeader);
+    if (!ok) throw new ForbiddenException('CSRF validation failed');
 
     return true;
   }
