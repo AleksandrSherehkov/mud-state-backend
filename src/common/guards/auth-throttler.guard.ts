@@ -116,8 +116,6 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     }
 
     if (isRefresh) return ip;
-
-    // ✅ authenticated endpoints: sessions/* + auth/logout → per-user limiter
     const userId = getUserIdFromReq(req);
     const isSessions = isPathContains(r, '/sessions');
     const isLogout = isPostAndEndsWith(r, '/auth/logout');
