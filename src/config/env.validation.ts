@@ -220,6 +220,7 @@ export const envValidationSchema = Joi.object({
     then: Joi.string().min(1).required(),
     otherwise: Joi.string().default(''),
   }),
+  CSRF_API_KEY: Joi.string().min(32).required(),
 
   TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(10).default(1),
 

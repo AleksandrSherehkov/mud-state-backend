@@ -45,8 +45,18 @@ export class CsrfGuard implements CanActivate {
 
     const csrf = splitOrigins(this.config.get<string>('CSRF_TRUSTED_ORIGINS'));
     const cors = splitOrigins(this.config.get<string>('CORS_ORIGINS'));
-
     const trusted = csrf.length > 0 ? csrf : cors;
+
+    const configuredApiKey = (
+      this.config.get<string>('CSRF_API_KEY') ?? ''
+    ).trim();
+
+    const requestApiKey = (req.header('x-csrf-api-key') ?? '').trim();
+
+    const allowNonBrowserByApiKey =
+      configuredApiKey.length > 0 &&
+      requestApiKey.length > 0 &&
+      requestApiKey === configuredApiKey;
 
     const originHeader = req.header('origin') || '';
     const refererHeader = req.header('referer') || '';
@@ -65,6 +75,8 @@ export class CsrfGuard implements CanActivate {
       (origin && trusted.includes(origin)) ||
       (refererOrigin && trusted.includes(refererOrigin));
 
+    const hasOriginSignals = Boolean(origin || refererOrigin || secFetchSite);
+
     if (isProd) {
       if (trusted.length === 0) {
         throw new ForbiddenException(
@@ -72,8 +84,14 @@ export class CsrfGuard implements CanActivate {
         );
       }
 
-      if (!allowByFetchSite || !allowByOrigin) {
-        throw new ForbiddenException('CSRF validation failed (origin)');
+      if (hasOriginSignals) {
+        if (!allowByFetchSite || !allowByOrigin) {
+          throw new ForbiddenException('CSRF validation failed (origin)');
+        }
+      } else {
+        if (!allowNonBrowserByApiKey) {
+          throw new ForbiddenException('CSRF validation failed (non-browser)');
+        }
       }
     } else if (
       trusted.length > 0 &&
