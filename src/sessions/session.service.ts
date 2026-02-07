@@ -216,6 +216,25 @@ export class SessionService {
     });
     return !!session;
   }
+  async getActiveSessionBinding(params: {
+    sid: string;
+    userId: string;
+  }): Promise<{ refreshTokenJti: string | null } | null> {
+    const session = await this.prisma.session.findFirst({
+      where: {
+        id: params.sid,
+        userId: params.userId,
+        isActive: true,
+        endedAt: null,
+      },
+      select: { refreshTokenJti: true },
+    });
+
+    return session
+      ? { refreshTokenJti: session.refreshTokenJti ?? null }
+      : null;
+  }
+
   async isSessionActiveById(sessionId: string): Promise<boolean> {
     const session = await this.prisma.session.findFirst({
       where: { id: sessionId, isActive: true, endedAt: null },

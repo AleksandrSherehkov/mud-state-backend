@@ -435,26 +435,75 @@ export class AuthService {
         uaHash: ua ? hashId(ua) : undefined,
       },
     );
+    // Risk-based: не даємо "kill switch" по старому refresh.
+    // Якщо jti з токена НЕ дорівнює поточному binding у Session — це stale token → 401 без terminate.
+    const binding = await this.sessionService.getActiveSessionBinding({
+      sid,
+      userId,
+    });
+
+    const boundJti = binding?.refreshTokenJti ?? null;
+
+    // Якщо сесія вже неактивна — просто 401 (без зайвих побічних ефектів)
+    if (!binding) {
+      this.logger.warn('Refresh reuse: session not active', AuthService.name, {
+        event: 'auth.refresh.reuse_detected',
+        userId,
+        jti: payload.jti,
+        sid,
+        reason: 'session_inactive',
+      });
+
+      throw new UnauthorizedException('Токен відкликано або недійсний');
+    }
+
+    // Сценарій DoS: old refresh (старий jti) → НЕ terminate sid
+    if (boundJti && boundJti !== payload.jti) {
+      await this.refreshTokenService.revokeManyByJtis([payload.jti], {
+        userId,
+        jti: payload.jti,
+        sid,
+        boundJti,
+        reason: 'reuse_detected_stale_jti_no_kill',
+      });
+
+      this.logger.warn(
+        'Refresh reuse (stale jti) blocked without terminate',
+        AuthService.name,
+        {
+          event: 'auth.refresh.reuse_detected_stale_jti',
+          userId,
+          sid,
+          tokenJti: payload.jti,
+          boundJti,
+        },
+      );
+
+      throw new UnauthorizedException('Токен відкликано або недійсний');
+    }
+
+    // Якщо boundJti == payload.jti, але claim не пройшов — це вже підозріло в межах поточного binding.
 
     const [revoked, terminated] = await Promise.all([
       this.refreshTokenService.revokeManyByJtis([payload.jti], {
         userId,
         jti: payload.jti,
         sid,
-        reason: 'reuse_detected_scoped',
+        boundJti,
+        reason: 'reuse_detected_bound_jti_terminate',
       }),
       this.sessionService.terminateById({
         sid,
         userId,
-        reason: 'reuse_detected_scoped',
+        reason: 'reuse_detected_bound_jti_terminate',
       }),
     ]);
 
     this.logger.warn(
-      'Refresh reuse response applied (scoped revoke + terminate)',
+      'Refresh reuse response applied (bound jti -> terminate)',
       AuthService.name,
       {
-        event: 'auth.refresh.reuse_response_applied_scoped',
+        event: 'auth.refresh.reuse_response_applied_bound_jti',
         userId,
         jti: payload.jti,
         sid,
