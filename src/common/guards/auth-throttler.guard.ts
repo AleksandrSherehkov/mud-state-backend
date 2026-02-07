@@ -14,6 +14,8 @@ type ReqLike = Record<string, unknown> & {
   body?: unknown;
   socket?: unknown;
   connection?: unknown;
+  cookies?: Record<string, unknown>;
+  signedCookies?: Record<string, unknown>;
 };
 
 function firstNonEmptyString(v: unknown): string | undefined {
@@ -98,6 +100,59 @@ function isPathContains(req: ReqLike, segment: string): boolean {
   return path.includes(segment);
 }
 
+function getHeaderString(req: ReqLike, name: string): string {
+  const headersUnknown = (req as { headers?: unknown }).headers;
+
+  if (!headersUnknown || typeof headersUnknown !== 'object') return '';
+
+  const headers = headersUnknown as Record<string, unknown>;
+  const raw = headers[name.toLowerCase()];
+
+  if (typeof raw === 'string') return raw;
+  if (Array.isArray(raw) && typeof raw[0] === 'string') return raw[0];
+
+  return '';
+}
+
+function getUserAgent(req: ReqLike): string {
+  const ua = getHeaderString(req, 'user-agent').trim();
+  return ua ? ua.slice(0, 255) : '';
+}
+
+function getSignedCookie(req: ReqLike, name: string): string | undefined {
+  const signedRaw = req.signedCookies?.[name];
+
+  if (signedRaw === false) return undefined;
+  return typeof signedRaw === 'string' ? signedRaw : undefined;
+}
+
+function base64UrlToUtf8(input: string): string {
+  const b64 = input.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+  return Buffer.from(b64 + pad, 'base64').toString('utf8');
+}
+
+type RefreshJwtLike = { sub?: unknown; sid?: unknown; jti?: unknown };
+
+function tryExtractRefreshKeyFromJwt(token: string): string | undefined {
+  const parts = token.split('.');
+  if (parts.length !== 3) return undefined;
+
+  try {
+    const payloadJson = base64UrlToUtf8(parts[1]);
+    const payload = JSON.parse(payloadJson) as RefreshJwtLike;
+
+    const sid = typeof payload.sid === 'string' ? payload.sid.trim() : '';
+    const jti = typeof payload.jti === 'string' ? payload.jti.trim() : '';
+    const sub = typeof payload.sub === 'string' ? payload.sub.trim() : '';
+
+    const v = sid || jti || sub;
+    return v || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 @Injectable()
 export class AuthThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Record<string, any>): Promise<string> {
@@ -115,7 +170,20 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
       return `${ip}:${emailHash}`;
     }
 
-    if (isRefresh) return ip;
+    if (isRefresh) {
+      const ua = getUserAgent(r);
+      const uaHash = ua ? hashId(ua) : 'noua';
+
+      const refreshCookie = getSignedCookie(r, 'refreshToken');
+      const tokenKey = refreshCookie
+        ? tryExtractRefreshKeyFromJwt(refreshCookie)
+        : undefined;
+
+      return tokenKey
+        ? `${ip}:${uaHash}:${tokenKey}`
+        : `${ip}:${uaHash}:nocookie`;
+    }
+
     const userId = getUserIdFromReq(req);
     const isSessions = isPathContains(r, '/sessions');
     const isLogout = isPostAndEndsWith(r, '/auth/logout');
