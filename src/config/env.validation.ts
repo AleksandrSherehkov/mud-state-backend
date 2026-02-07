@@ -10,8 +10,8 @@ export const envValidationSchema = Joi.object({
   API_PREFIX: Joi.string().default('api'),
   API_VERSION: Joi.string().pattern(/^\d+$/).default('1'),
 
-  JWT_ACCESS_SECRET: Joi.string().required(),
-  JWT_REFRESH_SECRET: Joi.string().required(),
+  JWT_ACCESS_SECRET: Joi.string().min(32).required(),
+  JWT_REFRESH_SECRET: Joi.string().min(32).required(),
   JWT_ISSUER: Joi.string().min(1).required(),
   JWT_AUDIENCE: Joi.string().min(1).required(),
   JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
@@ -186,7 +186,9 @@ export const envValidationSchema = Joi.object({
   PRISMA_QUERY_SAMPLE_RATE: Joi.number().min(0).max(1).default(0.05),
 
   TOKEN_CLEANUP_DAYS: Joi.number().min(1).max(365).default(7),
-  TOKEN_CLEANUP_CRON: Joi.string().default('0 0 * * *'),
+  TOKEN_CLEANUP_CRON: Joi.string()
+    .pattern(/^(\S+\s+){4}\S+$/)
+    .default('0 0 * * *'),
 
   REFRESH_TOKEN_PEPPER: Joi.string().length(64).hex().required(),
   REFRESH_BIND_UA: Joi.boolean().default(true),
@@ -218,7 +220,11 @@ export const envValidationSchema = Joi.object({
   }),
 
   COOKIE_SAMESITE: Joi.string().valid('lax', 'strict', 'none').default('lax'),
-  COOKIE_CROSS_SITE: Joi.boolean().default(false),
+  COOKIE_CROSS_SITE: Joi.when('COOKIE_SAMESITE', {
+    is: 'none',
+    then: Joi.boolean().valid(true).required(),
+    otherwise: Joi.boolean().default(false),
+  }),
 
   CSRF_TRUSTED_ORIGINS: Joi.when('APP_ENV', {
     is: 'production',
@@ -233,4 +239,6 @@ export const envValidationSchema = Joi.object({
 
   AUTH_DUMMY_PASSWORD_HASH: Joi.string().min(20).optional(),
   COOKIE_SECRET: Joi.string().min(32).required(),
-});
+})
+  .unknown(true)
+  .prefs({ abortEarly: false });
