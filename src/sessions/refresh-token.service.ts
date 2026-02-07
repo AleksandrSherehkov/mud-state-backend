@@ -32,6 +32,7 @@ export class RefreshTokenService {
     userId: string,
     jti: string,
     tokenHash: string,
+    tokenSalt: string,
     ip?: string,
     userAgent?: string,
     tx?: Prisma.TransactionClient,
@@ -47,6 +48,7 @@ export class RefreshTokenService {
       data: {
         userId,
         jti,
+        tokenSalt,
         tokenHash,
         ip: nip,
         userAgent: ua,
@@ -58,6 +60,7 @@ export class RefreshTokenService {
       event: 'refresh_token.created',
       userId,
       jti,
+      hasSalt: Boolean(tokenSalt),
       ipMasked: nip ? maskIp(nip) : undefined,
       uaHash: ua ? hashId(ua) : undefined,
     });
@@ -476,5 +479,16 @@ export class RefreshTokenService {
     });
 
     throw new UnauthorizedException('Токен відкликано або недійсний');
+  }
+  async getSaltForClaim(params: {
+    userId: string;
+    jti: string;
+  }): Promise<string | null> {
+    const row = await this.prisma.refreshToken.findFirst({
+      where: { userId: params.userId, jti: params.jti },
+      select: { tokenSalt: true },
+    });
+
+    return row?.tokenSalt ?? null;
   }
 }

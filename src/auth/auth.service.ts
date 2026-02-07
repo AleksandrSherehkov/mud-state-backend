@@ -233,7 +233,11 @@ export class AuthService {
       this.tokenService.signRefreshToken(payload),
     ]);
 
-    const tokenHash = this.tokenService.hashRefreshToken(refreshToken);
+    const tokenSalt = this.tokenService.generateRefreshTokenSalt();
+    const tokenHash = this.tokenService.hashRefreshToken(
+      refreshToken,
+      tokenSalt,
+    );
 
     try {
       await this.tx.run(async (tx) => {
@@ -241,6 +245,7 @@ export class AuthService {
           userId,
           refreshJti,
           tokenHash,
+          tokenSalt,
           nip ?? undefined,
           ua ?? undefined,
           tx,
@@ -392,7 +397,12 @@ export class AuthService {
   }): Promise<void> {
     const { refreshToken, payload, userId, sid, ip, userAgent } = args;
 
-    const tokenHash = this.tokenService.hashRefreshToken(refreshToken);
+    const salt = await this.refreshTokenService.getSaltForClaim({
+      userId,
+      jti: payload.jti,
+    });
+
+    const tokenHash = this.tokenService.hashRefreshToken(refreshToken, salt);
 
     const claim = await this.refreshTokenService.revokeIfActiveByHash(
       payload.jti,
@@ -435,75 +445,26 @@ export class AuthService {
         uaHash: ua ? hashId(ua) : undefined,
       },
     );
-    // Risk-based: не даємо "kill switch" по старому refresh.
-    // Якщо jti з токена НЕ дорівнює поточному binding у Session — це stale token → 401 без terminate.
-    const binding = await this.sessionService.getActiveSessionBinding({
-      sid,
-      userId,
-    });
-
-    const boundJti = binding?.refreshTokenJti ?? null;
-
-    // Якщо сесія вже неактивна — просто 401 (без зайвих побічних ефектів)
-    if (!binding) {
-      this.logger.warn('Refresh reuse: session not active', AuthService.name, {
-        event: 'auth.refresh.reuse_detected',
-        userId,
-        jti: payload.jti,
-        sid,
-        reason: 'session_inactive',
-      });
-
-      throw new UnauthorizedException('Токен відкликано або недійсний');
-    }
-
-    // Сценарій DoS: old refresh (старий jti) → НЕ terminate sid
-    if (boundJti && boundJti !== payload.jti) {
-      await this.refreshTokenService.revokeManyByJtis([payload.jti], {
-        userId,
-        jti: payload.jti,
-        sid,
-        boundJti,
-        reason: 'reuse_detected_stale_jti_no_kill',
-      });
-
-      this.logger.warn(
-        'Refresh reuse (stale jti) blocked without terminate',
-        AuthService.name,
-        {
-          event: 'auth.refresh.reuse_detected_stale_jti',
-          userId,
-          sid,
-          tokenJti: payload.jti,
-          boundJti,
-        },
-      );
-
-      throw new UnauthorizedException('Токен відкликано або недійсний');
-    }
-
-    // Якщо boundJti == payload.jti, але claim не пройшов — це вже підозріло в межах поточного binding.
 
     const [revoked, terminated] = await Promise.all([
       this.refreshTokenService.revokeManyByJtis([payload.jti], {
         userId,
         jti: payload.jti,
         sid,
-        boundJti,
-        reason: 'reuse_detected_bound_jti_terminate',
+        reason: 'reuse_detected_scoped',
       }),
       this.sessionService.terminateById({
         sid,
         userId,
-        reason: 'reuse_detected_bound_jti_terminate',
+        reason: 'reuse_detected_scoped',
       }),
     ]);
 
     this.logger.warn(
-      'Refresh reuse response applied (bound jti -> terminate)',
+      'Refresh reuse response applied (scoped revoke + terminate)',
       AuthService.name,
       {
-        event: 'auth.refresh.reuse_response_applied_bound_jti',
+        event: 'auth.refresh.reuse_response_applied_scoped',
         userId,
         jti: payload.jti,
         sid,
@@ -560,13 +521,18 @@ export class AuthService {
       this.tokenService.signRefreshToken(newPayload),
     ]);
 
-    const newTokenHash = this.tokenService.hashRefreshToken(newRefreshToken);
+    const newSalt = this.tokenService.generateRefreshTokenSalt();
+    const newTokenHash = this.tokenService.hashRefreshToken(
+      newRefreshToken,
+      newSalt,
+    );
 
     await this.tx.run(async (tx) => {
       await this.refreshTokenService.create(
         user.id,
         newJti,
         newTokenHash,
+        newSalt,
         nip ?? undefined,
         ua ?? undefined,
         tx,
