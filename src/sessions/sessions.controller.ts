@@ -15,7 +15,7 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role, Session as PrismaSession } from '@prisma/client';
+import { Role } from '@prisma/client';
 
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -30,7 +30,6 @@ import { ApiRolesAccess } from 'src/common/swagger/api-roles';
 
 import { Throttle } from '@nestjs/throttler';
 
-import { SessionService } from './session.service';
 import { TerminateSessionDto } from './dto/terminate-session.dto';
 import { FullSessionDto } from './dto/full-session.dto';
 import { TerminateCountResponseDto } from './dto/terminate-count-response.dto';
@@ -41,28 +40,14 @@ import { SESSIONS_SIDE_EFFECTS } from 'src/common/swagger/sessions.swagger';
 import { ApiSessionsLinks } from 'src/common/swagger/sessions.links';
 import { THROTTLE_SESSIONS } from 'src/common/throttle/throttle-env';
 
+import { SessionsHttpService } from './sessions-http.service';
+
 @ApiTags('sessions')
 @Controller({ path: 'sessions', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class SessionsController {
-  constructor(private readonly sessionService: SessionService) {}
-
-  private toFullSessionDto(s: PrismaSession): FullSessionDto {
-    return {
-      id: s.id,
-      ip: s.ip ?? '',
-      userAgent: s.userAgent ?? '',
-      isActive: s.isActive,
-      startedAt: s.startedAt.toISOString(),
-      endedAt: s.endedAt?.toISOString() ?? null,
-    };
-  }
-
-  private async listUserSessions(userId: string): Promise<FullSessionDto[]> {
-    const sessions = await this.sessionService.getAllUserSessions(userId);
-    return sessions.map((s) => this.toFullSessionDto(s));
-  }
+  constructor(private readonly http: SessionsHttpService) {}
 
   @Get('me')
   @Throttle({ default: THROTTLE_SESSIONS.me })
@@ -82,10 +67,8 @@ export class SessionsController {
     includeBadRequest: false,
     includeTooManyRequests: false,
   })
-  async mySessions(
-    @CurrentUser('userId') userId: string,
-  ): Promise<FullSessionDto[]> {
-    return this.listUserSessions(userId);
+  mySessions(@CurrentUser('userId') userId: string): Promise<FullSessionDto[]> {
+    return this.http.mySessions(userId);
   }
 
   @Post('terminate-others')
@@ -112,15 +95,10 @@ export class SessionsController {
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
     unauthorizedMessageExample: 'Session is not active',
   })
-  async terminateOthers(
-    @CurrentUser() user: UserFromJwt,
+  terminateOthers(
+    @CurrentUser() user: UserFromJwt
   ): Promise<TerminateCountResponseDto> {
-    const res = await this.sessionService.terminateOtherSessions(
-      user.userId,
-      user.sid,
-    );
-
-    return { terminatedCount: res.count };
+    return this.http.terminateOthers({ userId: user.userId, sid: user.sid });
   }
 
   @Post('terminate')
@@ -147,17 +125,11 @@ export class SessionsController {
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
     unauthorizedMessageExample: 'Session is not active',
   })
-  async terminateSpecific(
+  terminateSpecific(
     @CurrentUser('userId') userId: string,
-    @Body() dto: TerminateSessionDto,
+    @Body() dto: TerminateSessionDto
   ): Promise<TerminateResultDto> {
-    const res = await this.sessionService.terminateSpecificSession(
-      userId,
-      dto.ip,
-      dto.userAgent,
-    );
-
-    return { terminated: res.count > 0 };
+    return this.http.terminateSpecific(userId, dto);
   }
 
   @Get(':userId')
@@ -185,9 +157,10 @@ export class SessionsController {
     includeBadRequest: false,
     includeTooManyRequests: false,
   })
-  async getUserSessions(
+  getUserSessions(
     @Param('userId', new ParseUUIDPipe({ version: '4' })) userId: string,
+    @CurrentUser('role') role: Role
   ): Promise<FullSessionDto[]> {
-    return this.listUserSessions(userId);
+    return this.http.getUserSessions(userId);
   }
 }

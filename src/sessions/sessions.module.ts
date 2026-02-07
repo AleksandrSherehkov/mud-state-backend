@@ -5,10 +5,11 @@ import { SessionsController } from './sessions.controller';
 
 import { SessionService } from './session.service';
 import { RefreshTokenService } from './refresh-token.service';
+import { SessionsHttpService } from './sessions-http.service';
 
 @Module({
   imports: [PrismaModule, LoggerModule],
-  providers: [SessionService, RefreshTokenService],
+  providers: [SessionService, RefreshTokenService, SessionsHttpService],
   controllers: [SessionsController],
   exports: [SessionService, RefreshTokenService],
 })
