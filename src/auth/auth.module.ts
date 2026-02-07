@@ -16,6 +16,7 @@ import { SessionsModule } from 'src/sessions/sessions.module';
 import { UsersModule } from 'src/users/users.module';
 import { CsrfGuard } from 'src/common/guards/csrf.guard';
 import { AuthCookieService } from './auth-cookie.service';
+import { AuthHttpService } from './auth-http.service';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { AuthCookieService } from './auth-cookie.service';
     TokenService,
     CsrfGuard,
     AuthCookieService,
+    AuthHttpService,
   ],
   exports: [AuthService, AuthMaintenanceService],
   controllers: [AuthController],
