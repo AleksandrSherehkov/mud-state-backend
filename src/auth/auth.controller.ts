@@ -189,10 +189,23 @@ export class AuthController {
     this.setRefreshCookie(res, req, refreshToken);
     this.setCsrfCookie(res, req);
   }
+  private stripExpiry(opts: CookieOptions): CookieOptions {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { maxAge: _maxAge, expires: _expires, ...rest } = opts;
+    return rest;
+  }
+
+  private refreshCookieClearOptions(req: Request): CookieOptions {
+    return this.stripExpiry(this.refreshCookieOptions(req));
+  }
+
+  private csrfCookieClearOptions(req: Request): CookieOptions {
+    return this.stripExpiry(this.csrfCookieOptions(req));
+  }
 
   private clearAuthCookies(res: ExpressResponse, req: Request): void {
-    res.clearCookie('refreshToken', this.refreshCookieOptions(req));
-    res.clearCookie('csrfToken', this.csrfCookieOptions(req));
+    res.clearCookie('refreshToken', this.refreshCookieClearOptions(req));
+    res.clearCookie('csrfToken', this.csrfCookieClearOptions(req));
   }
 
   @Post('register')
