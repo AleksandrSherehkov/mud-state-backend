@@ -397,18 +397,11 @@ export class AuthService {
   }): Promise<void> {
     const { refreshToken, payload, userId, sid, ip, userAgent } = args;
 
-    const salt = await this.refreshTokenService.getSaltForClaim({
-      userId,
+    const claim = await this.refreshTokenService.claimRefreshToken({
       jti: payload.jti,
-    });
-
-    const tokenHash = this.tokenService.hashRefreshToken(refreshToken, salt);
-
-    const claim = await this.refreshTokenService.revokeIfActiveByHash(
-      payload.jti,
       userId,
-      tokenHash,
-    );
+      refreshToken,
+    });
 
     if (claim.count !== 0) return;
 

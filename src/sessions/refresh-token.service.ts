@@ -5,9 +5,12 @@ import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 import { Prisma } from '@prisma/client';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { ConfigService } from '@nestjs/config';
+import { createHmac, scryptSync } from 'node:crypto';
 
 import * as ms from 'ms';
 
+const SCRYPT_KEYLEN = 32;
+const SCRYPT_OPTS = { N: 1 << 15, r: 8, p: 1, maxmem: 128 * 1024 * 1024 };
 @Injectable()
 export class RefreshTokenService {
   constructor(
@@ -68,51 +71,6 @@ export class RefreshTokenService {
     return token;
   }
 
-  async getActiveTokens(userId: string, take = 50) {
-    const tokens = await this.prisma.refreshToken.findMany({
-      where: { userId, revoked: false, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: 'desc' },
-      take,
-    });
-
-    this.logger.debug(
-      'Active refresh tokens fetched',
-      RefreshTokenService.name,
-      {
-        event: 'refresh_token.list.active',
-        userId,
-        take,
-        returned: tokens.length,
-      },
-    );
-
-    return tokens;
-  }
-
-  async revokeIfActiveByHash(jti: string, userId: string, tokenHash: string) {
-    const result = await this.prisma.refreshToken.updateMany({
-      where: { jti, userId, tokenHash, revoked: false },
-      data: { revoked: true },
-    });
-
-    if (result.count === 1) {
-      this.logger.log('Refresh token claimed', RefreshTokenService.name, {
-        event: 'refresh_token.claimed',
-        userId,
-        jti,
-      });
-    } else {
-      this.logger.warn('Refresh token claim failed', RefreshTokenService.name, {
-        event: 'refresh_token.claim_failed',
-        userId,
-        jti,
-        count: result.count,
-      });
-    }
-
-    return result;
-  }
-
   async revokeAll(userId: string) {
     const result = await this.prisma.refreshToken.updateMany({
       where: { userId, revoked: false },
@@ -138,21 +96,6 @@ export class RefreshTokenService {
     }
 
     return result;
-  }
-
-  async revokeByJti(jti: string) {
-    const token = await this.prisma.refreshToken.update({
-      where: { jti },
-      data: { revoked: true },
-    });
-
-    this.logger.log('Refresh token revoked', RefreshTokenService.name, {
-      event: 'refresh_token.revoked',
-      jti,
-      userId: token.userId,
-    });
-
-    return token;
   }
 
   async validate(jti: string, userId: string) {
@@ -214,12 +157,6 @@ export class RefreshTokenService {
       );
       throw new UnauthorizedException('Токен відкликано або недійсний');
     }
-  }
-
-  async findValid(userId: string, jti: string) {
-    return this.prisma.refreshToken.findFirst({
-      where: { userId, jti, revoked: false, expiresAt: { gt: new Date() } },
-    });
   }
 
   async countActive(userId: string) {
@@ -480,15 +417,71 @@ export class RefreshTokenService {
 
     throw new UnauthorizedException('Токен відкликано або недійсний');
   }
-  async getSaltForClaim(params: {
-    userId: string;
+
+  private getPepper(): string {
+    const pepper = (
+      this.config.get<string>('REFRESH_TOKEN_PEPPER') ?? ''
+    ).trim();
+    if (!pepper) throw new Error('REFRESH_TOKEN_PEPPER is not set');
+    return pepper;
+  }
+
+  private hashRefreshTokenWithSalt(
+    refreshToken: string,
+    salt?: string | null,
+  ): string {
+    // fallback на legacy (на випадок старих записів без salt)
+    if (!salt) {
+      const pepper = this.getPepper();
+      return createHmac('sha256', pepper).update(refreshToken).digest('hex');
+    }
+
+    const pepper = this.getPepper();
+    const s = `${pepper}:${salt}`;
+    const dk = scryptSync(refreshToken, s, SCRYPT_KEYLEN, SCRYPT_OPTS);
+    return dk.toString('hex');
+  }
+
+  async claimRefreshToken(params: {
     jti: string;
-  }): Promise<string | null> {
+    userId: string;
+    refreshToken: string;
+  }): Promise<Prisma.BatchPayload> {
     const row = await this.prisma.refreshToken.findFirst({
       where: { userId: params.userId, jti: params.jti },
       select: { tokenSalt: true },
     });
 
-    return row?.tokenSalt ?? null;
+    const expectedHash = this.hashRefreshTokenWithSalt(
+      params.refreshToken,
+      row?.tokenSalt ?? null,
+    );
+
+    const result = await this.prisma.refreshToken.updateMany({
+      where: {
+        jti: params.jti,
+        userId: params.userId,
+        tokenHash: expectedHash,
+        revoked: false,
+      },
+      data: { revoked: true },
+    });
+
+    if (result.count === 1) {
+      this.logger.log('Refresh token claimed', RefreshTokenService.name, {
+        event: 'refresh_token.claimed',
+        userId: params.userId,
+        jti: params.jti,
+      });
+    } else {
+      this.logger.warn('Refresh token claim failed', RefreshTokenService.name, {
+        event: 'refresh_token.claim_failed',
+        userId: params.userId,
+        jti: params.jti,
+        count: result.count,
+      });
+    }
+
+    return result;
   }
 }

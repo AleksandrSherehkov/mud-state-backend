@@ -50,8 +50,10 @@ model RefreshToken {
 
   sessions Session[] @relation("SessionToRefreshToken")
 
-  @@index([userId, revoked])
+  @@index([userId, revoked, expiresAt])
+  
   @@index([expiresAt])
+  @@index([userId, revoked])
 }
 
 model Session {
