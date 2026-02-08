@@ -97,24 +97,32 @@ async function bootstrap() {
   // ---- SECURITY CONFIG VALIDATION ----
   validateSecurityConfig(configService);
 
+  const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED') ?? true;
+  const swaggerUiEnabled = swaggerEnabled && !isProd;
+
   // ---- Helmet ----
   app.use(
     helmet({
-      contentSecurityPolicy: {
-        useDefaults: true,
-        directives: {
-          defaultSrc: ["'none'"],
-          baseUri: ["'none'"],
-          frameAncestors: ["'none'"],
-          formAction: ["'none'"],
-        },
-      },
+      contentSecurityPolicy: swaggerUiEnabled
+        ? false
+        : {
+            useDefaults: true,
+            directives: {
+              defaultSrc: ["'none'"],
+              baseUri: ["'none'"],
+              frameAncestors: ["'none'"],
+              formAction: ["'none'"],
+            },
+          },
+
+      crossOriginResourcePolicy: swaggerUiEnabled
+        ? false
+        : { policy: 'same-site' },
 
       hsts: isProd
         ? { maxAge: 15552000, includeSubDomains: true, preload: true }
         : false,
 
-      crossOriginResourcePolicy: { policy: 'same-site' },
       referrerPolicy: { policy: 'no-referrer' },
     }),
   );

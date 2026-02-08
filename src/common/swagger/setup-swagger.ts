@@ -79,11 +79,12 @@ export function setupSwagger(
       name: 'csrfToken',
       description: 'Non-HttpOnly CSRF cookie (15 min maxAge).',
     })
-    .addServer(apiBase, 'API base')
     .build();
 
   const document = SwaggerModule.createDocument(app, docConfig);
-  SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
+  SwaggerModule.setup(`${apiPrefix}/docs`, app, document, {
+    swaggerOptions: { withCredentials: true },
+  });
 
   return { shouldEnableSwagger, apiBase };
 }
