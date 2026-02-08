@@ -19,6 +19,7 @@ import { resolveEnvFilePath } from './config/env-path';
 import { envValidationSchema } from './config/env.validation';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { SecurityModule } from './common/security/security.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     AuthModule,
     UsersModule,
     JobsModule,
+    SecurityModule,
   ],
   providers: [
     {

@@ -53,7 +53,7 @@ model RefreshToken {
   @@index([userId, revoked, expiresAt])
   
   @@index([expiresAt])
-  @@index([userId, revoked])
+
 }
 
 model Session {
