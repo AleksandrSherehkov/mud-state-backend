@@ -17,6 +17,8 @@ import { JobsModule } from './jobs/jobs.module';
 import { AuthThrottlerGuard } from './common/guards/auth-throttler.guard';
 import { resolveEnvFilePath } from './config/env-path';
 import { envValidationSchema } from './config/env.validation';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
   imports: [
@@ -49,6 +51,14 @@ import { envValidationSchema } from './config/env.validation';
     {
       provide: APP_GUARD,
       useClass: AuthThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
     {
       provide: APP_INTERCEPTOR,

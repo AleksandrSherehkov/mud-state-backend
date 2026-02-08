@@ -7,7 +7,6 @@ import {
   ParseUUIDPipe,
   Patch,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,8 +18,6 @@ import {
 import { Role } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
 
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 
 import {
@@ -41,14 +38,13 @@ import { UsersHttpService } from './users-http.service';
   path: 'users',
   version: '1',
 })
+@ApiBearerAuth('access_bearer')
 export class UsersController {
   constructor(private readonly usersHttp: UsersHttpService) {}
 
   @Get('id/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Throttle({ default: THROTTLE_USERS.byId })
   @Roles(Role.ADMIN, Role.MODERATOR)
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Отримати користувача за ID (ADMIN/MODERATOR)',
     operationId: 'users_getById',
@@ -76,10 +72,8 @@ export class UsersController {
   }
 
   @Get('by-email')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Throttle({ default: THROTTLE_USERS.byEmail })
   @Roles(Role.ADMIN, Role.MODERATOR)
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Пошук користувача за email (ADMIN/MODERATOR)',
     operationId: 'users_getByEmail',
@@ -110,10 +104,8 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Throttle({ default: THROTTLE_USERS.update })
   @Roles(Role.ADMIN)
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Оновити користувача (ADMIN)',
     operationId: 'users_update',
@@ -146,10 +138,8 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Throttle({ default: THROTTLE_USERS.delete })
   @Roles(Role.ADMIN)
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Видалити користувача (ADMIN)',
     operationId: 'users_delete',

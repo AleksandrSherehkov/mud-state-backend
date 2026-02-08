@@ -9,7 +9,6 @@ export const sanitizeFormat = format((info) => {
   const level =
     typeof info.level === 'string' ? info.level : String(info.level);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { level: __level, message: __message, ...rest } = info;
 
   const cleaned = sanitizeMeta(rest) as Record<string, unknown>;

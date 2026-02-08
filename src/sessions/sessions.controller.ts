@@ -6,7 +6,6 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -19,8 +18,6 @@ import { Role } from '@prisma/client';
 
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/common/guards/roles.guard';
 
 import {
   ApiMutationErrorResponses,
@@ -44,8 +41,7 @@ import { SessionsHttpService } from './sessions-http.service';
 
 @ApiTags('sessions')
 @Controller({ path: 'sessions', version: '1' })
-@UseGuards(JwtAuthGuard, RolesGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('access_bearer')
 export class SessionsController {
   constructor(private readonly http: SessionsHttpService) {}
 
@@ -159,7 +155,6 @@ export class SessionsController {
   })
   getUserSessions(
     @Param('userId', new ParseUUIDPipe({ version: '4' })) userId: string,
-    @CurrentUser('role') role: Role,
   ): Promise<FullSessionDto[]> {
     return this.http.getUserSessions(userId);
   }

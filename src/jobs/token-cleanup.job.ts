@@ -48,10 +48,12 @@ export class TokenCleanupJob implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy(): Promise<void> {
     try {
       const job = this.schedulerRegistry.getCronJob(JOB_NAME);
-      job.stop();
+
+      await Promise.resolve(job.stop());
+
       this.schedulerRegistry.deleteCronJob(JOB_NAME);
 
       this.logger.debug('Token cleanup job stopped', TokenCleanupJob.name, {

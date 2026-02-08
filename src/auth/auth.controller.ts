@@ -31,7 +31,7 @@ import { AUTH_SIDE_EFFECTS } from 'src/common/swagger/auth.swagger';
 import { ApiAuthLinks } from 'src/common/swagger/auth.links';
 
 import { CsrfGuard } from 'src/common/guards/csrf.guard';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 import { THROTTLE_AUTH } from 'src/common/throttle/throttle-env';
@@ -45,6 +45,7 @@ import { LogoutResponseDto } from './dto/logout-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
 
 import { AuthHttpService } from './auth-http.service';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @ApiTags('auth')
 @Controller({
@@ -55,6 +56,7 @@ export class AuthController {
   constructor(private readonly http: AuthHttpService) {}
 
   @Post('register')
+  @Public()
   @UseGuards(CsrfGuard)
   @ApiCookieAuth('csrf_cookie')
   @ApiSecurity('csrf_header')
@@ -88,6 +90,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Public()
   @UseGuards(CsrfGuard)
   @ApiCookieAuth('csrf_cookie')
   @ApiSecurity('csrf_header')
@@ -122,6 +125,7 @@ export class AuthController {
   }
 
   @Get('csrf')
+  @Public()
   @HttpCode(204)
   @Throttle({ default: THROTTLE_AUTH.csrf })
   @ApiOperation({
@@ -143,6 +147,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Public()
   @HttpCode(200)
   @UseGuards(CsrfGuard)
   @ApiCookieAuth('refresh_cookie')
@@ -179,7 +184,7 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(JwtAuthGuard, CsrfGuard)
+  @UseGuards(CsrfGuard)
   @ApiCookieAuth('csrf_cookie')
   @ApiSecurity('csrf_header')
   @ApiHeader({
@@ -220,7 +225,6 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
   @Throttle({ default: THROTTLE_AUTH.me })
   @ApiBearerAuth('access_bearer')
   @ApiOperation({
