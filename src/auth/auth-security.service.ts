@@ -3,6 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { AppLogger } from 'src/logger/logger.service';
 import { hashId, maskIp } from 'src/common/helpers/log-sanitize';
+import { normalizeIp } from 'src/common/helpers/ip-normalize';
 
 function now() {
   return new Date();
@@ -56,8 +57,9 @@ export class AuthSecurityService {
     const { maxAttempts, baseSec, maxSec, windowSec } = this.policy();
     const ts = now();
 
-    const ipMasked = params.ip ? maskIp(params.ip) : undefined;
     const uaHash = params.userAgent ? hashId(params.userAgent) : undefined;
+    const ipNorm = params.ip ? normalizeIp(params.ip) : null;
+    const ipMasked = ipNorm ? maskIp(ipNorm) : undefined;
 
     const prev = await this.prisma.userSecurity.findUnique({
       where: { userId: params.userId },
@@ -86,14 +88,14 @@ export class AuthSecurityService {
         failedLoginCount: 1,
         lastFailedAt: ts,
         lockedUntil: lock,
-        lastFailedIp: params.ip ?? null,
+        lastFailedIp: ipNorm,
         lastFailedUaHash: uaHash ?? null,
       },
       update: {
         failedLoginCount: nextCount,
         lastFailedAt: ts,
         lockedUntil: lock,
-        lastFailedIp: params.ip ?? null,
+        lastFailedIp: ipNorm,
         lastFailedUaHash: uaHash ?? null,
       },
     });

@@ -147,7 +147,6 @@ export class AuthCookieService {
   }
 
   private stripExpiry(opts: CookieOptions): CookieOptions {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { maxAge: _maxAge, expires: _expires, ...rest } = opts;
     return rest;
   }

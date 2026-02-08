@@ -5,18 +5,17 @@ import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 import { Prisma } from '@prisma/client';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, scryptSync, timingSafeEqual } from 'node:crypto';
 
 import * as ms from 'ms';
+import { RefreshTokenHashService } from 'src/common/security/refresh-token-hash.service';
 
-const SCRYPT_KEYLEN = 32;
-const SCRYPT_OPTS = { N: 1 << 15, r: 8, p: 1, maxmem: 128 * 1024 * 1024 };
 @Injectable()
 export class RefreshTokenService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLogger,
     private readonly config: ConfigService,
+    private readonly refreshHash: RefreshTokenHashService,
   ) {
     this.logger.setContext(RefreshTokenService.name);
   }
@@ -418,42 +417,6 @@ export class RefreshTokenService {
     throw new UnauthorizedException('Токен відкликано або недійсний');
   }
 
-  private getPepper(): string {
-    const pepper = (
-      this.config.get<string>('REFRESH_TOKEN_PEPPER') ?? ''
-    ).trim();
-    if (!pepper) throw new Error('REFRESH_TOKEN_PEPPER is not set');
-    return pepper;
-  }
-
-  private hashRefreshTokenWithSalt(
-    refreshToken: string,
-    salt?: string | null,
-  ): string {
-    if (!salt) {
-      const pepper = this.getPepper();
-      return createHmac('sha256', pepper).update(refreshToken).digest('hex');
-    }
-
-    const pepper = this.getPepper();
-    const s = `${pepper}:${salt}`;
-    const dk = scryptSync(refreshToken, s, SCRYPT_KEYLEN, SCRYPT_OPTS);
-    return dk.toString('hex');
-  }
-
-  private safeEqualHex(a: string, b: string): boolean {
-    if (!a || !b) return false;
-
-    if (a.length !== b.length) return false;
-    if (a.length % 2 !== 0) return false;
-
-    const ba = Buffer.from(a, 'hex');
-    const bb = Buffer.from(b, 'hex');
-    if (ba.length !== bb.length) return false;
-
-    return timingSafeEqual(ba, bb);
-  }
-
   async claimRefreshToken(params: {
     jti: string;
     userId: string;
@@ -485,12 +448,12 @@ export class RefreshTokenService {
       return { count: 0 };
     }
 
-    const expectedHash = this.hashRefreshTokenWithSalt(
+    const expectedHash = this.refreshHash.hash(
       params.refreshToken,
       row.tokenSalt ?? null,
     );
 
-    const match = this.safeEqualHex(row.tokenHash, expectedHash);
+    const match = this.refreshHash.safeEqualHex(row.tokenHash, expectedHash);
     if (!match) {
       this.logger.warn(
         'Refresh token claim failed: hash mismatch',
