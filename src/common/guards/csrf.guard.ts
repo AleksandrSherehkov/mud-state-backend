@@ -95,38 +95,70 @@ export class CsrfGuard implements CanActivate {
     }
   }
 
+  private allowNoOriginInProd(): boolean {
+    return (
+      String(this.config.get('CSRF_ALLOW_NO_ORIGIN') ?? '')
+        .toLowerCase()
+        .trim() === 'true'
+    );
+  }
+
   private assertProdOriginOrApiKey(
     req: Request,
     trusted: string[],
     signals: OriginSignals,
   ): void {
-    const hasOriginSignals = Boolean(
-      signals.origin || signals.refererOrigin || signals.secFetchSite,
-    );
+    const hasOrigin = Boolean(signals.origin || signals.refererOrigin);
+    const hasFetchSite = signals.secFetchSite !== '';
 
-    if (hasOriginSignals) {
-      this.assertProdOriginValid(trusted, signals);
+    if (hasOrigin) {
+      this.assertProdTrustedOrigin(trusted, signals);
+
+      this.assertProdFetchSiteIfPresent(signals);
       return;
     }
+
+    if (hasFetchSite) {
+      this.assertProdFetchSiteOnly(signals);
+      return;
+    }
+
+    if (this.allowNoOriginInProd()) return;
 
     this.assertNonBrowserAllowedByApiKey(req);
   }
 
-  private assertProdOriginValid(
-    trusted: string[],
-    signals: OriginSignals,
-  ): void {
-    const allowByFetchSite =
-      signals.secFetchSite === '' ||
-      signals.secFetchSite === 'same-origin' ||
-      signals.secFetchSite === 'same-site';
-
+  private assertProdTrustedOrigin(trusted: string[], signals: OriginSignals) {
     const allowByOrigin =
       (signals.origin && trusted.includes(signals.origin)) ||
       (signals.refererOrigin && trusted.includes(signals.refererOrigin));
 
-    if (!allowByFetchSite || !allowByOrigin) {
-      throw new ForbiddenException('CSRF validation failed (origin)');
+    if (!allowByOrigin) {
+      throw new ForbiddenException(
+        'CSRF validation failed (origin_not_trusted)',
+      );
+    }
+  }
+
+  private assertProdFetchSiteIfPresent(signals: OriginSignals) {
+    if (!signals.secFetchSite) return;
+
+    const ok =
+      signals.secFetchSite === 'same-origin' ||
+      signals.secFetchSite === 'same-site';
+
+    if (!ok) {
+      throw new ForbiddenException('CSRF validation failed (fetch_site)');
+    }
+  }
+
+  private assertProdFetchSiteOnly(signals: OriginSignals) {
+    const ok =
+      signals.secFetchSite === 'same-origin' ||
+      signals.secFetchSite === 'same-site';
+
+    if (!ok) {
+      throw new ForbiddenException('CSRF validation failed (fetch_site_only)');
     }
   }
 
