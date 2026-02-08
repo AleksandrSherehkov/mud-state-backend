@@ -5,7 +5,7 @@ import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 import { Prisma } from '@prisma/client';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, scryptSync } from 'node:crypto';
+import { createHmac, scryptSync, timingSafeEqual } from 'node:crypto';
 
 import * as ms from 'ms';
 
@@ -441,27 +441,76 @@ export class RefreshTokenService {
     return dk.toString('hex');
   }
 
+  private safeEqualHex(a: string, b: string): boolean {
+    if (!a || !b) return false;
+
+    if (a.length !== b.length) return false;
+    if (a.length % 2 !== 0) return false;
+
+    const ba = Buffer.from(a, 'hex');
+    const bb = Buffer.from(b, 'hex');
+    if (ba.length !== bb.length) return false;
+
+    return timingSafeEqual(ba, bb);
+  }
+
   async claimRefreshToken(params: {
     jti: string;
     userId: string;
     refreshToken: string;
   }): Promise<Prisma.BatchPayload> {
+    const now = new Date();
+
     const row = await this.prisma.refreshToken.findFirst({
-      where: { userId: params.userId, jti: params.jti },
-      select: { tokenSalt: true },
+      where: {
+        userId: params.userId,
+        jti: params.jti,
+        revoked: false,
+        expiresAt: { gt: now },
+      },
+      select: { tokenSalt: true, tokenHash: true },
     });
+
+    if (!row) {
+      this.logger.warn(
+        'Refresh token claim failed: missing/expired/revoked',
+        RefreshTokenService.name,
+        {
+          event: 'refresh_token.claim_failed',
+          reason: 'missing_or_expired_or_revoked',
+          userId: params.userId,
+          jti: params.jti,
+        },
+      );
+      return { count: 0 };
+    }
 
     const expectedHash = this.hashRefreshTokenWithSalt(
       params.refreshToken,
-      row?.tokenSalt ?? null,
+      row.tokenSalt ?? null,
     );
+
+    const match = this.safeEqualHex(row.tokenHash, expectedHash);
+    if (!match) {
+      this.logger.warn(
+        'Refresh token claim failed: hash mismatch',
+        RefreshTokenService.name,
+        {
+          event: 'refresh_token.claim_failed',
+          reason: 'hash_mismatch',
+          userId: params.userId,
+          jti: params.jti,
+        },
+      );
+      return { count: 0 };
+    }
 
     const result = await this.prisma.refreshToken.updateMany({
       where: {
-        jti: params.jti,
         userId: params.userId,
-        tokenHash: expectedHash,
+        jti: params.jti,
         revoked: false,
+        tokenHash: row.tokenHash,
       },
       data: { revoked: true },
     });
@@ -473,12 +522,17 @@ export class RefreshTokenService {
         jti: params.jti,
       });
     } else {
-      this.logger.warn('Refresh token claim failed', RefreshTokenService.name, {
-        event: 'refresh_token.claim_failed',
-        userId: params.userId,
-        jti: params.jti,
-        count: result.count,
-      });
+      this.logger.warn(
+        'Refresh token claim failed: race/noop',
+        RefreshTokenService.name,
+        {
+          event: 'refresh_token.claim_failed',
+          reason: 'race_or_noop',
+          userId: params.userId,
+          jti: params.jti,
+          count: result.count,
+        },
+      );
     }
 
     return result;
