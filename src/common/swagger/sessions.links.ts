@@ -20,7 +20,7 @@ export const ApiSessionsLinks = {
           terminate: {
             operationId: 'sessions_terminate',
             description:
-              'Далі: завершити конкретну сесію за IP/User-Agent (requires Bearer)',
+              'Далі: завершити конкретну сесію за sessionId (requires Bearer)',
           },
         },
       }),

@@ -101,14 +101,14 @@ export class SessionsController {
   @Throttle({ default: THROTTLE_SESSIONS.terminate })
   @HttpCode(200)
   @ApiOperation({
-    summary: 'Завершити конкретну сесію за IP та User-Agent',
+    summary: 'Завершити конкретну сесію за sessionId',
     operationId: 'sessions_terminate',
   })
   @ApiRolesAccess('AUTHENTICATED', {
     sideEffects: SESSIONS_SIDE_EFFECTS.terminateSpecific,
     notes: [
       'Потрібна авторизація (Bearer access token).',
-      'Завершує сесію, яка збігається за (userId + ip + userAgent).',
+      'Завершує рівно 1 сесію за (userId + sessionId).',
       'Також відкликає refresh-токени, пов’язані з цією сесією.',
     ],
   })

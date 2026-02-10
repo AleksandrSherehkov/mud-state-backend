@@ -193,28 +193,6 @@ export class SessionService {
     return terminated;
   }
 
-  async terminateSpecificSession(
-    userId: string,
-    ip: string,
-    userAgent: string,
-  ) {
-    const nip = normalizeIp(ip);
-    const ua = userAgent.trim();
-
-    return this.prisma.$transaction((tx) =>
-      this.terminateSessions(
-        { userId, ip: nip, userAgent: ua },
-        {
-          userId,
-          ipMasked: maskIp(nip),
-          uaHash: hashId(ua),
-          reason: 'specific',
-        },
-        tx,
-      ),
-    );
-  }
-
   async terminateOtherSessions(userId: string, excludeSessionId: string) {
     return this.prisma.$transaction((tx) =>
       this.terminateSessions(

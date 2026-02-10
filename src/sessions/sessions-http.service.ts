@@ -47,11 +47,12 @@ export class SessionsHttpService {
     userId: string,
     dto: TerminateSessionDto,
   ): Promise<TerminateResultDto> {
-    const res = await this.sessions.terminateSpecificSession(
+    const res = await this.sessions.terminateById({
+      sid: dto.sessionId,
       userId,
-      dto.ip,
-      dto.userAgent,
-    );
+      reason: 'api_terminate_specific',
+    });
+
     return { terminated: res.count > 0 };
   }
 

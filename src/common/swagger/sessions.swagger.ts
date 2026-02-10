@@ -10,7 +10,7 @@ export const SESSIONS_SIDE_EFFECTS = {
   ],
 
   terminateSpecific: [
-    'Завершує конкретну сесію користувача за збігом (userId + IP + User-Agent).',
+    'Завершує конкретну сесію користувача за (userId + sessionId).',
     'Разом із завершенням сесії відкликається refresh-токен, пов’язаний з цією сесією.',
   ],
 
