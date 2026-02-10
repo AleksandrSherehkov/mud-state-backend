@@ -7,6 +7,7 @@ import {
 import type { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { getCookieString } from 'src/common/http/cookies';
+import { timingSafeEqual } from 'node:crypto';
 
 function isSafeMethod(method: string): boolean {
   const m = (method || '').toUpperCase();
@@ -162,6 +163,20 @@ export class CsrfGuard implements CanActivate {
     }
   }
 
+  private timingSafeEqualString(expected: string, provided: string): boolean {
+    const a = Buffer.from(expected, 'utf8');
+    const b = Buffer.from(provided, 'utf8');
+
+    if (a.length !== b.length) {
+      const dummy = Buffer.alloc(a.length);
+      b.copy(dummy, 0, 0, Math.min(b.length, a.length));
+      timingSafeEqual(a, dummy);
+      return false;
+    }
+
+    return timingSafeEqual(a, b);
+  }
+
   private assertNonBrowserAllowedByApiKey(req: Request): void {
     const configuredApiKey = (
       this.config.get<string>('CSRF_API_KEY') ?? ''
@@ -171,7 +186,7 @@ export class CsrfGuard implements CanActivate {
     const allow =
       configuredApiKey.length > 0 &&
       requestApiKey.length > 0 &&
-      requestApiKey === configuredApiKey;
+      this.timingSafeEqualString(configuredApiKey, requestApiKey);
 
     if (!allow) {
       throw new ForbiddenException('CSRF validation failed (non-browser)');
