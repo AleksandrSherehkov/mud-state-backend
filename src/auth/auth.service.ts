@@ -439,30 +439,21 @@ export class AuthService {
       },
     );
 
-    const [revoked, terminated] = await Promise.all([
-      this.refreshTokenService.revokeManyByJtis([payload.jti], {
-        userId,
-        jti: payload.jti,
-        sid,
-        reason: 'reuse_detected_scoped',
-      }),
-      this.sessionService.terminateById({
-        sid,
-        userId,
-        reason: 'reuse_detected_scoped',
-      }),
+    const [revokedAll, terminatedAll] = await Promise.all([
+      this.refreshTokenService.revokeAll(userId),
+      this.sessionService.terminateAll(userId),
     ]);
 
     this.logger.warn(
-      'Refresh reuse response applied (scoped revoke + terminate)',
+      'Refresh reuse response applied (user-wide revoke all tokens + terminate all sessions)',
       AuthService.name,
       {
-        event: 'auth.refresh.reuse_response_applied_scoped',
+        event: 'auth.refresh.reuse_response_applied_user_wide',
         userId,
-        jti: payload.jti,
-        sid,
-        revokedTokens: revoked.count,
-        terminatedSessions: terminated.count,
+        reuseJti: payload.jti,
+        reuseSid: sid,
+        revokedTokens: revokedAll.count,
+        terminatedSessions: terminatedAll.count,
       },
     );
 

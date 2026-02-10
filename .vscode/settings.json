@@ -1,3 +1,9 @@
 {
-  "cSpell.words": ["cuid"]
+  "cSpell.words": ["cuid"],
+
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  "prettier.requireConfig": true,
+  "prettier.configPath": ".prettierrc",
+  "prettier.useEditorConfig": false
 }
