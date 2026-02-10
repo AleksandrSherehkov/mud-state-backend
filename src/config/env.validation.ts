@@ -17,6 +17,8 @@ export const envValidationSchema = Joi.object({
   JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
 
+  AUTH_MAX_ACTIVE_SESSIONS: Joi.number().integer().min(1).max(50).default(1),
+
   PORT: Joi.number().default(3000),
   BASE_URL: Joi.string().uri().default('http://localhost:3000'),
 

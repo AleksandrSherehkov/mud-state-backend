@@ -100,11 +100,6 @@ export class AuthService {
 
     await this.authSecurity.onLoginSuccess(user.id);
 
-    await Promise.all([
-      this.refreshTokenService.revokeAll(user.id),
-      this.sessionService.terminateAll(user.id),
-    ]);
-
     this.logger.log('Login success', AuthService.name, {
       event: 'auth.login.success',
       userId: user.id,
@@ -207,6 +202,12 @@ export class AuthService {
     return user;
   }
 
+  private getMaxActiveSessions(): number {
+    const raw = this.config.get<string>('AUTH_MAX_ACTIVE_SESSIONS') ?? '10';
+    const n = Number.parseInt(raw, 10);
+    if (!Number.isFinite(n)) return 10;
+    return Math.min(Math.max(n, 1), 50);
+  }
   private async issueTokens(
     userId: string,
     email: string,
@@ -238,9 +239,21 @@ export class AuthService {
       refreshToken,
       tokenSalt,
     );
+    const maxActive = this.getMaxActiveSessions();
 
     try {
       await this.tx.run(async (tx) => {
+        await this.sessionService.enforceMaxActiveSessions({
+          userId,
+          maxActive,
+          tx,
+          meta: {
+            event: 'auth.tokens.cap',
+            sidNew: sessionId,
+            jtiNew: refreshJti,
+          },
+        });
+
         await this.refreshTokenService.create(
           userId,
           refreshJti,
@@ -522,7 +535,7 @@ export class AuthService {
         tx,
       );
 
-      await this.sessionService.updateRefreshBinding({
+      const updatedCount = await this.sessionService.updateRefreshBinding({
         sid,
         userId: user.id,
         newJti,
@@ -530,6 +543,21 @@ export class AuthService {
         userAgent: ua,
         tx,
       });
+
+      if (updatedCount === 0) {
+        await this.refreshTokenService.revokeManyByJtis(
+          [newJti],
+          {
+            event: 'auth.refresh.binding_failed',
+            userId: user.id,
+            sid,
+            newJti,
+          },
+          tx,
+        );
+
+        throw new UnauthorizedException('Сесію завершено або недійсна');
+      }
     });
 
     this.logger.log(

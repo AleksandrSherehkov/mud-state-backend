@@ -87,12 +87,63 @@ export class SessionService {
     return sessions;
   }
 
+  async enforceMaxActiveSessions(params: {
+    userId: string;
+    maxActive: number;
+    meta?: Record<string, unknown>;
+    tx: Prisma.TransactionClient;
+  }): Promise<{ terminated: number }> {
+    const { userId, maxActive, meta, tx } = params;
+
+    const max = Number.isFinite(maxActive) ? Math.floor(maxActive) : 0;
+    if (max <= 0) return { terminated: 0 };
+
+    const keep = Math.max(0, max - 1);
+
+    const active = await tx.session.findMany({
+      where: { userId, isActive: true, endedAt: null },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true },
+    });
+
+    if (active.length <= keep) {
+      this.logger.debug('Session cap ok (no eviction)', SessionService.name, {
+        event: 'session.cap.noop',
+        userId,
+        maxActive: max,
+        keepBeforeCreate: keep,
+        active: active.length,
+        ...(meta ?? undefined),
+      });
+      return { terminated: 0 };
+    }
+
+    const toTerminateIds = active.slice(keep).map((s) => s.id);
+
+    const terminated = await this.terminateSessions(
+      { userId, id: { in: toTerminateIds } },
+      {
+        userId,
+        reason: 'cap_evict_oldest',
+        maxActive: max,
+        keepBeforeCreate: keep,
+        active: active.length,
+        evicted: toTerminateIds.length,
+        ...(meta ?? undefined),
+      },
+      tx,
+    );
+
+    return { terminated: terminated.count };
+  }
+
   private async terminateSessions(
     where: Prisma.SessionWhereInput,
     meta: Record<string, unknown>,
+    tx: Prisma.TransactionClient,
   ): Promise<Prisma.BatchPayload> {
-    const sessions = await this.prisma.session.findMany({
-      where: { ...where, isActive: true },
+    const sessions = await tx.session.findMany({
+      where: { ...where, isActive: true, endedAt: null },
       select: { id: true, refreshTokenJti: true },
     });
 
@@ -116,24 +167,19 @@ export class SessionService {
         sessions
           .map((s) => s.refreshTokenJti)
           .filter((x): x is string => !!x)
-          .map((x) => x.trim()),
+          .map((x) => x.trim())
+          .filter(Boolean),
       ),
     ];
 
-    const { revoked, terminated } = await this.prisma.$transaction(
-      async (tx) => {
-        const revoked = jtis.length
-          ? await this.refreshTokenService.revokeManyByJtis(jtis, meta, tx)
-          : ({ count: 0 } as Prisma.BatchPayload);
+    const revoked = jtis.length
+      ? await this.refreshTokenService.revokeManyByJtis(jtis, meta, tx)
+      : ({ count: 0 } as Prisma.BatchPayload);
 
-        const terminated = await tx.session.updateMany({
-          where: { id: { in: sessionIds }, isActive: true },
-          data: { isActive: false, endedAt: now },
-        });
-
-        return { revoked, terminated };
-      },
-    );
+    const terminated = await tx.session.updateMany({
+      where: { id: { in: sessionIds }, isActive: true, endedAt: null },
+      data: { isActive: false, endedAt: now },
+    });
 
     this.logger.log('Sessions terminated', SessionService.name, {
       event: 'session.terminated',
@@ -143,27 +189,6 @@ export class SessionService {
       jtisMatched: jtis.length,
       ...meta,
     });
-
-    if (jtis.length === 0) {
-      this.logger.debug(
-        'Terminate sessions: no JTIs to revoke',
-        SessionService.name,
-        {
-          event: 'session.terminated.no_jti',
-          ...meta,
-        },
-      );
-    } else if (revoked.count === 0) {
-      this.logger.debug(
-        'Terminate sessions: refresh revoke noop',
-        SessionService.name,
-        {
-          event: 'refresh_token.revoke_many.noop',
-          jtisMatched: jtis.length,
-          ...meta,
-        },
-      );
-    }
 
     return terminated;
   }
@@ -176,32 +201,43 @@ export class SessionService {
     const nip = normalizeIp(ip);
     const ua = userAgent.trim();
 
-    return this.terminateSessions(
-      { userId, ip: nip, userAgent: ua },
-      {
-        userId,
-        ipMasked: maskIp(nip),
-        uaHash: hashId(ua),
-        reason: 'specific',
-      },
+    return this.prisma.$transaction((tx) =>
+      this.terminateSessions(
+        { userId, ip: nip, userAgent: ua },
+        {
+          userId,
+          ipMasked: maskIp(nip),
+          uaHash: hashId(ua),
+          reason: 'specific',
+        },
+        tx,
+      ),
     );
   }
 
   async terminateOtherSessions(userId: string, excludeSessionId: string) {
-    return this.terminateSessions(
-      { userId, NOT: { id: excludeSessionId } },
-      { userId, excludeSid: excludeSessionId, reason: 'others' },
+    return this.prisma.$transaction((tx) =>
+      this.terminateSessions(
+        { userId, NOT: { id: excludeSessionId } },
+        { userId, excludeSid: excludeSessionId, reason: 'others' },
+        tx,
+      ),
     );
   }
 
   async terminateAll(userId: string) {
-    return this.terminateSessions({ userId }, { userId, reason: 'all' });
+    return this.prisma.$transaction((tx) =>
+      this.terminateSessions({ userId }, { userId, reason: 'all' }, tx),
+    );
   }
 
   async terminateByRefreshToken(jti: string) {
-    return this.terminateSessions(
-      { refreshTokenJti: jti },
-      { jti, reason: 'by_refresh_token' },
+    return this.prisma.$transaction((tx) =>
+      this.terminateSessions(
+        { refreshTokenJti: jti },
+        { jti, reason: 'by_refresh_token' },
+        tx,
+      ),
     );
   }
 
@@ -249,7 +285,7 @@ export class SessionService {
     ip?: string | null;
     userAgent?: string | null;
     tx?: Prisma.TransactionClient;
-  }): Promise<void> {
+  }): Promise<number> {
     const db = params.tx ?? this.prisma;
 
     const nip = params.ip ? normalizeIp(params.ip) : null;
@@ -295,6 +331,7 @@ export class SessionService {
         },
       );
     }
+    return updated.count;
   }
 
   async terminateById(params: {
@@ -302,13 +339,16 @@ export class SessionService {
     userId: string;
     reason?: string;
   }): Promise<Prisma.BatchPayload> {
-    return this.terminateSessions(
-      { id: params.sid, userId: params.userId },
-      {
-        userId: params.userId,
-        sid: params.sid,
-        reason: params.reason ?? 'by_sid',
-      },
+    return this.prisma.$transaction((tx) =>
+      this.terminateSessions(
+        { id: params.sid, userId: params.userId },
+        {
+          userId: params.userId,
+          sid: params.sid,
+          reason: params.reason ?? 'by_sid',
+        },
+        tx,
+      ),
     );
   }
 }
