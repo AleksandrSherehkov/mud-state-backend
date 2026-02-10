@@ -71,6 +71,9 @@ model Session {
 
   @@index([userId, isActive])
   @@index([refreshTokenJti])
+  @@index([userId, isActive, endedAt, startedAt])
+  @@index([userId, startedAt])
+
 }
 
 model UserSecurity {

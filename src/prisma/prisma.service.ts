@@ -2,6 +2,7 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { AppLogger } from 'src/logger/logger.service';
+import * as crypto from 'node:crypto';
 
 function errMeta(err: unknown) {
   if (err instanceof Error)
@@ -143,10 +144,17 @@ export class PrismaService
 
       this.$on('query', (e: Prisma.QueryEvent) => {
         if (Math.random() > rate) return;
+
+        const queryHash = crypto
+          .createHash('sha256')
+          .update(String(e.query ?? ''), 'utf8')
+          .digest('hex')
+          .slice(0, 16);
+
         this.logger.debug('Prisma query', PrismaService.name, {
           event: 'prisma.query',
           durationMs: e.duration,
-          query: e.query,
+          queryHash,
         });
       });
 
@@ -156,6 +164,7 @@ export class PrismaService
         {
           event: 'prisma.query_logging.enabled',
           sampleRate: rate,
+          note: 'Raw SQL is not logged; only query hash + duration',
         },
       );
     }
