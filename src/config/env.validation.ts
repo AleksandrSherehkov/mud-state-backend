@@ -237,7 +237,7 @@ export const envValidationSchema = Joi.object({
 
   TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(10).default(1),
 
-  SWAGGER_ENABLED: Joi.boolean().default(true),
+  SWAGGER_ENABLED: Joi.boolean().default(false),
 
   AUTH_DUMMY_PASSWORD_HASH: Joi.string().min(20).optional(),
   COOKIE_SECRET: Joi.string().min(32).required(),

@@ -97,13 +97,13 @@ async function bootstrap() {
   // ---- SECURITY CONFIG VALIDATION ----
   validateSecurityConfig(configService);
 
-  const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED') ?? true;
-  const swaggerUiEnabled = swaggerEnabled && !isProd;
+  // ✅ determine swagger enablement once (secure-by-default is enforced in setupSwagger/env)
+  const { shouldEnableSwagger, apiBase } = setupSwagger(app, configService);
 
   // ---- Helmet ----
   app.use(
     helmet({
-      contentSecurityPolicy: swaggerUiEnabled
+      contentSecurityPolicy: shouldEnableSwagger
         ? false
         : {
             useDefaults: true,
@@ -115,7 +115,7 @@ async function bootstrap() {
             },
           },
 
-      crossOriginResourcePolicy: swaggerUiEnabled
+      crossOriginResourcePolicy: shouldEnableSwagger
         ? false
         : { policy: 'same-site' },
 
@@ -179,8 +179,6 @@ async function bootstrap() {
     type: VersioningType.URI,
     defaultVersion: apiVersion,
   });
-
-  const { shouldEnableSwagger, apiBase } = setupSwagger(app, configService);
 
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);

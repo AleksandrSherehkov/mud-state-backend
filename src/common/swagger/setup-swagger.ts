@@ -7,9 +7,11 @@ export function setupSwagger(
   configService: ConfigService,
 ) {
   const appEnv = configService.get<string>('APP_ENV') ?? 'development';
-  const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED') ?? true;
+  const isProd = appEnv === 'production';
 
-  const shouldEnableSwagger = swaggerEnabled && appEnv !== 'production';
+  const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED') ?? false;
+
+  const shouldEnableSwagger = swaggerEnabled && !isProd;
   if (!shouldEnableSwagger)
     return { shouldEnableSwagger, apiBase: null as string | null };
 
@@ -72,7 +74,6 @@ export function setupSwagger(
       },
       'csrf_header',
     )
-
     .addSecurity('csrf_cookie', {
       type: 'apiKey',
       in: 'cookie',
