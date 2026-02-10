@@ -7,13 +7,13 @@ import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 import { RefreshTokenService } from './refresh-token.service';
 
 @Injectable()
-export class SessionService {
+export class SessionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLogger,
     private readonly refreshTokenService: RefreshTokenService,
   ) {
-    this.logger.setContext(SessionService.name);
+    this.logger.setContext(SessionsService.name);
   }
 
   async create(
@@ -39,7 +39,7 @@ export class SessionService {
       },
     });
 
-    this.logger.log('Session created', SessionService.name, {
+    this.logger.log('Session created', SessionsService.name, {
       event: 'session.created',
       userId,
       sid: sessionId,
@@ -62,7 +62,7 @@ export class SessionService {
       take,
     });
 
-    this.logger.debug('Active sessions fetched', SessionService.name, {
+    this.logger.debug('Active sessions fetched', SessionsService.name, {
       event: 'session.list.active',
       userId,
       take,
@@ -78,7 +78,7 @@ export class SessionService {
       orderBy: { startedAt: 'desc' },
     });
 
-    this.logger.debug('All sessions fetched', SessionService.name, {
+    this.logger.debug('All sessions fetched', SessionsService.name, {
       event: 'session.list.all',
       userId,
       returned: sessions.length,
@@ -107,7 +107,7 @@ export class SessionService {
     });
 
     if (active.length <= keep) {
-      this.logger.debug('Session cap ok (no eviction)', SessionService.name, {
+      this.logger.debug('Session cap ok (no eviction)', SessionsService.name, {
         event: 'session.cap.noop',
         userId,
         maxActive: max,
@@ -150,7 +150,7 @@ export class SessionService {
     if (sessions.length === 0) {
       this.logger.debug(
         'Terminate sessions: nothing to terminate',
-        SessionService.name,
+        SessionsService.name,
         {
           event: 'session.terminate.noop',
           ...meta,
@@ -181,7 +181,7 @@ export class SessionService {
       data: { isActive: false, endedAt: now },
     });
 
-    this.logger.log('Sessions terminated', SessionService.name, {
+    this.logger.log('Sessions terminated', SessionsService.name, {
       event: 'session.terminated',
       count: terminated.count,
       revokedRefreshCount: revoked.count,
@@ -287,7 +287,7 @@ export class SessionService {
     if (updated.count === 0) {
       this.logger.warn(
         'Session refresh binding update failed (session inactive or missing)',
-        SessionService.name,
+        SessionsService.name,
         {
           event: 'session.refresh_binding.update_failed',
           userId: params.userId,
@@ -300,7 +300,7 @@ export class SessionService {
     } else {
       this.logger.debug(
         'Session refresh binding updated',
-        SessionService.name,
+        SessionsService.name,
         {
           event: 'session.refresh_binding.updated',
           userId: params.userId,

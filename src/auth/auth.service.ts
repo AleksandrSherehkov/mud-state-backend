@@ -21,7 +21,7 @@ import { AuthTransactionService } from './auth-transaction.service';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from 'src/users/users.service';
 import { RefreshTokenService } from 'src/sessions/refresh-token.service';
-import { SessionService } from 'src/sessions/session.service';
+import { SessionsService } from 'src/sessions/sessions.service';
 
 @Injectable()
 export class AuthService {
@@ -30,7 +30,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly tokenService: TokenService,
     private readonly refreshTokenService: RefreshTokenService,
-    private readonly sessionService: SessionService,
+    private readonly sessionsService: SessionsService,
     private readonly tx: AuthTransactionService,
     private readonly logger: AppLogger,
     private readonly authSecurity: AuthSecurityService,
@@ -183,7 +183,7 @@ export class AuthService {
 
     const [revokeResult, terminateResult] = await Promise.all([
       this.refreshTokenService.revokeAll(userId),
-      this.sessionService.terminateAll(userId),
+      this.sessionsService.terminateAll(userId),
     ]);
 
     if (revokeResult.count === 0 && terminateResult.count === 0) {
@@ -255,7 +255,7 @@ export class AuthService {
 
     try {
       await this.tx.run(async (tx) => {
-        await this.sessionService.enforceMaxActiveSessions({
+        await this.sessionsService.enforceMaxActiveSessions({
           userId,
           maxActive,
           tx,
@@ -276,7 +276,7 @@ export class AuthService {
           tx,
         );
 
-        await this.sessionService.create(
+        await this.sessionsService.create(
           sessionId,
           userId,
           refreshJti,
@@ -386,7 +386,7 @@ export class AuthService {
   }): Promise<void> {
     const { sid, userId, payload, ip, userAgent } = args;
 
-    const sessionActive = await this.sessionService.isSessionActive(
+    const sessionActive = await this.sessionsService.isSessionActive(
       sid,
       userId,
     );
@@ -466,7 +466,7 @@ export class AuthService {
         tx,
       );
 
-      const updatedCount = await this.sessionService.updateRefreshBinding({
+      const updatedCount = await this.sessionsService.updateRefreshBinding({
         sid,
         userId: user.id,
         newJti,
@@ -523,7 +523,7 @@ export class AuthService {
 
     const [revokedAll, terminatedAll] = await Promise.all([
       this.refreshTokenService.revokeAll(userId),
-      this.sessionService.terminateAll(userId),
+      this.sessionsService.terminateAll(userId),
     ]);
 
     this.logger.warn(

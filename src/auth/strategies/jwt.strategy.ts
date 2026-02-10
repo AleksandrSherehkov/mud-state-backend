@@ -4,7 +4,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 
 import { JwtPayload } from '../types/jwt.types';
-import { SessionService } from 'src/sessions/session.service';
+import { SessionsService } from 'src/sessions/sessions.service';
 import { AppLogger } from 'src/logger/logger.service';
 import { UsersService } from 'src/users/users.service';
 
@@ -12,7 +12,7 @@ import { UsersService } from 'src/users/users.service';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     config: ConfigService,
-    private readonly sessionService: SessionService,
+    private readonly sessionsService: SessionsService,
     private readonly usersService: UsersService,
     private readonly logger: AppLogger,
   ) {
@@ -46,7 +46,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Session is missing');
     }
 
-    const active = await this.sessionService.isSessionActive(sid, userId);
+    const active = await this.sessionsService.isSessionActive(sid, userId);
     if (!active) {
       this.logger.warn(
         'Access token rejected: session inactive',

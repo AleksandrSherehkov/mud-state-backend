@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Session as PrismaSession } from '@prisma/client';
 
-import { SessionService } from './session.service';
+import { SessionsService } from './sessions.service';
 
 import { TerminateSessionDto } from './dto/terminate-session.dto';
 import { FullSessionDto } from './dto/full-session.dto';
@@ -10,7 +10,7 @@ import { TerminateResultDto } from './dto/terminate-result.dto';
 
 @Injectable()
 export class SessionsHttpService {
-  constructor(private readonly sessions: SessionService) {}
+  constructor(private readonly sessions: SessionsService) {}
 
   private toFullSessionDto(s: PrismaSession): FullSessionDto {
     return {

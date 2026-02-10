@@ -3,14 +3,14 @@ import { LoggerModule } from 'src/logger/logger.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { SessionsController } from './sessions.controller';
 
-import { SessionService } from './session.service';
+import { SessionsService } from './sessions.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SessionsHttpService } from './sessions-http.service';
 
 @Module({
   imports: [PrismaModule, LoggerModule],
-  providers: [SessionService, RefreshTokenService, SessionsHttpService],
+  providers: [SessionsService, RefreshTokenService, SessionsHttpService],
   controllers: [SessionsController],
-  exports: [SessionService, RefreshTokenService],
+  exports: [SessionsService, RefreshTokenService],
 })
 export class SessionsModule {}
