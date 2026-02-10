@@ -417,14 +417,14 @@ export class RefreshTokenService {
     throw new UnauthorizedException('Токен відкликано або недійсний');
   }
 
-  async claimRefreshToken(params: {
-    jti: string;
-    userId: string;
-    refreshToken: string;
-  }): Promise<Prisma.BatchPayload> {
+  async claimRefreshToken(
+    params: { jti: string; userId: string; refreshToken: string },
+    tx?: Prisma.TransactionClient,
+  ): Promise<Prisma.BatchPayload> {
+    const db = tx ?? this.prisma;
     const now = new Date();
 
-    const row = await this.prisma.refreshToken.findFirst({
+    const row = await db.refreshToken.findFirst({
       where: {
         userId: params.userId,
         jti: params.jti,
@@ -468,11 +468,12 @@ export class RefreshTokenService {
       return { count: 0 };
     }
 
-    const result = await this.prisma.refreshToken.updateMany({
+    const result = await db.refreshToken.updateMany({
       where: {
         userId: params.userId,
         jti: params.jti,
         revoked: false,
+        expiresAt: { gt: now },
         tokenHash: row.tokenHash,
       },
       data: { revoked: true },
@@ -483,6 +484,7 @@ export class RefreshTokenService {
         event: 'refresh_token.claimed',
         userId: params.userId,
         jti: params.jti,
+        tx: Boolean(tx),
       });
     } else {
       this.logger.warn(
@@ -494,6 +496,7 @@ export class RefreshTokenService {
           userId: params.userId,
           jti: params.jti,
           count: result.count,
+          tx: Boolean(tx),
         },
       );
     }

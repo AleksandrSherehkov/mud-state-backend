@@ -110,6 +110,13 @@ export class AuthService {
     return this.issueTokens(user.id, user.email, user.role, ip, userAgent);
   }
 
+  private static readonly RefreshClaimFailed = class RefreshClaimFailed extends Error {
+    constructor() {
+      super('refresh_claim_failed');
+      this.name = 'RefreshClaimFailed';
+    }
+  };
+
   async refresh(
     refreshToken: string,
     ip?: string,
@@ -136,24 +143,29 @@ export class AuthService {
       userAgent: userAgent?.trim() || null,
     });
 
-    await this.claimRefreshOrHandleReuse({
-      refreshToken,
-      payload,
-      userId,
-      sid,
-      ip,
-      userAgent,
-    });
-
     const user = await this.getUserOrThrow(userId, payload);
 
-    return this.rotateAndIssueTokens({
-      user,
-      sid,
-      oldJti: payload.jti,
-      ip,
-      userAgent,
-    });
+    try {
+      return await this.rotateAndIssueTokensAtomic({
+        user,
+        sid,
+        oldJti: payload.jti,
+        refreshToken,
+        ip,
+        userAgent,
+      });
+    } catch (e: unknown) {
+      if (e instanceof AuthService.RefreshClaimFailed) {
+        await this.handleRefreshReuseDetected({
+          payload,
+          userId,
+          sid,
+          ip,
+          userAgent,
+        });
+      }
+      throw e;
+    }
   }
 
   async logout(
@@ -400,31 +412,88 @@ export class AuthService {
     throw new UnauthorizedException('Сесію завершено або недійсна');
   }
 
-  private async claimRefreshOrHandleReuse(args: {
-    refreshToken: string;
-    payload: JwtPayload;
-    userId: string;
+  private async rotateAndIssueTokensAtomic(args: {
+    user: { id: string; email: string; role: Role };
     sid: string;
+    oldJti: string;
+    refreshToken: string;
     ip?: string;
     userAgent?: string;
-  }): Promise<void> {
-    const { refreshToken, payload, userId, sid, ip, userAgent } = args;
+  }): Promise<Tokens> {
+    const { user, sid, oldJti, refreshToken, ip, userAgent } = args;
 
-    const claim = await this.refreshTokenService.claimRefreshToken({
-      jti: payload.jti,
-      userId,
-      refreshToken,
-    });
+    const nip: string | null = ip ? normalizeIp(ip) : null;
+    const ua: string | null = userAgent?.trim() || null;
 
-    if (claim.count !== 0) return;
+    const newJti = randomUUID();
 
-    await this.handleRefreshReuseDetected({
-      payload,
-      userId,
+    const newPayload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
       sid,
-      ip,
-      userAgent,
+      jti: newJti,
+    };
+
+    const [accessToken, newRefreshToken] = await Promise.all([
+      this.tokenService.signAccessToken(newPayload),
+      this.tokenService.signRefreshToken(newPayload),
+    ]);
+
+    const newSalt = this.tokenService.generateRefreshTokenSalt();
+    const newTokenHash = this.tokenService.hashRefreshToken(
+      newRefreshToken,
+      newSalt,
+    );
+
+    await this.tx.run(async (tx) => {
+      const claim = await this.refreshTokenService.claimRefreshToken(
+        { jti: oldJti, userId: user.id, refreshToken },
+        tx,
+      );
+
+      if (claim.count === 0) {
+        throw new AuthService.RefreshClaimFailed();
+      }
+
+      await this.refreshTokenService.create(
+        user.id,
+        newJti,
+        newTokenHash,
+        newSalt,
+        nip ?? undefined,
+        ua ?? undefined,
+        tx,
+      );
+
+      const updatedCount = await this.sessionService.updateRefreshBinding({
+        sid,
+        userId: user.id,
+        newJti,
+        ip: nip,
+        userAgent: ua,
+        tx,
+      });
+
+      if (updatedCount === 0) {
+        throw new UnauthorizedException('Сесію завершено або недійсна');
+      }
     });
+
+    this.logger.log(
+      'Refresh success (atomic claim+rotate+bind)',
+      AuthService.name,
+      {
+        event: 'auth.refresh.success_atomic',
+        userId: user.id,
+        role: user.role,
+        oldJti,
+        newJti,
+        sid,
+      },
+    );
+
+    return { accessToken, refreshToken: newRefreshToken, jti: newJti };
   }
 
   private async handleRefreshReuseDetected(args: {
@@ -489,90 +558,5 @@ export class AuthService {
     });
 
     throw new UnauthorizedException('Користувача не знайдено');
-  }
-
-  private async rotateAndIssueTokens(args: {
-    user: { id: string; email: string; role: Role };
-    sid: string;
-    oldJti: string;
-    ip?: string;
-    userAgent?: string;
-  }): Promise<Tokens> {
-    const { user, sid, oldJti, ip, userAgent } = args;
-
-    const nip: string | null = ip ? normalizeIp(ip) : null;
-    const ua: string | null = userAgent?.trim() || null;
-
-    const newJti = randomUUID();
-
-    const newPayload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      sid,
-      jti: newJti,
-    };
-
-    const [accessToken, newRefreshToken] = await Promise.all([
-      this.tokenService.signAccessToken(newPayload),
-      this.tokenService.signRefreshToken(newPayload),
-    ]);
-
-    const newSalt = this.tokenService.generateRefreshTokenSalt();
-    const newTokenHash = this.tokenService.hashRefreshToken(
-      newRefreshToken,
-      newSalt,
-    );
-
-    await this.tx.run(async (tx) => {
-      await this.refreshTokenService.create(
-        user.id,
-        newJti,
-        newTokenHash,
-        newSalt,
-        nip ?? undefined,
-        ua ?? undefined,
-        tx,
-      );
-
-      const updatedCount = await this.sessionService.updateRefreshBinding({
-        sid,
-        userId: user.id,
-        newJti,
-        ip: nip,
-        userAgent: ua,
-        tx,
-      });
-
-      if (updatedCount === 0) {
-        await this.refreshTokenService.revokeManyByJtis(
-          [newJti],
-          {
-            event: 'auth.refresh.binding_failed',
-            userId: user.id,
-            sid,
-            newJti,
-          },
-          tx,
-        );
-
-        throw new UnauthorizedException('Сесію завершено або недійсна');
-      }
-    });
-
-    this.logger.log(
-      'Refresh success (session stable, jti rotated)',
-      AuthService.name,
-      {
-        event: 'auth.refresh.success',
-        userId: user.id,
-        role: user.role,
-        oldJti,
-        newJti,
-        sid,
-      },
-    );
-
-    return { accessToken, refreshToken: newRefreshToken, jti: newJti };
   }
 }
