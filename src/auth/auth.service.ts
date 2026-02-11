@@ -22,6 +22,7 @@ import { ConfigService } from '@nestjs/config';
 import { UsersService } from 'src/users/users.service';
 import { RefreshTokenService } from 'src/sessions/refresh-token.service';
 import { SessionsService } from 'src/sessions/sessions.service';
+import { SessionLifecycleService } from 'src/sessions/session-lifecycle.service';
 
 @Injectable()
 export class AuthService {
@@ -31,6 +32,7 @@ export class AuthService {
     private readonly tokenService: TokenService,
     private readonly refreshTokenService: RefreshTokenService,
     private readonly sessionsService: SessionsService,
+    private readonly lifecycle: SessionLifecycleService,
     private readonly tx: AuthTransactionService,
     private readonly logger: AppLogger,
     private readonly authSecurity: AuthSecurityService,
@@ -181,12 +183,13 @@ export class AuthService {
       throw new NotFoundException('Користувача не знайдено');
     }
 
-    const [revokeResult, terminateResult] = await Promise.all([
-      this.refreshTokenService.revokeAll(userId),
-      this.sessionsService.terminateAll(userId),
-    ]);
+    const { revokedTokens, terminatedSessions } =
+      await this.lifecycle.revokeAllAndTerminateAll({
+        userId,
+        reason: 'logout',
+      });
 
-    if (revokeResult.count === 0 && terminateResult.count === 0) {
+    if (revokedTokens === 0 && terminatedSessions === 0) {
       this.logger.log(
         'Logout noop (nothing to revoke/terminate)',
         AuthService.name,
@@ -201,8 +204,8 @@ export class AuthService {
     this.logger.log('Logout success', AuthService.name, {
       event: 'auth.logout.success',
       userId,
-      revoked: revokeResult.count,
-      terminated: terminateResult.count,
+      revoked: revokedTokens,
+      terminated: terminatedSessions,
     });
 
     return { loggedOut: true, terminatedAt: new Date().toISOString() };
@@ -521,10 +524,11 @@ export class AuthService {
       },
     );
 
-    const [revokedAll, terminatedAll] = await Promise.all([
-      this.refreshTokenService.revokeAll(userId),
-      this.sessionsService.terminateAll(userId),
-    ]);
+    const { revokedTokens, terminatedSessions } =
+      await this.lifecycle.revokeAllAndTerminateAll({
+        userId,
+        reason: 'refresh_reuse_detected',
+      });
 
     this.logger.warn(
       'Refresh reuse response applied (user-wide revoke all tokens + terminate all sessions)',
@@ -534,8 +538,8 @@ export class AuthService {
         userId,
         reuseJti: payload.jti,
         reuseSid: sid,
-        revokedTokens: revokedAll.count,
-        terminatedSessions: terminatedAll.count,
+        revokedTokens,
+        terminatedSessions,
       },
     );
 

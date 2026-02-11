@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 
 import * as ms from 'ms';
 import { RefreshTokenHashService } from 'src/common/security/refresh-token-hash.service';
+import { SessionLifecycleService } from './session-lifecycle.service';
 
 @Injectable()
 export class RefreshTokenService {
@@ -16,6 +17,7 @@ export class RefreshTokenService {
     private readonly logger: AppLogger,
     private readonly config: ConfigService,
     private readonly refreshHash: RefreshTokenHashService,
+    private readonly lifecycle: SessionLifecycleService,
   ) {
     this.logger.setContext(RefreshTokenService.name);
   }
@@ -262,23 +264,12 @@ export class RefreshTokenService {
     jti: string;
     sid: string;
   }) {
-    const now = new Date();
-
-    await this.prisma.$transaction([
-      this.prisma.refreshToken.updateMany({
-        where: { userId: params.userId, jti: params.jti, revoked: false },
-        data: { revoked: true },
-      }),
-      this.prisma.session.updateMany({
-        where: {
-          id: params.sid,
-          userId: params.userId,
-          isActive: true,
-          endedAt: null,
-        },
-        data: { isActive: false, endedAt: now },
-      }),
-    ]);
+    await this.lifecycle.revokeJtiAndTerminateSession({
+      userId: params.userId,
+      jti: params.jti,
+      sid: params.sid,
+      reason: 'fingerprint_mismatch',
+    });
   }
 
   private logFingerprintMismatch(params: {

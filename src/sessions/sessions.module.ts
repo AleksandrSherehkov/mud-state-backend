@@ -6,11 +6,17 @@ import { SessionsController } from './sessions.controller';
 import { SessionsService } from './sessions.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SessionsHttpService } from './sessions-http.service';
+import { SessionLifecycleService } from './session-lifecycle.service';
 
 @Module({
   imports: [PrismaModule, LoggerModule],
-  providers: [SessionsService, RefreshTokenService, SessionsHttpService],
+  providers: [
+    SessionsService,
+    RefreshTokenService,
+    SessionsHttpService,
+    SessionLifecycleService,
+  ],
   controllers: [SessionsController],
-  exports: [SessionsService, RefreshTokenService],
+  exports: [SessionsService, RefreshTokenService, SessionLifecycleService],
 })
 export class SessionsModule {}
