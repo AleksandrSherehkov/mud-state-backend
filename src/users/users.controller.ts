@@ -32,6 +32,7 @@ import { THROTTLE_USERS } from 'src/common/throttle/throttle-env';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { GetUserByEmailQueryDto } from './dto/get-user-by-email.query';
 import { UsersHttpService } from './users-http.service';
+import { RequireFreshAccess } from 'src/common/decorators/require-fresh-access.decorator';
 
 @ApiTags('users')
 @Controller({
@@ -104,6 +105,7 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @RequireFreshAccess(300)
   @Throttle({ default: THROTTLE_USERS.update })
   @Roles(Role.ADMIN)
   @ApiOperation({
@@ -138,6 +140,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @RequireFreshAccess(300)
   @Throttle({ default: THROTTLE_USERS.delete })
   @Roles(Role.ADMIN)
   @ApiOperation({

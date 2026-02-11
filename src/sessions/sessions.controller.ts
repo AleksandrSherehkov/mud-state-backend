@@ -38,6 +38,7 @@ import { ApiSessionsLinks } from 'src/common/swagger/sessions.links';
 import { THROTTLE_SESSIONS } from 'src/common/throttle/throttle-env';
 
 import { SessionsHttpService } from './sessions-http.service';
+import { RequireFreshAccess } from 'src/common/decorators/require-fresh-access.decorator';
 
 @ApiTags('sessions')
 @Controller({ path: 'sessions', version: '1' })
@@ -68,6 +69,7 @@ export class SessionsController {
   }
 
   @Post('terminate-others')
+  @RequireFreshAccess(120)
   @Throttle({ default: THROTTLE_SESSIONS.terminateOthers })
   @HttpCode(200)
   @ApiOperation({
@@ -98,6 +100,7 @@ export class SessionsController {
   }
 
   @Post('terminate')
+  @RequireFreshAccess(120)
   @Throttle({ default: THROTTLE_SESSIONS.terminate })
   @HttpCode(200)
   @ApiOperation({
