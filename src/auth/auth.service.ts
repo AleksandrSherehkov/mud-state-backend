@@ -230,7 +230,7 @@ export class AuthService {
   }
 
   private getMaxActiveSessions(): number {
-    const raw = this.config.get<string>('AUTH_MAX_ACTIVE_SESSIONS') ?? '10';
+    const raw = this.config.get<string>('AUTH_MAX_ACTIVE_SESSIONS') ?? '1';
     const n = Number.parseInt(raw, 10);
     if (!Number.isFinite(n)) return 10;
     return Math.min(Math.max(n, 1), 50);
