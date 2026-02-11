@@ -14,8 +14,26 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
   JWT_ISSUER: Joi.string().min(1).required(),
   JWT_AUDIENCE: Joi.string().min(1).required(),
-  JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
+  JWT_ACCESS_EXPIRES_IN: Joi.string().default('10m'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
+  // ✅ access token sender-context binding
+  ACCESS_BIND_UA: Joi.boolean().default(true),
+  ACCESS_BIND_IP: Joi.boolean().default(false),
+
+  ACCESS_FINGERPRINT_MISMATCH_ACTION: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().valid('terminate', 'deny', 'log').default('terminate'),
+    otherwise: Joi.string().valid('terminate', 'deny', 'log').default('log'),
+  }),
+
+  // ✅ geo/ASN anomaly policy (only if proxy provides headers)
+  ACCESS_GEO_ASN_ANOMALY_ACTION: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().valid('terminate', 'deny', 'log').default('terminate'),
+    otherwise: Joi.string().valid('terminate', 'deny', 'log').default('log'),
+  }),
+
+  ACCESS_ANOMALY_LOG: Joi.boolean().default(true),
 
   AUTH_MAX_ACTIVE_SESSIONS: Joi.number().integer().min(1).max(50).default(1),
 
@@ -27,7 +45,26 @@ export const envValidationSchema = Joi.object({
   // throttler global
   THROTTLE_TTL_SEC: Joi.number().integer().min(1).max(3600).default(60),
   THROTTLE_LIMIT: Joi.number().integer().min(1).max(10000).default(100),
+  // ✅ hard upper-bound для всех per-route TTL, чтобы store не раздувался
+  THROTTLE_STORE_MAX_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(300),
 
+  // ✅ hard cap на количество ключей в in-memory throttler store
+  THROTTLE_STORE_MAX_KEYS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(5_000_000)
+    .default(50_000),
+
+  // ✅ периодическая чистка истекших ключей (сек)
+  THROTTLE_STORE_CLEANUP_INTERVAL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(60),
   // auth throttles
   THROTTLE_AUTH_LOGIN_LIMIT: Joi.number().integer().min(1).max(1000).default(5),
   THROTTLE_AUTH_LOGIN_TTL_SEC: Joi.number()

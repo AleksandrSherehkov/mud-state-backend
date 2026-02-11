@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { hashId } from 'src/common/helpers/log-sanitize';
+import { createHash } from 'node:crypto';
 
 type BodyWithEmail = { email?: unknown };
 
@@ -126,33 +127,12 @@ function getSignedCookie(req: ReqLike, name: string): string | undefined {
   return typeof signedRaw === 'string' ? signedRaw : undefined;
 }
 
-function base64UrlToUtf8(input: string): string {
-  const b64 = input.replaceAll('-', '+').replaceAll('_', '/');
-  const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
-  return Buffer.from(b64 + pad, 'base64').toString('utf8');
+function sha256hex(input: string, slice = 16): string {
+  return createHash('sha256')
+    .update(input, 'utf8')
+    .digest('hex')
+    .slice(0, slice);
 }
-
-type RefreshJwtLike = { sub?: unknown; sid?: unknown; jti?: unknown };
-
-function tryExtractRefreshKeyFromJwt(token: string): string | undefined {
-  const parts = token.split('.');
-  if (parts.length !== 3) return undefined;
-
-  try {
-    const payloadJson = base64UrlToUtf8(parts[1]);
-    const payload = JSON.parse(payloadJson) as RefreshJwtLike;
-
-    const sid = typeof payload.sid === 'string' ? payload.sid.trim() : '';
-    const jti = typeof payload.jti === 'string' ? payload.jti.trim() : '';
-    const sub = typeof payload.sub === 'string' ? payload.sub.trim() : '';
-
-    const v = sid || jti || sub;
-    return v || undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 @Injectable()
 export class AuthThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Record<string, any>): Promise<string> {
@@ -175,13 +155,11 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
       const uaHash = ua ? hashId(ua) : 'noua';
 
       const refreshCookie = getSignedCookie(r, 'refreshToken');
-      const tokenKey = refreshCookie
-        ? tryExtractRefreshKeyFromJwt(refreshCookie)
-        : undefined;
+      const cookieKey = refreshCookie
+        ? sha256hex(refreshCookie, 16)
+        : 'nocookie';
 
-      return tokenKey
-        ? `${ip}:${uaHash}:${tokenKey}`
-        : `${ip}:${uaHash}:nocookie`;
+      return `${ip}:${uaHash}:${cookieKey}`;
     }
 
     const userId = getUserIdFromReq(req);

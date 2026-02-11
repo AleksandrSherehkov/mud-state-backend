@@ -64,24 +64,28 @@ export class TokenService {
   }
 
   async signAccessToken(payload: JwtPayload): Promise<string> {
+    const defaultAccessExpiresIn: StringValue = '10m';
+    const expiresIn =
+      this.config.get<StringValue>('JWT_ACCESS_EXPIRES_IN') ??
+      defaultAccessExpiresIn;
+
     return this.signToken(
       payload,
       this.getRequired('JWT_ACCESS_SECRET'),
-      this.config.get<StringValue>(
-        'JWT_ACCESS_EXPIRES_IN',
-        '15m' as StringValue,
-      ),
+      expiresIn,
     );
   }
 
   async signRefreshToken(payload: JwtPayload): Promise<string> {
+    const defaultRefreshExpiresIn: StringValue = '7d';
+    const expiresIn =
+      this.config.get<StringValue>('JWT_REFRESH_EXPIRES_IN') ??
+      defaultRefreshExpiresIn;
+
     return this.signToken(
       payload,
       this.getRequired('JWT_REFRESH_SECRET'),
-      this.config.get<StringValue>(
-        'JWT_REFRESH_EXPIRES_IN',
-        '7d' as StringValue,
-      ),
+      expiresIn,
     );
   }
 

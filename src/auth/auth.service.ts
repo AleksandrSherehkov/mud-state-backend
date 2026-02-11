@@ -44,7 +44,12 @@ export class AuthService {
       '$2b$12$0IP/zdzyXTrX7AZRHVrTQeVvCAklfEeF8VCj0.9pJqlDmbqgth5Dq';
   }
 
-  async register(dto: RegisterDto, ip?: string, userAgent?: string) {
+  async register(
+    dto: RegisterDto,
+    ip?: string,
+    userAgent?: string,
+    geo?: { country?: string; asn?: number; asOrgHash?: string },
+  ) {
     const emailHash = hashId(dto.email.toLowerCase());
 
     this.logger.log('Register start', AuthService.name, {
@@ -67,12 +72,18 @@ export class AuthService {
       user.role,
       ip,
       userAgent,
+      geo,
     );
 
     return { ...user, ...tokens };
   }
 
-  async login(dto: LoginDto, ip: string, userAgent: string): Promise<Tokens> {
+  async login(
+    dto: LoginDto,
+    ip: string,
+    userAgent: string,
+    geo?: { country?: string; asn?: number; asOrgHash?: string },
+  ): Promise<Tokens> {
     const nip = ip ? normalizeIp(ip) : 'unknown';
     const ua = userAgent?.trim() || 'unknown';
     const emailHash = hashId(dto.email.toLowerCase());
@@ -109,7 +120,7 @@ export class AuthService {
       emailHash,
     });
 
-    return this.issueTokens(user.id, user.email, user.role, ip, userAgent);
+    return this.issueTokens(user.id, user.email, user.role, ip, userAgent, geo);
   }
 
   private static readonly RefreshClaimFailed = class RefreshClaimFailed extends Error {
@@ -123,6 +134,7 @@ export class AuthService {
     refreshToken: string,
     ip?: string,
     userAgent?: string,
+    geo?: { country?: string; asn?: number; asOrgHash?: string },
   ): Promise<Tokens> {
     const payload = await this.verifyRefreshOrThrow(refreshToken);
 
@@ -229,6 +241,7 @@ export class AuthService {
     role: Role,
     ip?: string,
     userAgent?: string,
+    geo?: { country?: string; asn?: number; asOrgHash?: string },
   ): Promise<Tokens> {
     const refreshJti = randomUUID();
     const sessionId = randomUUID();
@@ -285,6 +298,7 @@ export class AuthService {
           refreshJti,
           nip ?? undefined,
           ua ?? undefined,
+          geo,
           tx,
         );
       });

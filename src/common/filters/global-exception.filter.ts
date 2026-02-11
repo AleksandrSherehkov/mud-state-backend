@@ -63,7 +63,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const req = ctx.getRequest<Request>();
     const res = ctx.getResponse<Response>();
 
-    const { ip, userAgent } = extractRequestInfo(req);
+    const { ip, userAgent, geo } = extractRequestInfo(req);
 
     const rawUser: unknown = (req as Request & { user?: unknown }).user;
     const user = isUserFromJwt(rawUser) ? rawUser : undefined;
@@ -91,6 +91,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       sid: user?.sid,
       ipMasked: maskIp(ip),
       uaHash: ua ? hashId(ua) : undefined,
+      geoCountry: geo?.country,
+      geoAsn: geo?.asn,
+      asOrgHash: geo?.asOrgHash,
     };
 
     const details =

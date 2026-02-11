@@ -28,7 +28,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
     const res = http.getResponse<Response>();
 
     const start = Date.now();
-    const { ip, userAgent } = extractRequestInfo(req);
+    const { ip, userAgent, geo } = extractRequestInfo(req);
     const ua = normalizeUserAgent(userAgent);
     const uaHash = ua ? hashId(ua) : undefined;
     const path = req.path;
@@ -58,6 +58,9 @@ export class HttpLoggingInterceptor implements NestInterceptor {
             sid: user?.sid,
             ipMasked: maskIp(ip),
             uaHash,
+            geoCountry: geo?.country,
+            geoAsn: geo?.asn,
+            asOrgHash: geo?.asOrgHash,
           },
         );
       }),

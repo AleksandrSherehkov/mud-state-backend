@@ -2,11 +2,13 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import type { Request as ExpressRequest } from 'express';
 
 import { JwtPayload } from '../types/jwt.types';
 import { SessionsService } from 'src/sessions/sessions.service';
 import { AppLogger } from 'src/logger/logger.service';
 import { UsersService } from 'src/users/users.service';
+import { extractRequestInfo } from 'src/common/helpers/request-info';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -23,12 +25,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       issuer: config.get<string>('JWT_ISSUER'),
       audience: config.get<string>('JWT_AUDIENCE'),
       algorithms: ['HS256'],
+      passReqToCallback: true,
     });
 
     this.logger.setContext(JwtStrategy.name);
   }
 
-  async validate(payload: JwtPayload) {
+  async validate(
+    req: ExpressRequest,
+    payload: JwtPayload & { iat?: number; exp?: number },
+  ) {
     const userId = payload.sub;
     const sid = payload.sid;
 
@@ -60,6 +66,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       );
       throw new UnauthorizedException('Session is not active');
     }
+
+    const { ip, userAgent, geo } = extractRequestInfo(req);
+    await this.sessionsService.assertAccessContext({
+      sid,
+      userId,
+      ip,
+      userAgent,
+      geo,
+    });
 
     const snap = await this.usersService.getAuthSnapshotById(userId);
     if (!snap) {
@@ -95,6 +110,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: snap.email,
       role: snap.role,
       sid,
+      iat: payload.iat,
+      exp: payload.exp,
     };
   }
 }

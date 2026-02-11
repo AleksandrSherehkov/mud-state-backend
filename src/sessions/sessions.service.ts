@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AppLogger } from 'src/logger/logger.service';
 import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
 import { RefreshTokenService } from './refresh-token.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class SessionsService {
@@ -12,6 +13,7 @@ export class SessionsService {
     private readonly prisma: PrismaService,
     private readonly logger: AppLogger,
     private readonly refreshTokenService: RefreshTokenService,
+    private readonly config: ConfigService,
   ) {
     this.logger.setContext(SessionsService.name);
   }
@@ -22,6 +24,7 @@ export class SessionsService {
     refreshTokenJti: string,
     ip?: string,
     userAgent?: string,
+    geo?: { country?: string; asn?: number; asOrgHash?: string },
     tx?: Prisma.TransactionClient,
   ) {
     const nip = ip ? normalizeIp(ip) : null;
@@ -36,6 +39,9 @@ export class SessionsService {
         refreshTokenJti,
         ip: nip,
         userAgent: ua,
+        geoCountry: geo?.country ?? null,
+        asn: geo?.asn ?? null,
+        asOrgHash: geo?.asOrgHash ?? null,
       },
     });
 
@@ -328,5 +334,156 @@ export class SessionsService {
         tx,
       ),
     );
+  }
+  private mismatchAction(
+    key: 'ACCESS_FINGERPRINT_MISMATCH_ACTION' | 'ACCESS_GEO_ASN_ANOMALY_ACTION',
+  ): 'terminate' | 'deny' | 'log' {
+    const raw = String(this.config.get<string>(key) ?? '')
+      .toLowerCase()
+      .trim();
+    if (raw === 'terminate' || raw === 'deny' || raw === 'log') return raw;
+    const env = String(this.config.get<string>('APP_ENV') ?? '').toLowerCase();
+    return env === 'production' ? 'terminate' : 'log';
+  }
+
+  private accessBindingEnabled(): { bindUa: boolean; bindIp: boolean } {
+    return {
+      bindUa: Boolean(this.config.get<boolean>('ACCESS_BIND_UA')),
+      bindIp: Boolean(this.config.get<boolean>('ACCESS_BIND_IP')),
+    };
+  }
+
+  async assertAccessContext(params: {
+    sid: string;
+    userId: string;
+    ip?: string | null;
+    userAgent?: string | null;
+    geo?: { country?: string; asn?: number; asOrgHash?: string };
+  }): Promise<void> {
+    const { bindUa, bindIp } = this.accessBindingEnabled();
+    const anomalyLogEnabled = Boolean(
+      this.config.get<boolean>('ACCESS_ANOMALY_LOG'),
+    );
+
+    const action = this.mismatchAction('ACCESS_FINGERPRINT_MISMATCH_ACTION');
+    const geoAction = this.mismatchAction('ACCESS_GEO_ASN_ANOMALY_ACTION');
+
+    if (!bindUa && !bindIp && !anomalyLogEnabled && geoAction === 'log') return;
+
+    const session = await this.prisma.session.findFirst({
+      where: {
+        id: params.sid,
+        userId: params.userId,
+        isActive: true,
+        endedAt: null,
+      },
+      select: {
+        ip: true,
+        userAgent: true,
+        geoCountry: true,
+        asn: true,
+        asOrgHash: true,
+      },
+    });
+
+    if (!session) {
+      throw new UnauthorizedException('Токен відкликано або недійсний');
+    }
+
+    const reqIp = params.ip ? normalizeIp(params.ip) : null;
+    const reqUa = (params.userAgent ?? '').trim() || null;
+
+    const sessIp = session.ip ?? null;
+    const sessUa = (session.userAgent ?? '').trim() || null;
+
+    if (anomalyLogEnabled) {
+      const ipChanged = !!sessIp && !!reqIp && sessIp !== reqIp;
+      const uaChanged = !!sessUa && !!reqUa && sessUa !== reqUa;
+
+      if (ipChanged || uaChanged) {
+        this.logger.warn('Access context anomaly', SessionsService.name, {
+          event: 'auth.access.anomaly',
+          userId: params.userId,
+          sid: params.sid,
+          ipChanged,
+          uaChanged,
+          ipMasked: reqIp ? maskIp(reqIp) : undefined,
+          uaHash: reqUa ? hashId(reqUa) : undefined,
+        });
+      }
+    }
+
+    const sessCountry = (session.geoCountry ?? '').trim().toUpperCase() || null;
+    const reqCountry = (params.geo?.country ?? '').trim().toUpperCase() || null;
+
+    const sessAsn = session.asn ?? null;
+    const reqAsn = params.geo?.asn ?? null;
+
+    const sessOrgHash = session.asOrgHash ?? null;
+    const reqOrgHash = params.geo?.asOrgHash ?? null;
+
+    const countryMismatch =
+      !!sessCountry && !!reqCountry && sessCountry !== reqCountry;
+
+    const asnMismatch =
+      sessAsn !== null && reqAsn !== null && sessAsn !== reqAsn;
+
+    const orgMismatch =
+      sessOrgHash !== null && reqOrgHash !== null && sessOrgHash !== reqOrgHash;
+
+    if (countryMismatch || asnMismatch || orgMismatch) {
+      this.logger.warn('Access geo/ASN anomaly', SessionsService.name, {
+        event: 'auth.access.geo_asn_anomaly',
+        userId: params.userId,
+        sid: params.sid,
+        countryMismatch,
+        asnMismatch,
+        orgMismatch,
+        sessionCountry: sessCountry ?? undefined,
+        reqCountry: reqCountry ?? undefined,
+        sessionAsn: sessAsn ?? undefined,
+        reqAsn: reqAsn ?? undefined,
+        geoAction,
+      });
+
+      if (geoAction !== 'log' && (countryMismatch || asnMismatch)) {
+        if (geoAction === 'terminate') {
+          await this.terminateById({
+            sid: params.sid,
+            userId: params.userId,
+            reason: 'access_geo_asn_anomaly',
+          });
+        }
+        throw new UnauthorizedException('Токен відкликано або недійсний');
+      }
+    }
+
+    const uaMismatch = bindUa && !!sessUa && (!reqUa || sessUa !== reqUa);
+    const ipMismatch = bindIp && !!sessIp && (!reqIp || sessIp !== reqIp);
+
+    if (!uaMismatch && !ipMismatch) return;
+
+    this.logger.warn('Access fingerprint mismatch', SessionsService.name, {
+      event: 'auth.access.fingerprint_mismatch',
+      userId: params.userId,
+      sid: params.sid,
+      bindUa,
+      bindIp,
+      uaMismatch,
+      ipMismatch,
+      action,
+    });
+
+    if (action === 'log') return;
+
+    if (action === 'terminate') {
+      await this.terminateById({
+        sid: params.sid,
+        userId: params.userId,
+        reason: 'access_fingerprint_mismatch',
+      });
+    }
+
+    throw new UnauthorizedException('Токен відкликано або недійсний');
   }
 }

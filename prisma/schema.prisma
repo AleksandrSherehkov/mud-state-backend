@@ -61,11 +61,18 @@ model Session {
   userId String @db.Uuid
   refreshTokenJti String? @db.Uuid
   refreshToken    RefreshToken? @relation("SessionToRefreshToken", fields: [refreshTokenJti], references: [jti], onDelete: SetNull)
-  ip              String?
-  userAgent       String?
-  isActive        Boolean       @default(true)
-  startedAt       DateTime      @default(now())
-  endedAt         DateTime?
+
+  ip        String?
+  userAgent String?
+
+  
+  geoCountry String? @db.Char(2)
+  asn        Int?    @db.Integer
+  asOrgHash  String? @db.VarChar(64)
+
+  isActive  Boolean  @default(true)
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -74,6 +81,7 @@ model Session {
   @@index([userId, isActive, endedAt, startedAt])
   @@index([userId, startedAt])
 
+  @@index([geoCountry, asn])
 }
 
 model UserSecurity {

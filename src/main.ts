@@ -42,6 +42,17 @@ function validateSecurityConfig(config: ConfigService) {
     );
   }
 
+  const trustProxyRaw = config.get<string>('TRUST_PROXY_HOPS');
+  const trustProxy = Number(trustProxyRaw ?? 1);
+
+  if (isProd) {
+    if (!Number.isInteger(trustProxy) || trustProxy < 1 || trustProxy > 10) {
+      throw new Error(
+        'SECURITY: TRUST_PROXY_HOPS має бути цілим числом 1..10 у production (щоб req.ip був реальним клієнтом за проксі)',
+      );
+    }
+  }
+
   if (!isProd) return;
 
   if (cookieSameSite === 'none') {
@@ -97,7 +108,6 @@ async function bootstrap() {
   // ---- SECURITY CONFIG VALIDATION ----
   validateSecurityConfig(configService);
 
-  // ✅ determine swagger enablement once (secure-by-default is enforced in setupSwagger/env)
   const { shouldEnableSwagger, apiBase } = setupSwagger(app, configService);
 
   // ---- Helmet ----

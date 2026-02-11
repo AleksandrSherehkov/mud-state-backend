@@ -20,6 +20,7 @@ import { envValidationSchema } from './config/env.validation';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { SecurityModule } from './common/security/security.module';
+import { BoundedThrottlerStorage } from './common/throttle/bounded-throttler.storage';
 
 @Module({
   imports: [
@@ -31,14 +32,20 @@ import { SecurityModule } from './common/security/security.module';
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        throttlers: [
-          {
-            ttl: Number(config.get('THROTTLE_TTL_SEC') ?? 60),
-            limit: Number(config.get('THROTTLE_LIMIT') ?? 100),
-          },
-        ],
-      }),
+      useFactory: (config: ConfigService) => {
+        const ttl = Number(config.get('THROTTLE_TTL_SEC') ?? 60);
+        const limit = Number(config.get('THROTTLE_LIMIT') ?? 100);
+
+        const maxKeys = Number(config.get('THROTTLE_STORE_MAX_KEYS') ?? 50_000);
+        const cleanupSec = Number(
+          config.get('THROTTLE_STORE_CLEANUP_INTERVAL_SEC') ?? 60,
+        );
+
+        return {
+          throttlers: [{ ttl, limit }],
+          storage: new BoundedThrottlerStorage(maxKeys, cleanupSec * 1000),
+        };
+      },
     }),
     RequestContextModule,
     ScheduleModule.forRoot(),

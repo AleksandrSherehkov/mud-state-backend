@@ -27,8 +27,8 @@ export class AuthHttpService {
     req: Request,
     res: ExpressResponse,
   ): Promise<RegisterResponseDto> {
-    const { ip, userAgent } = extractRequestInfo(req);
-    const result = await this.auth.register(dto, ip, userAgent);
+    const { ip, userAgent, geo } = extractRequestInfo(req);
+    const result = await this.auth.register(dto, ip, userAgent, geo);
 
     this.cookies.setAuthCookies(res, req, result.refreshToken);
 
@@ -47,8 +47,8 @@ export class AuthHttpService {
     req: Request,
     res: ExpressResponse,
   ): Promise<TokenResponseDto> {
-    const { ip, userAgent } = extractRequestInfo(req);
-    const result = await this.auth.login(dto, ip, userAgent);
+    const { ip, userAgent, geo } = extractRequestInfo(req);
+    const result = await this.auth.login(dto, ip, userAgent, geo);
 
     this.cookies.setAuthCookies(res, req, result.refreshToken);
 
@@ -63,12 +63,12 @@ export class AuthHttpService {
   }
 
   async refresh(req: Request, res: ExpressResponse): Promise<TokenResponseDto> {
-    const { ip, userAgent } = extractRequestInfo(req);
+    const { ip, userAgent, geo } = extractRequestInfo(req);
 
     const refreshToken = getRefreshTokenFromRequest(req);
     if (!refreshToken) throw new UnauthorizedException('Недійсний токен');
 
-    const result = await this.auth.refresh(refreshToken, ip, userAgent);
+    const result = await this.auth.refresh(refreshToken, ip, userAgent, geo);
 
     this.cookies.setRefreshCookie(res, req, result.refreshToken);
 

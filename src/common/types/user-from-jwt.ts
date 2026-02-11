@@ -5,4 +5,6 @@ export type UserFromJwt = {
   email: string;
   role: Role;
   sid: string;
+  iat?: number;
+  exp?: number;
 };
