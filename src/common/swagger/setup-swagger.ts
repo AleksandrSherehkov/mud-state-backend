@@ -75,6 +75,16 @@ export function setupSwagger(
       },
       'csrf_header',
     )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-CSRF-API-Key',
+        description:
+          'Optional machine-to-machine CSRF bypass key used when no Origin/Referer is available in production.',
+      },
+      'csrf_api_key',
+    )
     .addSecurity('csrf_cookie', {
       type: 'apiKey',
       in: 'cookie',

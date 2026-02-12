@@ -60,10 +60,17 @@ export class AuthController {
   @UseGuards(CsrfGuard)
   @ApiCookieAuth('csrf_cookie')
   @ApiSecurity('csrf_header')
+  @ApiSecurity('csrf_api_key')
   @ApiHeader({
     name: 'X-CSRF-Token',
     required: true,
     description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
+  })
+  @ApiHeader({
+    name: 'X-CSRF-API-Key',
+    required: false,
+    description:
+      'Опційний ключ для non-browser клієнтів у production, коли Origin/Referer відсутній.',
   })
   @Throttle({ default: THROTTLE_AUTH.register })
   @ApiOperation({
@@ -96,10 +103,17 @@ export class AuthController {
   @UseGuards(CsrfGuard)
   @ApiCookieAuth('csrf_cookie')
   @ApiSecurity('csrf_header')
+  @ApiSecurity('csrf_api_key')
   @ApiHeader({
     name: 'X-CSRF-Token',
     required: true,
     description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
+  })
+  @ApiHeader({
+    name: 'X-CSRF-API-Key',
+    required: false,
+    description:
+      'Опційний ключ для non-browser клієнтів у production, коли Origin/Referer відсутній.',
   })
   @HttpCode(200)
   @Throttle({ default: THROTTLE_AUTH.login })
@@ -162,10 +176,17 @@ export class AuthController {
   @ApiCookieAuth('refresh_cookie')
   @ApiCookieAuth('csrf_cookie')
   @ApiSecurity('csrf_header')
+  @ApiSecurity('csrf_api_key')
   @ApiHeader({
     name: 'X-CSRF-Token',
     required: true,
-    description: 'CSRF token (должен совпадать со значением cookie csrfToken)',
+    description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
+  })
+  @ApiHeader({
+    name: 'X-CSRF-API-Key',
+    required: false,
+    description:
+      'Опційний ключ для non-browser клієнтів у production, коли Origin/Referer відсутній.',
   })
   @Throttle({ default: THROTTLE_AUTH.refresh })
   @ApiOperation({ summary: 'Оновлення токенів', operationId: 'auth_refresh' })
@@ -197,10 +218,17 @@ export class AuthController {
   @UseGuards(CsrfGuard)
   @ApiCookieAuth('csrf_cookie')
   @ApiSecurity('csrf_header')
+  @ApiSecurity('csrf_api_key')
   @ApiHeader({
     name: 'X-CSRF-Token',
     required: true,
     description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
+  })
+  @ApiHeader({
+    name: 'X-CSRF-API-Key',
+    required: false,
+    description:
+      'Опційний ключ для non-browser клієнтів у production, коли Origin/Referer відсутній.',
   })
   @Throttle({ default: THROTTLE_AUTH.logout })
   @ApiBearerAuth('access_bearer')
