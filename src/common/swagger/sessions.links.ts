@@ -49,6 +49,14 @@ export const ApiSessionsLinks = {
       ApiOkResponse({
         description: 'Результат завершення сесії',
         type: TerminateResultDto,
+        content: {
+          'application/json': {
+            examples: {
+              terminated: { value: { terminated: true } },
+              alreadyInactiveOrNotFound: { value: { terminated: false } },
+            },
+          },
+        },
         links: {
           mySessions: {
             operationId: 'sessions_mySessions',
