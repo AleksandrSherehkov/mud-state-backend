@@ -12,6 +12,7 @@ export class MeResponseDto {
   @ApiProperty({
     example: 'user@example.com',
     description: 'Email користувача',
+    format: 'email',
   })
   email: string;
 
