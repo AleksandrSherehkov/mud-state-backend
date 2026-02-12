@@ -99,7 +99,7 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
   const unauthorizedDescription =
     options?.unauthorizedDescription ?? 'Неавторизований доступ';
   const unauthorizedMessageExample =
-    options?.unauthorizedMessageExample ?? 'Необхідна авторизація';
+    options?.unauthorizedMessageExample ?? 'Unauthorized';
 
   const forbiddenDescription =
     options?.forbiddenDescription ?? 'Доступ заборонено';
@@ -121,7 +121,7 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
   const internalDescription =
     options?.internalDescription ?? 'Внутрішня помилка сервера';
   const internalMessageExample =
-    options?.internalMessageExample ?? 'Щось пішло не так на сервері';
+    options?.internalMessageExample ?? 'Internal server error';
 
   const decorators = [
     ApiExtraModels(ApiErrorResponseDto),
@@ -267,7 +267,7 @@ export function ApiQueryErrorResponses(
   const unauthorizedDescription =
     opts.unauthorizedDescription ?? 'Неавторизований доступ';
   const unauthorizedMessageExample =
-    opts.unauthorizedMessageExample ?? 'Необхідна авторизація';
+    opts.unauthorizedMessageExample ?? 'Unauthorized';
 
   const forbiddenDescription = opts.forbiddenDescription ?? 'Доступ заборонено';
   const forbiddenMessageExample =
@@ -281,7 +281,7 @@ export function ApiQueryErrorResponses(
   const internalDescription =
     opts.internalDescription ?? 'Внутрішня помилка сервера';
   const internalMessageExample =
-    opts.internalMessageExample ?? 'Щось пішло не так на сервері';
+    opts.internalMessageExample ?? 'Internal server error';
 
   const decorators = [
     ApiExtraModels(ApiErrorResponseDto),
@@ -396,7 +396,7 @@ export function ApiListErrorResponses(options?: QueryErrorsOptions) {
   const unauthorizedDescription =
     options?.unauthorizedDescription ?? 'Неавторизований доступ';
   const unauthorizedMessageExample =
-    options?.unauthorizedMessageExample ?? 'Необхідна авторизація';
+    options?.unauthorizedMessageExample ?? 'Unauthorized';
 
   const forbiddenDescription =
     options?.forbiddenDescription ?? 'Доступ заборонено';
@@ -412,7 +412,7 @@ export function ApiListErrorResponses(options?: QueryErrorsOptions) {
   const internalDescription =
     options?.internalDescription ?? 'Внутрішня помилка сервера';
   const internalMessageExample =
-    options?.internalMessageExample ?? 'Щось пішло не так на сервері';
+    options?.internalMessageExample ?? 'Internal server error';
 
   const decorators = [
     ApiExtraModels(ApiErrorResponseDto),
