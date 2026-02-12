@@ -28,7 +28,8 @@ const SET_REFRESH_COOKIE_HEADER = {
     description:
       'Sets refreshToken cookie (HttpOnly, signed). Exact attributes depend on env (Secure/SameSite/Path).',
     schema: { type: 'string' },
-    example: 'refreshToken=eyJ...; Path=/api; HttpOnly; SameSite=Lax; Secure',
+    example:
+      'refreshToken=eyJ...; Path=/api; HttpOnly; SameSite=Lax; Secure',
   },
 } as const;
 

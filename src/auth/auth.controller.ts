@@ -175,6 +175,7 @@ export class AuthController {
       'Refresh має rate limit (Throttle).',
       'При reuse/revoked повертається 401.',
       'Refresh “claim” одноразовий: попередній jti відкликається та його сесія завершується.',
+      'Оновлюється лише refreshToken cookie; csrfToken cookie не змінюється.',
     ],
   })
   @ApiAuthLinks.refresh200()
