@@ -2,6 +2,7 @@ import { applyDecorators } from '@nestjs/common';
 import {
   ApiCreatedResponse,
   ApiExtraModels,
+  ApiNoContentResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
 
@@ -80,6 +81,25 @@ export const ApiAuthLinks = {
           },
         },
         headers: SET_COOKIE_HEADER,
+      }),
+    );
+  },
+
+  csrf204() {
+    return applyDecorators(
+      ApiNoContentResponse({
+        description: 'CSRF cookie встановлено або оновлено',
+        headers: SET_COOKIE_HEADER,
+        links: {
+          register: {
+            operationId: 'auth_register',
+            description: 'Далі: реєстрація (PUBLIC)',
+          },
+          login: {
+            operationId: 'auth_login',
+            description: 'Далі: login (PUBLIC)',
+          },
+        },
       }),
     );
   },

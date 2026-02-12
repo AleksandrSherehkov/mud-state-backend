@@ -139,6 +139,13 @@ export class AuthController {
       'Не вимагає auth.',
     ],
   })
+  @ApiAuthLinks.csrf204()
+  @ApiMutationErrorResponses({
+    includeBadRequest: false,
+    includeUnauthorized: false,
+    includeForbidden: false,
+    includeConflict: false,
+  })
   csrf(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
@@ -209,7 +216,6 @@ export class AuthController {
   @ApiAuthLinks.logout200()
   @ApiMutationErrorResponses({
     includeConflict: false,
-    includeTooManyRequests: false,
     includeBadRequest: false,
     includeForbidden: true,
     notFoundMessage: 'Користувача не знайдено',
@@ -239,7 +245,7 @@ export class AuthController {
   @ApiQueryErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
     includeBadRequest: false,
-    includeTooManyRequests: false,
+    includeForbidden: false,
   })
   getMe(@CurrentUser('userId') userId: string): Promise<MeResponseDto> {
     return this.http.getMe(userId);

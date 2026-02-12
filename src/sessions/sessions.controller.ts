@@ -62,7 +62,7 @@ export class SessionsController {
   @ApiSessionsLinks.mySessions200()
   @ApiQueryErrorResponses({
     includeBadRequest: false,
-    includeTooManyRequests: false,
+    includeForbidden: false,
   })
   mySessions(@CurrentUser('userId') userId: string): Promise<FullSessionDto[]> {
     return this.http.mySessions(userId);
@@ -89,7 +89,6 @@ export class SessionsController {
     includeConflict: false,
     includeForbidden: false,
     includeBadRequest: false,
-    includeTooManyRequests: false,
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
     unauthorizedMessageExample: 'Session is not active',
   })
@@ -120,7 +119,6 @@ export class SessionsController {
   @ApiMutationErrorResponses({
     includeConflict: false,
     includeForbidden: false,
-    includeTooManyRequests: false,
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
     unauthorizedMessageExample: 'Session is not active',
   })
@@ -154,7 +152,6 @@ export class SessionsController {
   @ApiSessionsLinks.userSessions200()
   @ApiQueryErrorResponses({
     includeBadRequest: false,
-    includeTooManyRequests: false,
   })
   getUserSessions(
     @Param('userId', new ParseUUIDPipe({ version: '4' })) userId: string,

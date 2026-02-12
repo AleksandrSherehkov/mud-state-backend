@@ -66,7 +66,12 @@ export const ApiSessionsLinks = {
         description: 'Список сессий указанного пользователя',
         type: FullSessionDto,
         isArray: true,
-        links: {},
+        links: {
+          mySessions: {
+            operationId: 'sessions_mySessions',
+            description: 'Далі: переглянути власні сесії (requires Bearer)',
+          },
+        },
       }),
     );
   },
