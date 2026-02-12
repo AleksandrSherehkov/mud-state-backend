@@ -217,12 +217,7 @@ function pickErrorFromHttpExceptionResponse(
   status: number,
 ): string {
   if (typeof o.error === 'string') return o.error;
-
-  if (typeof o.statusCode === 'number') {
-    return HttpStatus[status] ?? 'Error';
-  }
-
-  return 'Error';
+  return HttpStatus[status] ?? 'Error';
 }
 
 function normalizeNonHttpExceptionBody(
