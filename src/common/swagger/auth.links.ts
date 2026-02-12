@@ -10,7 +10,7 @@ import { RegisterResponseDto } from 'src/auth/dto/register-response.dto';
 import { TokenResponseDto } from 'src/auth/dto/token-response.dto';
 import { LogoutResponseDto } from 'src/auth/dto/logout-response.dto';
 import { MeResponseDto } from 'src/auth/dto/me-response.dto';
-const SET_COOKIE_HEADER = {
+const SET_AUTH_COOKIES_HEADER = {
   'Set-Cookie': {
     description:
       'Sets authentication cookies: refreshToken (HttpOnly) and csrfToken (readable by JS). ' +
@@ -23,7 +23,27 @@ const SET_COOKIE_HEADER = {
   },
 } as const;
 
-const CLEAR_COOKIE_HEADER = {
+const SET_REFRESH_COOKIE_HEADER = {
+  'Set-Cookie': {
+    description:
+      'Sets refreshToken cookie (HttpOnly, signed). Exact attributes depend on env (Secure/SameSite/Path).',
+    schema: { type: 'string' },
+    example:
+      'refreshToken=eyJ...; Path=/api; HttpOnly; SameSite=Lax; Secure',
+  },
+} as const;
+
+const SET_CSRF_COOKIE_HEADER = {
+  'Set-Cookie': {
+    description:
+      'Sets csrfToken cookie (readable by JS, short-lived). Exact attributes depend on env (Secure/SameSite/Path).',
+    schema: { type: 'string' },
+    example:
+      'csrfToken=550e8400-e29b-41d4-a716-446655440000; Path=/api; SameSite=Lax; Secure',
+  },
+} as const;
+
+const CLEAR_AUTH_COOKIES_HEADER = {
   'Set-Cookie': {
     description:
       'Clears authentication cookies: refreshToken and csrfToken (Set-Cookie with Max-Age=0/Expires in past).',
@@ -55,7 +75,7 @@ export const ApiAuthLinks = {
             description: 'Далі: logout (requires Bearer)',
           },
         },
-        headers: SET_COOKIE_HEADER,
+        headers: SET_AUTH_COOKIES_HEADER,
       }),
     );
   },
@@ -80,7 +100,7 @@ export const ApiAuthLinks = {
             description: 'Далі: logout (requires Bearer)',
           },
         },
-        headers: SET_COOKIE_HEADER,
+        headers: SET_AUTH_COOKIES_HEADER,
       }),
     );
   },
@@ -89,7 +109,7 @@ export const ApiAuthLinks = {
     return applyDecorators(
       ApiNoContentResponse({
         description: 'CSRF cookie встановлено або оновлено',
-        headers: SET_COOKIE_HEADER,
+        headers: SET_CSRF_COOKIE_HEADER,
         links: {
           register: {
             operationId: 'auth_register',
@@ -124,7 +144,7 @@ export const ApiAuthLinks = {
             description: 'Далі: logout (requires Bearer)',
           },
         },
-        headers: SET_COOKIE_HEADER,
+        headers: SET_REFRESH_COOKIE_HEADER,
       }),
     );
   },
@@ -145,7 +165,7 @@ export const ApiAuthLinks = {
             description: 'Далі: register (PUBLIC)',
           },
         },
-        headers: CLEAR_COOKIE_HEADER,
+        headers: CLEAR_AUTH_COOKIES_HEADER,
       }),
     );
   },

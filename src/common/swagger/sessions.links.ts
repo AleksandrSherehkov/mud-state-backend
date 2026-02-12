@@ -9,7 +9,7 @@ export const ApiSessionsLinks = {
     return applyDecorators(
       ApiExtraModels(FullSessionDto),
       ApiOkResponse({
-        description: 'Список сессий пользователя',
+        description: 'Список сесій користувача',
         type: FullSessionDto,
         isArray: true,
         links: {
@@ -63,7 +63,7 @@ export const ApiSessionsLinks = {
     return applyDecorators(
       ApiExtraModels(FullSessionDto),
       ApiOkResponse({
-        description: 'Список сессий указанного пользователя',
+        description: 'Список сесій вказаного користувача',
         type: FullSessionDto,
         isArray: true,
         links: {
