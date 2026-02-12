@@ -67,6 +67,8 @@ export class UsersController {
   @ApiUsersLinks.getById200()
   @ApiQueryErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
+    forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
+    forbiddenMessageExample: 'Недостатньо прав доступу',
   })
   async getById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.usersHttp.getById(id);
@@ -98,6 +100,8 @@ export class UsersController {
   @ApiUsersLinks.getByEmail200()
   @ApiQueryErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
+    forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
+    forbiddenMessageExample: 'Недостатньо прав доступу',
   })
   async getByEmail(@Query() query: GetUserByEmailQueryDto) {
     return this.usersHttp.getByEmail(query.email);
@@ -130,6 +134,8 @@ export class UsersController {
     notFoundMessage: 'Користувача не знайдено',
     conflictDescription: 'Email вже використовується',
     conflictMessageExample: 'Email вже використовується',
+    forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN)',
+    forbiddenMessageExample: 'Недостатньо прав доступу',
   })
   async update(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -163,6 +169,8 @@ export class UsersController {
   @ApiMutationErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
     includeConflict: false,
+    forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN)',
+    forbiddenMessageExample: 'Недостатньо прав доступу',
   })
   async delete(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.usersHttp.delete(id);
