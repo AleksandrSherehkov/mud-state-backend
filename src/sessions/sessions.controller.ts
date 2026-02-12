@@ -20,8 +20,8 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 
 import {
+  ApiListErrorResponses,
   ApiMutationErrorResponses,
-  ApiQueryErrorResponses,
 } from 'src/common/swagger/api-exceptions';
 import { ApiRolesAccess } from 'src/common/swagger/api-roles';
 
@@ -60,7 +60,7 @@ export class SessionsController {
     ],
   })
   @ApiSessionsLinks.mySessions200()
-  @ApiQueryErrorResponses({
+  @ApiListErrorResponses({
     includeBadRequest: false,
     includeForbidden: false,
   })
@@ -150,7 +150,7 @@ export class SessionsController {
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @ApiSessionsLinks.userSessions200()
-  @ApiQueryErrorResponses()
+  @ApiListErrorResponses()
   getUserSessions(
     @Param('userId', new ParseUUIDPipe({ version: '4' })) userId: string,
   ): Promise<FullSessionDto[]> {
