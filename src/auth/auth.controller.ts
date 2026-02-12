@@ -80,6 +80,8 @@ export class AuthController {
     includeUnauthorized: false,
     includeForbidden: true,
     includeConflict: true,
+    conflictDescription: 'Email вже зареєстровано',
+    conflictMessageExample: 'Електронна адреса вже використовується',
   })
   register(
     @Body() dto: RegisterDto,
