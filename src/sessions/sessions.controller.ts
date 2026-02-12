@@ -63,6 +63,8 @@ export class SessionsController {
   @ApiListErrorResponses({
     includeBadRequest: false,
     includeForbidden: false,
+    unauthorizedDescription: 'Недійсний access token або неактивна сесія',
+    unauthorizedMessageExample: 'Session is not active',
   })
   mySessions(@CurrentUser('userId') userId: string): Promise<FullSessionDto[]> {
     return this.http.mySessions(userId);
@@ -89,8 +91,9 @@ export class SessionsController {
     includeConflict: false,
     includeForbidden: false,
     includeBadRequest: false,
-    unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
-    unauthorizedMessageExample: 'Session is not active',
+    unauthorizedDescription:
+      'Недійсний access token, неактивна сесія або токен застарів для fresh-access',
+    unauthorizedMessageExample: 'Токен відкликано або недійсний',
   })
   terminateOthers(
     @CurrentUser() user: UserFromJwt,
@@ -119,8 +122,9 @@ export class SessionsController {
   @ApiMutationErrorResponses({
     includeConflict: false,
     includeForbidden: false,
-    unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
-    unauthorizedMessageExample: 'Session is not active',
+    unauthorizedDescription:
+      'Недійсний access token, неактивна сесія або токен застарів для fresh-access',
+    unauthorizedMessageExample: 'Токен відкликано або недійсний',
   })
   terminateSpecific(
     @CurrentUser('userId') userId: string,
@@ -151,6 +155,8 @@ export class SessionsController {
   })
   @ApiSessionsLinks.userSessions200()
   @ApiListErrorResponses({
+    unauthorizedDescription: 'Недійсний access token або неактивна сесія',
+    unauthorizedMessageExample: 'Session is not active',
     forbiddenDescription:
       'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
     forbiddenMessageExample: 'Недостатньо прав доступу',
