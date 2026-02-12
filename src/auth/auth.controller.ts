@@ -87,6 +87,8 @@ export class AuthController {
     includeUnauthorized: false,
     includeForbidden: true,
     includeConflict: true,
+    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenMessageExample: 'CSRF validation failed',
     conflictDescription: 'Email вже зареєстровано',
     conflictMessageExample: 'Електронна адреса вже використовується',
   })
@@ -129,6 +131,8 @@ export class AuthController {
   @ApiMutationErrorResponses({
     includeForbidden: true,
     includeConflict: false,
+    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenMessageExample: 'CSRF validation failed',
     unauthorizedDescription: 'Невірний email або пароль',
     unauthorizedMessageExample: 'Невірний email або пароль',
   })
@@ -203,6 +207,8 @@ export class AuthController {
   @ApiMutationErrorResponses({
     includeForbidden: true,
     includeConflict: false,
+    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenMessageExample: 'CSRF validation failed',
     unauthorizedDescription:
       'Refresh токен недійсний / відкликаний / reuse detected',
     unauthorizedMessageExample: 'Токен відкликано або недійсний',
@@ -249,6 +255,8 @@ export class AuthController {
     includeConflict: false,
     includeBadRequest: false,
     includeForbidden: true,
+    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenMessageExample: 'CSRF validation failed',
     notFoundMessage: 'Користувача не знайдено',
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',
     unauthorizedMessageExample: 'Session is not active',
