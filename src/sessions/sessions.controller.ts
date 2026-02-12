@@ -150,7 +150,11 @@ export class SessionsController {
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @ApiSessionsLinks.userSessions200()
-  @ApiListErrorResponses()
+  @ApiListErrorResponses({
+    forbiddenDescription:
+      'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
+    forbiddenMessageExample: 'Недостатньо прав доступу',
+  })
   getUserSessions(
     @Param('userId', new ParseUUIDPipe({ version: '4' })) userId: string,
   ): Promise<FullSessionDto[]> {
