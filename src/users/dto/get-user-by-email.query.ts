@@ -7,7 +7,7 @@ function trimIfString(value: unknown): unknown {
 }
 
 export class GetUserByEmailQueryDto {
-  @ApiProperty({ example: 'user@example.com' })
+  @ApiProperty({ example: 'user@example.com', format: 'email' })
   @Transform(({ value }: TransformFnParams) => trimIfString(value as unknown))
   @IsEmail()
   @IsNotEmpty()

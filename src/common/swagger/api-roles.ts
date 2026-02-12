@@ -1,5 +1,5 @@
 import { applyDecorators } from '@nestjs/common';
-import { ApiOperation } from '@nestjs/swagger';
+import { ApiExtension } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { buildDescription } from './description.builder';
 
@@ -10,12 +10,13 @@ export function ApiRolesAccess(
   const access = roles;
 
   return applyDecorators(
-    ApiOperation({
-      description: buildDescription({
+    ApiExtension(
+      'x-access-policy',
+      buildDescription({
         access,
         sideEffects: extra?.sideEffects,
         notes: extra?.notes,
       }),
-    }),
+    ),
   );
 }

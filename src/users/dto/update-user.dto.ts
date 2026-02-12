@@ -10,7 +10,7 @@ import { Role } from '@prisma/client';
 import { PasswordPolicyValidator } from 'src/common/validators/password-policy.validator';
 
 export class UpdateUserDto {
-  @ApiPropertyOptional({ example: 'user@example.com' })
+  @ApiPropertyOptional({ example: 'user@example.com', format: 'email' })
   @IsEmail()
   @IsOptional()
   email?: string;

@@ -12,6 +12,7 @@ export class PublicUserDto {
   @ApiProperty({
     example: 'user@example.com',
     description: 'Email користувача',
+    format: 'email',
   })
   email: string;
 

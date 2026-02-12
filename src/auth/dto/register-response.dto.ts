@@ -12,6 +12,7 @@ export class RegisterResponseDto {
   @ApiProperty({
     example: 'user@example.com',
     description: 'Email користувача',
+    format: 'email',
   })
   email: string;
 
@@ -39,6 +40,7 @@ export class RegisterResponseDto {
   @ApiProperty({
     example: 'a3f1e5b2-1c4d-4e6f-9a8b-1234567890ab',
     description: 'JWT ID (jti) для refresh токена',
+    format: 'uuid',
   })
   jti: string;
 
