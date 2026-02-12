@@ -2,7 +2,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 
 export class MeResponseDto {
-  @ApiProperty({ example: 'clx123...', description: 'ID користувача' })
+  @ApiProperty({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'ID користувача',
+    format: 'uuid',
+  })
   id: string;
 
   @ApiProperty({

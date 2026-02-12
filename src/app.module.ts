@@ -21,6 +21,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { SecurityModule } from './common/security/security.module';
 import { BoundedThrottlerStorage } from './common/throttle/bounded-throttler.storage';
+import { FreshAccessGuard } from './common/guards/fresh-access.guard';
 
 @Module({
   imports: [
@@ -68,6 +69,10 @@ import { BoundedThrottlerStorage } from './common/throttle/bounded-throttler.sto
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: FreshAccessGuard,
     },
     {
       provide: APP_INTERCEPTOR,
