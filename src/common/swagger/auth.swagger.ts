@@ -23,9 +23,8 @@ export const AUTH_SIDE_EFFECTS: Record<
     'Перевірка активності сесії (sid)',
     'Перевірка fingerprint (IP/UA) за налаштуваннями',
     'Одноразовий “claim” refresh token (revoke попереднього jti)',
-    'Завершення сесії, прив’язаної до попереднього refresh token',
+    'Оновлення прив’язки активної сесії до нового jti refresh-токена',
     'Видача нових access/refresh токенів',
-    'Створення нової сесії',
   ],
 
   logout: [
