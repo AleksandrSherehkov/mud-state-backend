@@ -116,7 +116,8 @@ export function ApiMutationErrorResponses(options?: MutationErrorsOptions) {
     options?.tooManyRequestsDescription ??
     'Занадто багато запитів (rate limit)';
   const tooManyRequestsMessageExample =
-    options?.tooManyRequestsMessageExample ?? 'Too Many Requests';
+    options?.tooManyRequestsMessageExample ??
+    'ThrottlerException: Too Many Requests';
 
   const internalDescription =
     options?.internalDescription ?? 'Внутрішня помилка сервера';
@@ -276,7 +277,8 @@ export function ApiQueryErrorResponses(
   const tooManyRequestsDescription =
     opts.tooManyRequestsDescription ?? 'Занадто багато запитів (rate limit)';
   const tooManyRequestsMessageExample =
-    opts.tooManyRequestsMessageExample ?? 'Too Many Requests';
+    opts.tooManyRequestsMessageExample ??
+    'ThrottlerException: Too Many Requests';
 
   const internalDescription =
     opts.internalDescription ?? 'Внутрішня помилка сервера';
@@ -407,7 +409,8 @@ export function ApiListErrorResponses(options?: QueryErrorsOptions) {
     options?.tooManyRequestsDescription ??
     'Занадто багато запитів (rate limit)';
   const tooManyRequestsMessageExample =
-    options?.tooManyRequestsMessageExample ?? 'Too Many Requests';
+    options?.tooManyRequestsMessageExample ??
+    'ThrottlerException: Too Many Requests';
 
   const internalDescription =
     options?.internalDescription ?? 'Внутрішня помилка сервера';
