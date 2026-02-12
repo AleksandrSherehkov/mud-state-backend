@@ -67,6 +67,8 @@ export class UsersController {
   @ApiUsersLinks.getById200()
   @ApiQueryErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
+    unauthorizedDescription: 'Недійсний access token або неактивна сесія',
+    unauthorizedMessageExample: 'Session is not active',
     forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
     forbiddenMessageExample: 'Недостатньо прав доступу',
   })
@@ -100,6 +102,8 @@ export class UsersController {
   @ApiUsersLinks.getByEmail200()
   @ApiQueryErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
+    unauthorizedDescription: 'Недійсний access token або неактивна сесія',
+    unauthorizedMessageExample: 'Session is not active',
     forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
     forbiddenMessageExample: 'Недостатньо прав доступу',
   })
@@ -132,6 +136,9 @@ export class UsersController {
   @ApiUsersLinks.update200()
   @ApiMutationErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
+    unauthorizedDescription:
+      'Недійсний access token, неактивна сесія або токен застарів для fresh-access',
+    unauthorizedMessageExample: 'Токен відкликано або недійсний',
     conflictDescription: 'Email вже використовується',
     conflictMessageExample: 'Email вже використовується',
     forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN)',
@@ -169,6 +176,9 @@ export class UsersController {
   @ApiMutationErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
     includeConflict: false,
+    unauthorizedDescription:
+      'Недійсний access token, неактивна сесія або токен застарів для fresh-access',
+    unauthorizedMessageExample: 'Токен відкликано або недійсний',
     forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN)',
     forbiddenMessageExample: 'Недостатньо прав доступу',
   })
