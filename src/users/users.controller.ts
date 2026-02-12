@@ -14,6 +14,7 @@ import {
   ApiParam,
   ApiBearerAuth,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
@@ -66,7 +67,6 @@ export class UsersController {
   @ApiUsersLinks.getById200()
   @ApiQueryErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
-    includeTooManyRequests: false,
   })
   async getById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.usersHttp.getById(id);
@@ -98,7 +98,6 @@ export class UsersController {
   @ApiUsersLinks.getByEmail200()
   @ApiQueryErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
-    includeTooManyRequests: false,
   })
   async getByEmail(@Query() query: GetUserByEmailQueryDto) {
     return this.usersHttp.getByEmail(query.email);
@@ -125,12 +124,12 @@ export class UsersController {
     schema: { type: 'string', format: 'uuid' },
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
+  @ApiBody({ type: UpdateUserDto })
   @ApiUsersLinks.update200()
   @ApiMutationErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
     conflictDescription: 'Email вже використовується',
     conflictMessageExample: 'Email вже використовується',
-    includeTooManyRequests: false,
   })
   async update(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -164,7 +163,6 @@ export class UsersController {
   @ApiMutationErrorResponses({
     notFoundMessage: 'Користувача не знайдено',
     includeConflict: false,
-    includeTooManyRequests: false,
   })
   async delete(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.usersHttp.delete(id);
