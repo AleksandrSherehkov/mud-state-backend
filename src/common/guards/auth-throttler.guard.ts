@@ -3,6 +3,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import { normalizeIp } from 'src/common/helpers/ip-normalize';
 import { hashId } from 'src/common/helpers/log-sanitize';
 import { createHash } from 'node:crypto';
+import type { ExecutionContext } from '@nestjs/common';
 
 type BodyWithEmail = { email?: unknown };
 
@@ -15,6 +16,7 @@ type ReqLike = Record<string, unknown> & {
   body?: unknown;
   socket?: unknown;
   connection?: unknown;
+  headers?: unknown;
   cookies?: Record<string, unknown>;
   signedCookies?: Record<string, unknown>;
 };
@@ -102,7 +104,7 @@ function isPathContains(req: ReqLike, segment: string): boolean {
 }
 
 function getHeaderString(req: ReqLike, name: string): string {
-  const headersUnknown = (req as { headers?: unknown }).headers;
+  const headersUnknown = req.headers;
 
   if (!headersUnknown || typeof headersUnknown !== 'object') return '';
 
@@ -133,6 +135,15 @@ function sha256hex(input: string, slice = 16): string {
     .digest('hex')
     .slice(0, slice);
 }
+
+function getDeviceFingerprint(req: ReqLike): string {
+  const ua = getUserAgent(req) || 'noua';
+  const lang = getHeaderString(req, 'accept-language').slice(0, 64) || 'nolang';
+  const secChUa = getHeaderString(req, 'sec-ch-ua').slice(0, 128) || 'nochua';
+  const raw = `${ua}|${lang}|${secChUa}`;
+  return sha256hex(raw, 24);
+}
+
 @Injectable()
 export class AuthThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Record<string, any>): Promise<string> {
@@ -141,15 +152,7 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     const r = req as ReqLike;
     const ip = getIp(r);
 
-    const isLogin = isPostAndEndsWith(r, '/auth/login');
-    const isRegister = isPostAndEndsWith(r, '/auth/register');
     const isRefresh = isPostAndEndsWith(r, '/auth/refresh');
-
-    if (isLogin || isRegister) {
-      const emailHash = getEmailHash(r) ?? 'noemail';
-      return `${ip}:${emailHash}`;
-    }
-
     if (isRefresh) {
       const ua = getUserAgent(r);
       const uaHash = ua ? hashId(ua) : 'noua';
@@ -172,5 +175,30 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     }
 
     return ip;
+  }
+
+  protected generateKey(
+    context: ExecutionContext,
+    suffix: string,
+    name: string,
+  ): string {
+    const { req } = this.getRequestResponse(context);
+    const r = req as ReqLike;
+
+    const ip = getIp(r);
+    const emailHash = getEmailHash(r) ?? 'noemail';
+    const deviceFp = getDeviceFingerprint(r);
+
+    let scopedSuffix = suffix;
+
+    if (name === 'loginIp' || name === 'registerIp') {
+      scopedSuffix = ip;
+    } else if (name === 'loginAccount' || name === 'registerAccount') {
+      scopedSuffix = emailHash;
+    } else if (name === 'loginDevice' || name === 'registerDevice') {
+      scopedSuffix = `${ip}:${deviceFp}`;
+    }
+
+    return super.generateKey(context, scopedSuffix, name);
   }
 }

@@ -168,7 +168,7 @@ async function bootstrap() {
       'Content-Type',
       'Accept',
       'X-CSRF-Token',
-      'X-CSRF-API-Key',
+      'X-CSRF-Machine-Token',
     ],
     credentials: true,
     maxAge: 600,

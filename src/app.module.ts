@@ -22,6 +22,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { SecurityModule } from './common/security/security.module';
 import { BoundedThrottlerStorage } from './common/throttle/bounded-throttler.storage';
 import { FreshAccessGuard } from './common/guards/fresh-access.guard';
+import { THROTTLE_AUTH } from './common/throttle/throttle-env';
 
 @Module({
   imports: [
@@ -43,7 +44,15 @@ import { FreshAccessGuard } from './common/guards/fresh-access.guard';
         );
 
         return {
-          throttlers: [{ ttl, limit }],
+          throttlers: [
+            { name: 'default', ttl, limit },
+            { name: 'loginIp', ...THROTTLE_AUTH.loginIp },
+            { name: 'loginAccount', ...THROTTLE_AUTH.loginAccount },
+            { name: 'loginDevice', ...THROTTLE_AUTH.loginDevice },
+            { name: 'registerIp', ...THROTTLE_AUTH.registerIp },
+            { name: 'registerAccount', ...THROTTLE_AUTH.registerAccount },
+            { name: 'registerDevice', ...THROTTLE_AUTH.registerDevice },
+          ],
           storage: new BoundedThrottlerStorage(maxKeys, cleanupSec * 1000),
         };
       },

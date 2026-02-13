@@ -69,7 +69,8 @@ export class UsersController {
     notFoundMessage: 'Користувача не знайдено',
     unauthorizedDescription: 'Недійсний access token або неактивна сесія',
     unauthorizedMessageExample: 'Session is not active',
-    forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
+    forbiddenDescription:
+      'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
     forbiddenMessageExample: 'Недостатньо прав доступу',
   })
   async getById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
@@ -104,7 +105,8 @@ export class UsersController {
     notFoundMessage: 'Користувача не знайдено',
     unauthorizedDescription: 'Недійсний access token або неактивна сесія',
     unauthorizedMessageExample: 'Session is not active',
-    forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
+    forbiddenDescription:
+      'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
     forbiddenMessageExample: 'Недостатньо прав доступу',
   })
   async getByEmail(@Query() query: GetUserByEmailQueryDto) {

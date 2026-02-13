@@ -13,13 +13,29 @@ function ttl(name: string, def: number): number {
 }
 
 export const THROTTLE_AUTH = {
-  login: {
+  loginIp: {
     limit: num('THROTTLE_AUTH_LOGIN_LIMIT', 5),
     ttl: ttl('THROTTLE_AUTH_LOGIN_TTL_SEC', 60),
   },
-  register: {
+  loginAccount: {
+    limit: num('THROTTLE_AUTH_LOGIN_ACCOUNT_LIMIT', 5),
+    ttl: ttl('THROTTLE_AUTH_LOGIN_ACCOUNT_TTL_SEC', 300),
+  },
+  loginDevice: {
+    limit: num('THROTTLE_AUTH_LOGIN_DEVICE_LIMIT', 20),
+    ttl: ttl('THROTTLE_AUTH_LOGIN_DEVICE_TTL_SEC', 300),
+  },
+  registerIp: {
     limit: num('THROTTLE_AUTH_REGISTER_LIMIT', 3),
     ttl: ttl('THROTTLE_AUTH_REGISTER_TTL_SEC', 60),
+  },
+  registerAccount: {
+    limit: num('THROTTLE_AUTH_REGISTER_ACCOUNT_LIMIT', 3),
+    ttl: ttl('THROTTLE_AUTH_REGISTER_ACCOUNT_TTL_SEC', 900),
+  },
+  registerDevice: {
+    limit: num('THROTTLE_AUTH_REGISTER_DEVICE_LIMIT', 10),
+    ttl: ttl('THROTTLE_AUTH_REGISTER_DEVICE_TTL_SEC', 900),
   },
   refresh: {
     limit: num('THROTTLE_AUTH_REFRESH_LIMIT', 10),

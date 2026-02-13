@@ -9,6 +9,21 @@ function now() {
   return new Date();
 }
 
+function getSubnetKey(ip: string): string {
+  if (ip.includes('.')) {
+    const parts = ip.split('.');
+    if (parts.length === 4) return `${parts[0]}.${parts[1]}.${parts[2]}.0/24`;
+  }
+
+  if (ip.includes(':')) {
+    const parts = ip.split(':').filter(Boolean);
+    const prefix = parts.slice(0, 4).join(':') || '::';
+    return `${prefix}::/64`;
+  }
+
+  return 'unknown';
+}
+
 @Injectable()
 export class AuthSecurityService {
   constructor(
@@ -28,13 +43,12 @@ export class AuthSecurityService {
     };
   }
 
-  async assertNotLocked(userId: string) {
+  async assertNotLocked(userId: string, ip?: string | null) {
     const sec = await this.prisma.userSecurity.findUnique({
       where: { userId },
     });
-    if (!sec?.lockedUntil) return;
 
-    if (sec.lockedUntil.getTime() > Date.now()) {
+    if (sec?.lockedUntil && sec.lockedUntil.getTime() > Date.now()) {
       this.logger.warn(
         'Login blocked: account locked',
         AuthSecurityService.name,
@@ -47,10 +61,38 @@ export class AuthSecurityService {
 
       throw new UnauthorizedException('Невірний email або пароль');
     }
+
+    if (!ip) return;
+
+    const ipNorm = normalizeIp(ip);
+    const keys = [`ip:${ipNorm}`, `subnet:${getSubnetKey(ipNorm)}`];
+
+    const rows = await this.prisma.loginAbuseCounter.findMany({
+      where: {
+        key: { in: keys },
+        lockedUntil: { gt: now() },
+      },
+      select: { key: true, lockedUntil: true },
+    });
+
+    if (rows.length > 0) {
+      this.logger.warn(
+        'Login blocked: network lock',
+        AuthSecurityService.name,
+        {
+          event: 'auth.lock.block_network',
+          userId,
+          ipMasked: maskIp(ipNorm),
+          keys: rows.map((r) => r.key),
+        },
+      );
+
+      throw new UnauthorizedException('Невірний email або пароль');
+    }
   }
 
   async onLoginFailed(params: {
-    userId: string;
+    userId?: string;
     ip?: string | null;
     userAgent?: string | null;
   }) {
@@ -61,69 +103,80 @@ export class AuthSecurityService {
     const ipNorm = params.ip ? normalizeIp(params.ip) : null;
     const ipMasked = ipNorm ? maskIp(ipNorm) : undefined;
 
-    const prev = await this.prisma.userSecurity.findUnique({
-      where: { userId: params.userId },
-      select: { failedLoginCount: true, lastFailedAt: true, lockedUntil: true },
-    });
-
-    const windowExpired =
-      !prev?.lastFailedAt ||
-      (ts.getTime() - prev.lastFailedAt.getTime()) / 1000 > windowSec;
-
-    const nextCount = windowExpired ? 1 : (prev?.failedLoginCount ?? 0) + 1;
-    const attempt = Math.min(nextCount, 30);
-
-    const delaySec = Math.min(
-      maxSec,
-      baseSec * Math.pow(2, Math.max(0, attempt - 1)),
-    );
-
-    const lock =
-      attempt >= maxAttempts ? new Date(ts.getTime() + delaySec * 1000) : null;
-
-    await this.prisma.userSecurity.upsert({
-      where: { userId: params.userId },
-      create: {
-        userId: params.userId,
-        failedLoginCount: 1,
-        lastFailedAt: ts,
-        lockedUntil: lock,
-        lastFailedIp: ipNorm,
-        lastFailedUaHash: uaHash ?? null,
-      },
-      update: {
-        failedLoginCount: nextCount,
-        lastFailedAt: ts,
-        lockedUntil: lock,
-        lastFailedIp: ipNorm,
-        lastFailedUaHash: uaHash ?? null,
-      },
-    });
-
-    if (lock) {
-      this.logger.warn(
-        'Account locked after failed logins',
-        AuthSecurityService.name,
-        {
-          event: 'auth.lock.set',
-          userId: params.userId,
-          attempt,
-          delaySec,
-          ipMasked,
-          uaHash,
-          lockedUntil: lock.toISOString(),
+    if (params.userId) {
+      const prev = await this.prisma.userSecurity.findUnique({
+        where: { userId: params.userId },
+        select: {
+          failedLoginCount: true,
+          lastFailedAt: true,
+          lockedUntil: true,
         },
+      });
+
+      const windowExpired =
+        !prev?.lastFailedAt ||
+        (ts.getTime() - prev.lastFailedAt.getTime()) / 1000 > windowSec;
+
+      const nextCount = windowExpired ? 1 : (prev?.failedLoginCount ?? 0) + 1;
+      const attempt = Math.min(nextCount, 30);
+
+      const delaySec = Math.min(
+        maxSec,
+        baseSec * Math.pow(2, Math.max(0, attempt - 1)),
       );
-    } else {
-      this.logger.warn('Login failed recorded', AuthSecurityService.name, {
-        event: 'auth.login.fail.recorded',
-        userId: params.userId,
-        attempt,
-        delaySec,
-        ipMasked,
-        uaHash,
+
+      const lock =
+        attempt >= maxAttempts
+          ? new Date(ts.getTime() + delaySec * 1000)
+          : null;
+
+      await this.prisma.userSecurity.upsert({
+        where: { userId: params.userId },
+        create: {
+          userId: params.userId,
+          failedLoginCount: 1,
+          lastFailedAt: ts,
+          lockedUntil: lock,
+          lastFailedIp: ipNorm,
+          lastFailedUaHash: uaHash ?? null,
+        },
+        update: {
+          failedLoginCount: nextCount,
+          lastFailedAt: ts,
+          lockedUntil: lock,
+          lastFailedIp: ipNorm,
+          lastFailedUaHash: uaHash ?? null,
+        },
       });
     }
+
+    if (ipNorm) {
+      await this.recordNetworkFailure({
+        key: `ip:${ipNorm}`,
+        kind: 'ip',
+        ts,
+        windowSec,
+        maxAttempts,
+        baseSec,
+        maxSec,
+      });
+      await this.recordNetworkFailure({
+        key: `subnet:${getSubnetKey(ipNorm)}`,
+        kind: 'subnet',
+        ts,
+        windowSec,
+        maxAttempts: Math.max(maxAttempts * 2, 20),
+        baseSec,
+        maxSec,
+      });
+    }
+
+    this.logger.warn('Login failed recorded', AuthSecurityService.name, {
+      event: 'auth.login.fail.recorded',
+      userId: params.userId,
+      ipMasked,
+      uaHash,
+    });
 
     throw new UnauthorizedException('Невірний email або пароль');
   }
@@ -148,5 +201,56 @@ export class AuthSecurityService {
         userId,
       },
     );
+  }
+
+  private async recordNetworkFailure(params: {
+    key: string;
+    kind: string;
+    ts: Date;
+    windowSec: number;
+    maxAttempts: number;
+    baseSec: number;
+    maxSec: number;
+  }): Promise<void> {
+    const prev = await this.prisma.loginAbuseCounter.findUnique({
+      where: { key: params.key },
+      select: { failedCount: true, lastFailedAt: true },
+    });
+
+    const windowExpired =
+      !prev?.lastFailedAt ||
+      (params.ts.getTime() - prev.lastFailedAt.getTime()) / 1000 >
+        params.windowSec;
+
+    const nextCount = windowExpired ? 1 : (prev?.failedCount ?? 0) + 1;
+    const attempt = Math.min(nextCount, 30);
+    const delaySec = Math.min(
+      params.maxSec,
+      params.baseSec * Math.pow(2, Math.max(0, attempt - 1)),
+    );
+
+    const lock =
+      attempt >= params.maxAttempts
+        ? new Date(params.ts.getTime() + delaySec * 1000)
+        : null;
+
+    await this.prisma.loginAbuseCounter.upsert({
+      where: { key: params.key },
+      create: {
+        key: params.key,
+        kind: params.kind,
+        failedCount: nextCount,
+        lastFailedAt: params.ts,
+        windowStartedAt: params.ts,
+        lockedUntil: lock,
+      },
+      update: {
+        failedCount: nextCount,
+        kind: params.kind,
+        lastFailedAt: params.ts,
+        windowStartedAt: params.ts,
+        lockedUntil: lock,
+      },
+    });
   }
 }

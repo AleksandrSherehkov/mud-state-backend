@@ -60,19 +60,23 @@ export class AuthController {
   @UseGuards(CsrfGuard)
   @ApiCookieAuth('csrf_cookie')
   @ApiSecurity('csrf_header')
-  @ApiSecurity('csrf_api_key')
+  @ApiSecurity('csrf_machine_token')
   @ApiHeader({
     name: 'X-CSRF-Token',
     required: true,
     description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
   })
   @ApiHeader({
-    name: 'X-CSRF-API-Key',
+    name: 'X-CSRF-Machine-Token',
     required: false,
     description:
-      'Опційний ключ для non-browser клієнтів у production, коли Origin/Referer відсутній.',
+      'Короткоживучий machine token (JWT client credentials) для non-browser клієнтів у production, коли Origin/Referer відсутній.',
   })
-  @Throttle({ default: THROTTLE_AUTH.register })
+  @Throttle({
+    registerIp: THROTTLE_AUTH.registerIp,
+    registerAccount: THROTTLE_AUTH.registerAccount,
+    registerDevice: THROTTLE_AUTH.registerDevice,
+  })
   @ApiOperation({
     summary: 'Реєстрація нового користувача',
     operationId: 'auth_register',
@@ -87,7 +91,8 @@ export class AuthController {
     includeUnauthorized: false,
     includeForbidden: true,
     includeConflict: true,
-    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenDescription:
+      'CSRF перевірка не пройдена або заблокований Origin/Referer',
     forbiddenMessageExample: 'CSRF validation failed',
     conflictDescription: 'Email вже зареєстровано',
     conflictMessageExample: 'Електронна адреса вже використовується',
@@ -105,20 +110,24 @@ export class AuthController {
   @UseGuards(CsrfGuard)
   @ApiCookieAuth('csrf_cookie')
   @ApiSecurity('csrf_header')
-  @ApiSecurity('csrf_api_key')
+  @ApiSecurity('csrf_machine_token')
   @ApiHeader({
     name: 'X-CSRF-Token',
     required: true,
     description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
   })
   @ApiHeader({
-    name: 'X-CSRF-API-Key',
+    name: 'X-CSRF-Machine-Token',
     required: false,
     description:
-      'Опційний ключ для non-browser клієнтів у production, коли Origin/Referer відсутній.',
+      'Короткоживучий machine token (JWT client credentials) для non-browser клієнтів у production, коли Origin/Referer відсутній.',
   })
   @HttpCode(200)
-  @Throttle({ default: THROTTLE_AUTH.login })
+  @Throttle({
+    loginIp: THROTTLE_AUTH.loginIp,
+    loginAccount: THROTTLE_AUTH.loginAccount,
+    loginDevice: THROTTLE_AUTH.loginDevice,
+  })
   @ApiOperation({ summary: 'Вхід користувача', operationId: 'auth_login' })
   @ApiRolesAccess('PUBLIC', {
     sideEffects: AUTH_SIDE_EFFECTS.login,
@@ -131,7 +140,8 @@ export class AuthController {
   @ApiMutationErrorResponses({
     includeForbidden: true,
     includeConflict: false,
-    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenDescription:
+      'CSRF перевірка не пройдена або заблокований Origin/Referer',
     forbiddenMessageExample: 'CSRF validation failed',
     unauthorizedDescription: 'Невірний email або пароль',
     unauthorizedMessageExample: 'Невірний email або пароль',
@@ -180,17 +190,17 @@ export class AuthController {
   @ApiCookieAuth('refresh_cookie')
   @ApiCookieAuth('csrf_cookie')
   @ApiSecurity('csrf_header')
-  @ApiSecurity('csrf_api_key')
+  @ApiSecurity('csrf_machine_token')
   @ApiHeader({
     name: 'X-CSRF-Token',
     required: true,
     description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
   })
   @ApiHeader({
-    name: 'X-CSRF-API-Key',
+    name: 'X-CSRF-Machine-Token',
     required: false,
     description:
-      'Опційний ключ для non-browser клієнтів у production, коли Origin/Referer відсутній.',
+      'Короткоживучий machine token (JWT client credentials) для non-browser клієнтів у production, коли Origin/Referer відсутній.',
   })
   @Throttle({ default: THROTTLE_AUTH.refresh })
   @ApiOperation({ summary: 'Оновлення токенів', operationId: 'auth_refresh' })
@@ -207,7 +217,8 @@ export class AuthController {
   @ApiMutationErrorResponses({
     includeForbidden: true,
     includeConflict: false,
-    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenDescription:
+      'CSRF перевірка не пройдена або заблокований Origin/Referer',
     forbiddenMessageExample: 'CSRF validation failed',
     unauthorizedDescription:
       'Refresh токен недійсний / відкликаний / reuse detected',
@@ -224,17 +235,17 @@ export class AuthController {
   @UseGuards(CsrfGuard)
   @ApiCookieAuth('csrf_cookie')
   @ApiSecurity('csrf_header')
-  @ApiSecurity('csrf_api_key')
+  @ApiSecurity('csrf_machine_token')
   @ApiHeader({
     name: 'X-CSRF-Token',
     required: true,
     description: 'CSRF token (повинен збігатися зі значенням cookie csrfToken)',
   })
   @ApiHeader({
-    name: 'X-CSRF-API-Key',
+    name: 'X-CSRF-Machine-Token',
     required: false,
     description:
-      'Опційний ключ для non-browser клієнтів у production, коли Origin/Referer відсутній.',
+      'Короткоживучий machine token (JWT client credentials) для non-browser клієнтів у production, коли Origin/Referer відсутній.',
   })
   @Throttle({ default: THROTTLE_AUTH.logout })
   @ApiBearerAuth('access_bearer')
@@ -255,7 +266,8 @@ export class AuthController {
     includeConflict: false,
     includeBadRequest: false,
     includeForbidden: true,
-    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenDescription:
+      'CSRF перевірка не пройдена або заблокований Origin/Referer',
     forbiddenMessageExample: 'CSRF validation failed',
     notFoundMessage: 'Користувача не знайдено',
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',

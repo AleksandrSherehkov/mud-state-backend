@@ -87,7 +87,7 @@ Production-ready NestJS backend для керування автентифіка
 
 Система припускає, що:
 1. TLS термінація коректна і трафік до клієнта захищений HTTPS у production.
-2. Секрети (`JWT_*_SECRET`, `REFRESH_TOKEN_PEPPER`, `COOKIE_SECRET`, `CSRF_API_KEY`) не скомпрометовані.
+2. Секрети (`JWT_*_SECRET`, `REFRESH_TOKEN_PEPPER`, `COOKIE_SECRET`, `CSRF_MACHINE_TOKEN_ISSUER`, `CSRF_MACHINE_TOKEN_AUDIENCE`, `CSRF_MACHINE_TOKEN_PUBLIC_KEY`) не скомпрометовані.
 3. `TRUST_PROXY_HOPS` коректно налаштований для реального ланцюга проксі.
 4. Клієнт зберігає access token поза cookie (Bearer), refresh токен — у HttpOnly signed cookie.
 
@@ -198,7 +198,7 @@ Production-ready NestJS backend для керування автентифіка
 - `JWT_ISSUER`
 - `JWT_AUDIENCE`
 - `REFRESH_TOKEN_PEPPER` (hex, 64 символи)
-- `CSRF_API_KEY`
+- `CSRF_MACHINE_TOKEN_ISSUER`, `CSRF_MACHINE_TOKEN_AUDIENCE`, `CSRF_MACHINE_TOKEN_PUBLIC_KEY`
 - `COOKIE_SECRET`
 - `CORS_ORIGINS` (обовʼязково в усіх env, wildcard заборонений)
 
@@ -232,7 +232,9 @@ COOKIE_SECRET=change_me_cookie_secret_min_32_chars
 CORS_ORIGINS=http://localhost:5173
 CORS_ALLOW_NO_ORIGIN=true
 CSRF_TRUSTED_ORIGINS=http://localhost:5173
-CSRF_API_KEY=change_me_csrf_api_key_min_32_chars
+CSRF_MACHINE_TOKEN_ISSUER=mud-auth
+CSRF_MACHINE_TOKEN_AUDIENCE=mud-state-api
+CSRF_MACHINE_TOKEN_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
 
 THROTTLE_TTL_SEC=60
 THROTTLE_LIMIT=100

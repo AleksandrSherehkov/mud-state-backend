@@ -56,7 +56,7 @@ export class TokenService {
     return this.refreshHash.generateSaltHex();
   }
 
-  hashRefreshToken(token: string, salt?: string | null): string {
+  hashRefreshToken(token: string, salt?: string | null): Promise<string> {
     return this.refreshHash.hash(token, salt);
   }
   safeEqualHex(a: string, b: string): boolean {

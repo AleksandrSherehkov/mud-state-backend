@@ -7,7 +7,8 @@ import {
 import type { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { getCookieString } from 'src/common/http/cookies';
-import { timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual, createPublicKey } from 'node:crypto';
+import { verify, type JwtPayload } from 'jsonwebtoken';
 
 function isSafeMethod(method: string): boolean {
   const m = (method || '').toUpperCase();
@@ -53,7 +54,7 @@ export class CsrfGuard implements CanActivate {
 
     if (isProd) {
       this.assertProdTrustedConfigured(trusted);
-      this.assertProdOriginOrApiKey(req, trusted, signals);
+      this.assertProdOriginOrMachineToken(req, trusted, signals);
     } else {
       this.assertNonProdOriginIfPresent(trusted, signals);
     }
@@ -104,7 +105,7 @@ export class CsrfGuard implements CanActivate {
     );
   }
 
-  private assertProdOriginOrApiKey(
+  private assertProdOriginOrMachineToken(
     req: Request,
     trusted: string[],
     signals: OriginSignals,
@@ -114,7 +115,6 @@ export class CsrfGuard implements CanActivate {
 
     if (hasOrigin) {
       this.assertProdTrustedOrigin(trusted, signals);
-
       this.assertProdFetchSiteIfPresent(signals);
       return;
     }
@@ -126,7 +126,7 @@ export class CsrfGuard implements CanActivate {
 
     if (this.allowNoOriginInProd()) return;
 
-    this.assertNonBrowserAllowedByApiKey(req);
+    this.assertNonBrowserAllowedByMachineToken(req);
   }
 
   private assertProdTrustedOrigin(trusted: string[], signals: OriginSignals) {
@@ -177,20 +177,51 @@ export class CsrfGuard implements CanActivate {
     return timingSafeEqual(a, b);
   }
 
-  private assertNonBrowserAllowedByApiKey(req: Request): void {
-    const configuredApiKey = (
-      this.config.get<string>('CSRF_API_KEY') ?? ''
-    ).trim();
-    const requestApiKey = (req.header('x-csrf-api-key') ?? '').trim();
-
-    const allow =
-      configuredApiKey.length > 0 &&
-      requestApiKey.length > 0 &&
-      this.timingSafeEqualString(configuredApiKey, requestApiKey);
-
-    if (!allow) {
+  private assertNonBrowserAllowedByMachineToken(req: Request): void {
+    const token = (req.header('x-csrf-machine-token') ?? '').trim();
+    if (!token) {
       throw new ForbiddenException('CSRF validation failed (non-browser)');
     }
+
+    const publicKey = this.getRequiredConfig('CSRF_MACHINE_TOKEN_PUBLIC_KEY');
+    const issuer = this.getRequiredConfig('CSRF_MACHINE_TOKEN_ISSUER');
+    const audience = this.getRequiredConfig('CSRF_MACHINE_TOKEN_AUDIENCE');
+    const clockTolerance = Number(
+      this.config.get('CSRF_MACHINE_TOKEN_CLOCK_TOLERANCE_SEC') ?? 15,
+    );
+
+    let payload: string | JwtPayload;
+    try {
+      payload = verify(token, createPublicKey(publicKey), {
+        algorithms: ['RS256', 'ES256'],
+        issuer,
+        audience,
+        clockTolerance,
+      });
+    } catch {
+      throw new ForbiddenException('CSRF validation failed (machine_token)');
+    }
+
+    if (typeof payload === 'string') {
+      throw new ForbiddenException('CSRF validation failed (machine_token)');
+    }
+
+    const scope = String(payload.scope ?? '').trim();
+    const hasScope = scope
+      .split(/\s+/)
+      .some((s) => this.timingSafeEqualString(s, 'csrf:unsafe'));
+
+    if (!hasScope) {
+      throw new ForbiddenException('CSRF validation failed (machine_scope)');
+    }
+  }
+
+  private getRequiredConfig(name: string): string {
+    const value = (this.config.get<string>(name) ?? '').trim();
+    if (!value) {
+      throw new ForbiddenException(`CSRF validation failed (${name})`);
+    }
+    return value;
   }
 
   private assertNonProdOriginIfPresent(

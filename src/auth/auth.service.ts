@@ -97,10 +97,13 @@ export class AuthService {
         reason: 'user_not_found',
         emailHash,
       });
-      throw new UnauthorizedException('Невірний email або пароль');
+      return this.authSecurity.onLoginFailed({
+        ip: nip,
+        userAgent: ua,
+      }) as never;
     }
 
-    await this.authSecurity.assertNotLocked(user.id);
+    await this.authSecurity.assertNotLocked(user.id, nip);
 
     const isValid = await bcrypt.compare(dto.password, user.password);
     if (!isValid) {
@@ -263,7 +266,7 @@ export class AuthService {
     ]);
 
     const tokenSalt = this.tokenService.generateRefreshTokenSalt();
-    const tokenHash = this.tokenService.hashRefreshToken(
+    const tokenHash = await this.tokenService.hashRefreshToken(
       refreshToken,
       tokenSalt,
     );
@@ -458,7 +461,7 @@ export class AuthService {
     ]);
 
     const newSalt = this.tokenService.generateRefreshTokenSalt();
-    const newTokenHash = this.tokenService.hashRefreshToken(
+    const newTokenHash = await this.tokenService.hashRefreshToken(
       newRefreshToken,
       newSalt,
     );

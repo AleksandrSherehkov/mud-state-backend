@@ -73,6 +73,28 @@ export const envValidationSchema = Joi.object({
     .max(3600)
     .default(60),
 
+  THROTTLE_AUTH_LOGIN_ACCOUNT_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(5),
+  THROTTLE_AUTH_LOGIN_ACCOUNT_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(300),
+
+  THROTTLE_AUTH_LOGIN_DEVICE_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(20),
+  THROTTLE_AUTH_LOGIN_DEVICE_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(300),
+
   THROTTLE_AUTH_REGISTER_LIMIT: Joi.number()
     .integer()
     .min(1)
@@ -83,6 +105,28 @@ export const envValidationSchema = Joi.object({
     .min(1)
     .max(3600)
     .default(60),
+
+  THROTTLE_AUTH_REGISTER_ACCOUNT_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(3),
+  THROTTLE_AUTH_REGISTER_ACCOUNT_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(900),
+
+  THROTTLE_AUTH_REGISTER_DEVICE_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(10),
+  THROTTLE_AUTH_REGISTER_DEVICE_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(900),
 
   THROTTLE_AUTH_REFRESH_LIMIT: Joi.number()
     .integer()
@@ -233,6 +277,13 @@ export const envValidationSchema = Joi.object({
   REFRESH_BIND_UA: Joi.boolean().default(true),
   REFRESH_BIND_IP: Joi.boolean().default(false),
 
+  REFRESH_HASH_MAX_CONCURRENCY: Joi.number()
+    .integer()
+    .min(1)
+    .max(64)
+    .default(8),
+  REFRESH_HASH_MAX_QUEUE: Joi.number().integer().min(1).max(10000).default(200),
+
   AUTH_LOCK_MAX_ATTEMPTS: Joi.number().min(3).max(50).default(10),
   AUTH_LOCK_BASE_SECONDS: Joi.number().min(1).max(60).default(2),
   AUTH_LOCK_MAX_SECONDS: Joi.number().min(10).max(3600).default(300),
@@ -270,7 +321,14 @@ export const envValidationSchema = Joi.object({
     then: Joi.string().min(1).required(),
     otherwise: Joi.string().default(''),
   }),
-  CSRF_API_KEY: Joi.string().min(32).required(),
+  CSRF_MACHINE_TOKEN_ISSUER: Joi.string().min(1).required(),
+  CSRF_MACHINE_TOKEN_AUDIENCE: Joi.string().min(1).required(),
+  CSRF_MACHINE_TOKEN_PUBLIC_KEY: Joi.string().min(64).required(),
+  CSRF_MACHINE_TOKEN_CLOCK_TOLERANCE_SEC: Joi.number()
+    .integer()
+    .min(0)
+    .max(120)
+    .default(15),
 
   TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(10).default(1),
 
