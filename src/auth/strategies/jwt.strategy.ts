@@ -8,7 +8,7 @@ import { JwtPayload } from '../types/jwt.types';
 import { SessionsService } from 'src/sessions/sessions.service';
 import { AppLogger } from 'src/logger/logger.service';
 import { UsersService } from 'src/users/users.service';
-import { extractRequestInfo } from 'src/common/helpers/request-info';
+import { extractRequestInfo } from 'src/common/http/request-info';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {

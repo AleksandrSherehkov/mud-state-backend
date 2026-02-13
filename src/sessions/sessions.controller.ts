@@ -16,14 +16,13 @@ import {
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 
-import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { Roles } from 'src/common/decorators/roles.decorator';
+import { Roles } from 'src/common/security/decorators/roles.decorator';
 
 import {
   ApiListErrorResponses,
   ApiMutationErrorResponses,
-} from 'src/common/swagger/api-exceptions';
-import { ApiRolesAccess } from 'src/common/swagger/api-roles';
+} from 'src/common/swagger/decorators/api-exceptions';
+import { ApiRolesAccess } from 'src/common/swagger/decorators/api-roles';
 
 import { Throttle } from '@nestjs/throttler';
 
@@ -32,13 +31,15 @@ import { FullSessionDto } from './dto/full-session.dto';
 import { TerminateCountResponseDto } from './dto/terminate-count-response.dto';
 import { TerminateResultDto } from './dto/terminate-result.dto';
 
-import { UserFromJwt } from 'src/common/types/user-from-jwt';
-import { SESSIONS_SIDE_EFFECTS } from 'src/common/swagger/sessions.swagger';
-import { ApiSessionsLinks } from 'src/common/swagger/sessions.links';
-import { THROTTLE_SESSIONS } from 'src/common/throttle/throttle-env';
+import { UserFromJwt } from 'src/common/security/types/user-from-jwt';
+
+import { THROTTLE_SESSIONS } from 'src/common/throttle/config/throttle-env';
 
 import { SessionsHttpService } from './sessions-http.service';
-import { RequireFreshAccess } from 'src/common/decorators/require-fresh-access.decorator';
+import { RequireFreshAccess } from 'src/common/security/decorators/require-fresh-access.decorator';
+import { CurrentUser } from 'src/common/security/decorators/current-user.decorator';
+import { ApiSessionsLinks } from 'src/common/swagger/sessions/sessions.links';
+import { SESSIONS_SIDE_EFFECTS } from 'src/common/swagger/sessions/sessions.swagger';
 
 @ApiTags('sessions')
 @Controller({ path: 'sessions', version: '1' })

@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { FRESH_ACCESS_MAX_AGE_SEC_KEY } from 'src/common/decorators/require-fresh-access.decorator';
-import type { UserFromJwt } from 'src/common/types/user-from-jwt';
+import { FRESH_ACCESS_MAX_AGE_SEC_KEY } from 'src/common/security/decorators/require-fresh-access.decorator';
+import type { UserFromJwt } from 'src/common/security/types/user-from-jwt';
 
 type AuthRequest = Request & { user?: UserFromJwt };
 

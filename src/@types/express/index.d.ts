@@ -1,4 +1,4 @@
-import type { UserFromJwt } from 'src/common/types/user-from-jwt';
+import type { UserFromJwt } from 'src/common/security/types/user-from-jwt';
 
 declare global {
   namespace Express {

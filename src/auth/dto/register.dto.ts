@@ -1,6 +1,6 @@
 import { IsEmail, IsNotEmpty, IsString, Validate } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { PasswordPolicyValidator } from 'src/common/validators/password-policy.validator';
+import { PasswordPolicyValidator } from 'src/common/security/validators/password-policy.validator';
 
 export class RegisterDto {
   @ApiProperty({

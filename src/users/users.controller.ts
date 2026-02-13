@@ -19,21 +19,22 @@ import {
 import { Role } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
 
-import { Roles } from 'src/common/decorators/roles.decorator';
+import { Roles } from 'src/common/security/decorators/roles.decorator';
 
 import {
   ApiMutationErrorResponses,
   ApiQueryErrorResponses,
-} from 'src/common/swagger/api-exceptions';
-import { USERS_SIDE_EFFECTS } from 'src/common/swagger/users.swagger';
-import { ApiRolesAccess } from 'src/common/swagger/api-roles';
-import { ApiUsersLinks } from 'src/common/swagger/users.links';
-import { THROTTLE_USERS } from 'src/common/throttle/throttle-env';
+} from 'src/common/swagger/decorators/api-exceptions';
+import { USERS_SIDE_EFFECTS } from 'src/common/swagger/users/users.swagger';
+import { ApiRolesAccess } from 'src/common/swagger/decorators/api-roles';
+
+import { THROTTLE_USERS } from 'src/common/throttle/config/throttle-env';
 
 import { UpdateUserDto } from './dto/update-user.dto';
 import { GetUserByEmailQueryDto } from './dto/get-user-by-email.query';
 import { UsersHttpService } from './users-http.service';
-import { RequireFreshAccess } from 'src/common/decorators/require-fresh-access.decorator';
+import { RequireFreshAccess } from 'src/common/security/decorators/require-fresh-access.decorator';
+import { ApiUsersLinks } from 'src/common/swagger/users/users.links';
 
 @ApiTags('users')
 @Controller({
@@ -69,7 +70,8 @@ export class UsersController {
     notFoundMessage: 'Користувача не знайдено',
     unauthorizedDescription: 'Недійсний access token або неактивна сесія',
     unauthorizedMessageExample: 'Session is not active',
-    forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
+    forbiddenDescription:
+      'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
     forbiddenMessageExample: 'Недостатньо прав доступу',
   })
   async getById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
@@ -104,7 +106,8 @@ export class UsersController {
     notFoundMessage: 'Користувача не знайдено',
     unauthorizedDescription: 'Недійсний access token або неактивна сесія',
     unauthorizedMessageExample: 'Session is not active',
-    forbiddenDescription: 'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
+    forbiddenDescription:
+      'Недостатньо прав доступу (потрібна роль ADMIN/MODERATOR)',
     forbiddenMessageExample: 'Недостатньо прав доступу',
   })
   async getByEmail(@Query() query: GetUserByEmailQueryDto) {

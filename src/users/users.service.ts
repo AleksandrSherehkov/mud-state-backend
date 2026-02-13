@@ -10,7 +10,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { ConfigService } from '@nestjs/config';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AppLogger } from 'src/logger/logger.service';
-import { hashId } from 'src/common/helpers/log-sanitize';
+import { hashId } from 'src/common/logging/log-sanitize';
 
 function errMeta(err: unknown) {
   if (err instanceof Error) {

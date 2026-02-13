@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
-import { normalizeIp } from 'src/common/helpers/ip-normalize';
-import { hashId } from 'src/common/helpers/log-sanitize';
+import { normalizeIp } from 'src/common/net/ip-normalize';
+import { hashId } from 'src/common/logging/log-sanitize';
 import { createHash } from 'node:crypto';
 
 type BodyWithEmail = { email?: unknown };

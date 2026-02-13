@@ -1,5 +1,5 @@
 import { Global, Module } from '@nestjs/common';
-import { RefreshTokenHashService } from './refresh-token-hash.service';
+import { RefreshTokenHashService } from './crypto/refresh-token-hash.service';
 
 @Global()
 @Module({

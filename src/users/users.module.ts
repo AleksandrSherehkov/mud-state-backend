@@ -4,7 +4,7 @@ import { UsersController } from './users.controller';
 
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { LoggerModule } from 'src/logger/logger.module';
-import { ValidatorsModule } from 'src/common/validators/validators.module';
+import { ValidatorsModule } from 'src/common/security/validators/validators.module';
 import { UsersHttpService } from './users-http.service';
 
 @Module({

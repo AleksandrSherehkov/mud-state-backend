@@ -8,13 +8,13 @@ import { Observable } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import type { Request, Response } from 'express';
 import { AppLogger } from 'src/logger/logger.service';
-import { extractRequestInfo } from 'src/common/helpers/request-info';
+import { extractRequestInfo } from 'src/common/http/request-info';
 import { getRequestId } from 'src/common/request-context/request-context';
 import {
   hashId,
   maskIp,
   normalizeUserAgent,
-} from 'src/common/helpers/log-sanitize';
+} from 'src/common/logging/log-sanitize';
 
 @Injectable()
 export class HttpLoggingInterceptor implements NestInterceptor {

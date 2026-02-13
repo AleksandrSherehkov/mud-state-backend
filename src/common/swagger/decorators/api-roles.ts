@@ -1,7 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiExtension } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
-import { buildDescription } from './description.builder';
+import { buildDescription } from '../utils/description.builder';
 
 export function ApiRolesAccess(
   roles: readonly Role[] | 'PUBLIC' | 'AUTHENTICATED',

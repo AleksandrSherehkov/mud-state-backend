@@ -25,16 +25,14 @@ import { Throttle } from '@nestjs/throttler';
 import {
   ApiMutationErrorResponses,
   ApiQueryErrorResponses,
-} from 'src/common/swagger/api-exceptions';
-import { ApiRolesAccess } from 'src/common/swagger/api-roles';
-import { AUTH_SIDE_EFFECTS } from 'src/common/swagger/auth.swagger';
-import { ApiAuthLinks } from 'src/common/swagger/auth.links';
+} from 'src/common/swagger/decorators/api-exceptions';
+import { ApiRolesAccess } from 'src/common/swagger/decorators/api-roles';
+import { AUTH_SIDE_EFFECTS } from 'src/common/swagger/auth/auth.swagger';
+import { ApiAuthLinks } from 'src/common/swagger/auth/auth.links';
 
-import { CsrfGuard } from 'src/common/guards/csrf.guard';
+import { CsrfGuard } from 'src/common/security/guards/csrf.guard';
 
-import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-
-import { THROTTLE_AUTH } from 'src/common/throttle/throttle-env';
+import { THROTTLE_AUTH } from 'src/common/throttle/config/throttle-env';
 
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -45,7 +43,8 @@ import { LogoutResponseDto } from './dto/logout-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
 
 import { AuthHttpService } from './auth-http.service';
-import { Public } from 'src/common/decorators/public.decorator';
+import { Public } from 'src/common/security/decorators/public.decorator';
+import { CurrentUser } from 'src/common/security/decorators/current-user.decorator';
 
 @ApiTags('auth')
 @Controller({
@@ -87,7 +86,8 @@ export class AuthController {
     includeUnauthorized: false,
     includeForbidden: true,
     includeConflict: true,
-    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenDescription:
+      'CSRF перевірка не пройдена або заблокований Origin/Referer',
     forbiddenMessageExample: 'CSRF validation failed',
     conflictDescription: 'Email вже зареєстровано',
     conflictMessageExample: 'Електронна адреса вже використовується',
@@ -131,7 +131,8 @@ export class AuthController {
   @ApiMutationErrorResponses({
     includeForbidden: true,
     includeConflict: false,
-    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenDescription:
+      'CSRF перевірка не пройдена або заблокований Origin/Referer',
     forbiddenMessageExample: 'CSRF validation failed',
     unauthorizedDescription: 'Невірний email або пароль',
     unauthorizedMessageExample: 'Невірний email або пароль',
@@ -207,7 +208,8 @@ export class AuthController {
   @ApiMutationErrorResponses({
     includeForbidden: true,
     includeConflict: false,
-    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenDescription:
+      'CSRF перевірка не пройдена або заблокований Origin/Referer',
     forbiddenMessageExample: 'CSRF validation failed',
     unauthorizedDescription:
       'Refresh токен недійсний / відкликаний / reuse detected',
@@ -255,7 +257,8 @@ export class AuthController {
     includeConflict: false,
     includeBadRequest: false,
     includeForbidden: true,
-    forbiddenDescription: 'CSRF перевірка не пройдена або заблокований Origin/Referer',
+    forbiddenDescription:
+      'CSRF перевірка не пройдена або заблокований Origin/Referer',
     forbiddenMessageExample: 'CSRF validation failed',
     notFoundMessage: 'Користувача не знайдено',
     unauthorizedDescription: 'Недійсний access token або сесія вже завершена',

@@ -10,18 +10,22 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from './logger/logger.module';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor';
-import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+
+import { GlobalExceptionFilter } from './common/http/filters/global-exception.filter';
 import { RequestContextModule } from './common/request-context/request-context.module';
 import { JobsModule } from './jobs/jobs.module';
-import { AuthThrottlerGuard } from './common/guards/auth-throttler.guard';
+
 import { resolveEnvFilePath } from './config/env-path';
 import { envValidationSchema } from './config/env.validation';
-import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
-import { RolesGuard } from './common/guards/roles.guard';
+
 import { SecurityModule } from './common/security/security.module';
-import { BoundedThrottlerStorage } from './common/throttle/bounded-throttler.storage';
-import { FreshAccessGuard } from './common/guards/fresh-access.guard';
+
+import { HttpLoggingInterceptor } from './common/logging/http-logging.interceptor';
+import { AuthThrottlerGuard } from './common/security/guards/auth-throttler.guard';
+import { FreshAccessGuard } from './common/security/guards/fresh-access.guard';
+import { JwtAuthGuard } from './common/security/guards/jwt-auth.guard';
+import { RolesGuard } from './common/security/guards/roles.guard';
+import { BoundedThrottlerStorage } from './common/throttle/storage/bounded-throttler.storage';
 
 @Module({
   imports: [

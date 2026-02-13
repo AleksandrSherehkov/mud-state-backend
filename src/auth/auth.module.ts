@@ -9,12 +9,12 @@ import { TokenService } from './token.service';
 import { LoggerModule } from 'src/logger/logger.module';
 import type { StringValue } from 'ms';
 import { AuthSecurityService } from './auth-security.service';
-import { ValidatorsModule } from 'src/common/validators/validators.module';
+import { ValidatorsModule } from 'src/common/security/validators/validators.module';
 import { AuthMaintenanceService } from './auth-maintenance.service';
 import { AuthTransactionService } from './auth-transaction.service';
 import { SessionsModule } from 'src/sessions/sessions.module';
 import { UsersModule } from 'src/users/users.module';
-import { CsrfGuard } from 'src/common/guards/csrf.guard';
+import { CsrfGuard } from 'src/common/security/guards/csrf.guard';
 import { AuthCookieService } from './auth-cookie.service';
 import { AuthHttpService } from './auth-http.service';
 

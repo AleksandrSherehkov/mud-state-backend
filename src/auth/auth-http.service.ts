@@ -4,7 +4,7 @@ import type { Request, Response as ExpressResponse } from 'express';
 import { AuthService } from './auth.service';
 import { AuthCookieService } from './auth-cookie.service';
 
-import { extractRequestInfo } from 'src/common/helpers/request-info';
+import { extractRequestInfo } from 'src/common/http/request-info';
 import { getRefreshTokenFromRequest } from 'src/common/http/refresh-token';
 
 import { RegisterDto } from './dto/register.dto';

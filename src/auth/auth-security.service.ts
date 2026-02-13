@@ -2,8 +2,8 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { AppLogger } from 'src/logger/logger.service';
-import { hashId, maskIp } from 'src/common/helpers/log-sanitize';
-import { normalizeIp } from 'src/common/helpers/ip-normalize';
+import { hashId, maskIp } from 'src/common/logging/log-sanitize';
+import { normalizeIp } from 'src/common/net/ip-normalize';
 
 function now() {
   return new Date();

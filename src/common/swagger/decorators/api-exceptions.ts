@@ -10,7 +10,7 @@ import {
   ApiExtraModels,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { ApiErrorResponseDto } from './api-error-response.dto';
+import { ApiErrorResponseDto } from '../dto/api-error-response.dto';
 
 type CommonErrorsOptions = {
   includeBadRequest?: boolean;

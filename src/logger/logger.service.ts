@@ -1,6 +1,6 @@
 import { Injectable, LoggerService, Scope } from '@nestjs/common';
 import type { Logger as WinstonLogger } from 'winston';
-import { sanitizeMeta, sanitizeString } from 'src/common/helpers/log-sanitize';
+import { sanitizeMeta, sanitizeString } from 'src/common/logging/log-sanitize';
 import { getRequestId } from 'src/common/request-context/request-context';
 
 type Meta = Record<string, unknown>;

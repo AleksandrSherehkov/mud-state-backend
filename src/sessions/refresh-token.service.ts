@@ -1,13 +1,13 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AppLogger } from 'src/logger/logger.service';
-import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
+import { maskIp, hashId } from 'src/common/logging/log-sanitize';
 import { Prisma } from '@prisma/client';
-import { normalizeIp } from 'src/common/helpers/ip-normalize';
+import { normalizeIp } from 'src/common/net/ip-normalize';
 import { ConfigService } from '@nestjs/config';
 
 import * as ms from 'ms';
-import { RefreshTokenHashService } from 'src/common/security/refresh-token-hash.service';
+import { RefreshTokenHashService } from 'src/common/security/crypto/refresh-token-hash.service';
 import { SessionLifecycleService } from './session-lifecycle.service';
 
 @Injectable()

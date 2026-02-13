@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from './types/jwt.types';
 import type { StringValue } from 'ms';
 import { AppLogger } from 'src/logger/logger.service';
-import { RefreshTokenHashService } from 'src/common/security/refresh-token-hash.service';
+import { RefreshTokenHashService } from 'src/common/security/crypto/refresh-token-hash.service';
 
 @Injectable()
 export class TokenService {

@@ -1,5 +1,5 @@
 import { format } from 'winston';
-import { sanitizeMeta, sanitizeString } from 'src/common/helpers/log-sanitize';
+import { sanitizeMeta, sanitizeString } from 'src/common/logging/log-sanitize';
 
 export const sanitizeFormat = format((info) => {
   const safeMessage = sanitizeString(

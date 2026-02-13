@@ -1,5 +1,5 @@
 import * as crypto from 'node:crypto';
-import { normalizeIp } from './ip-normalize';
+import { normalizeIp } from '../net/ip-normalize';
 
 const MAX_UA = 255;
 

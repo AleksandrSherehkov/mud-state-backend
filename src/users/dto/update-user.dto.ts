@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
-import { PasswordPolicyValidator } from 'src/common/validators/password-policy.validator';
+import { PasswordPolicyValidator } from 'src/common/security/validators/password-policy.validator';
 
 export class UpdateUserDto {
   @ApiPropertyOptional({ example: 'user@example.com', format: 'email' })

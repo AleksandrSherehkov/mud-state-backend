@@ -9,14 +9,14 @@ import {
 import type { Request, Response } from 'express-serve-static-core';
 import { ConfigService } from '@nestjs/config';
 import { AppLogger } from 'src/logger/logger.service';
-import { extractRequestInfo } from 'src/common/helpers/request-info';
+import { extractRequestInfo } from 'src/common/http/request-info';
 import { getRequestId } from 'src/common/request-context/request-context';
 import {
   maskIp,
   hashId,
   normalizeUserAgent,
-} from 'src/common/helpers/log-sanitize';
-import { UserFromJwt } from 'src/common/types/user-from-jwt';
+} from 'src/common/logging/log-sanitize';
+import { UserFromJwt } from 'src/common/security/types/user-from-jwt';
 
 type ErrorBody = {
   statusCode: number;

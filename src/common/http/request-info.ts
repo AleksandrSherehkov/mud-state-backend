@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import { normalizeIp } from './ip-normalize';
+import { normalizeIp } from '../net/ip-normalize';
 import { createHash } from 'node:crypto';
 
 const MAX_USER_AGENT_LENGTH = 255;

@@ -1,9 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { normalizeIp } from 'src/common/helpers/ip-normalize';
+import { normalizeIp } from 'src/common/net/ip-normalize';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AppLogger } from 'src/logger/logger.service';
-import { maskIp, hashId } from 'src/common/helpers/log-sanitize';
+import { maskIp, hashId } from 'src/common/logging/log-sanitize';
 import { RefreshTokenService } from './refresh-token.service';
 import { ConfigService } from '@nestjs/config';
 

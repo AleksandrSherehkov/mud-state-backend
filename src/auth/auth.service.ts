@@ -13,9 +13,9 @@ import { TokenService } from './token.service';
 
 import { Role } from '@prisma/client';
 
-import { normalizeIp } from 'src/common/helpers/ip-normalize';
+import { normalizeIp } from 'src/common/net/ip-normalize';
 import { AppLogger } from 'src/logger/logger.service';
-import { hashId, maskIp } from 'src/common/helpers/log-sanitize';
+import { hashId, maskIp } from 'src/common/logging/log-sanitize';
 import { AuthSecurityService } from './auth-security.service';
 import { AuthTransactionService } from './auth-transaction.service';
 import { ConfigService } from '@nestjs/config';

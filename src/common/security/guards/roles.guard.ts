@@ -5,10 +5,11 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ROLES_KEY } from '../decorators/roles.decorator';
+
 import type { Request } from 'express';
 import { Role } from '@prisma/client';
 import { AppLogger } from 'src/logger/logger.service';
+import { ROLES_KEY } from 'src/common/security/decorators/roles.decorator';
 
 type RequestUserWithRole = { userId?: string; role: Role; sid?: string };
 
