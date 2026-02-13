@@ -20,12 +20,12 @@ import { envValidationSchema } from './config/env.validation';
 
 import { SecurityModule } from './common/security/security.module';
 
-import { HttpLoggingInterceptor } from './common/logging/http-logging.interceptor';
 import { AuthThrottlerGuard } from './common/security/guards/auth-throttler.guard';
 import { FreshAccessGuard } from './common/security/guards/fresh-access.guard';
 import { JwtAuthGuard } from './common/security/guards/jwt-auth.guard';
 import { RolesGuard } from './common/security/guards/roles.guard';
 import { BoundedThrottlerStorage } from './common/throttle/storage/bounded-throttler.storage';
+import { HttpLoggingInterceptor } from './common/http/interceptors/http-logging.interceptor';
 
 @Module({
   imports: [
