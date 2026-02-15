@@ -1,7 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import type { Request, Response as ExpressResponse } from 'express';
 
-import { AuthService } from './auth.service';
 import { AuthCookieService } from './auth-cookie.service';
 
 import { extractRequestInfo } from 'src/common/http/request-info';
@@ -15,10 +14,20 @@ import { TokenResponseDto } from './dto/token-response.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 
+import { RegisterUseCase } from './use-cases/register.use-case';
+import { LoginUseCase } from './use-cases/login.use-case';
+import { RefreshUseCase } from './use-cases/refresh.use-case';
+import { LogoutUseCase } from './use-cases/logout.use-case';
+import { GetMeUseCase } from './use-cases/get-me.use-case';
+
 @Injectable()
 export class AuthHttpService {
   constructor(
-    private readonly auth: AuthService,
+    private readonly registerUc: RegisterUseCase,
+    private readonly loginUc: LoginUseCase,
+    private readonly refreshUc: RefreshUseCase,
+    private readonly logoutUc: LogoutUseCase,
+    private readonly meUc: GetMeUseCase,
     private readonly cookies: AuthCookieService,
   ) {}
 
@@ -28,7 +37,8 @@ export class AuthHttpService {
     res: ExpressResponse,
   ): Promise<RegisterResponseDto> {
     const { ip, userAgent, geo } = extractRequestInfo(req);
-    const result = await this.auth.register(dto, ip, userAgent, geo);
+
+    const result = await this.registerUc.execute(dto, { ip, userAgent, geo });
 
     this.cookies.setAuthCookies(res, req, result.refreshToken);
 
@@ -48,7 +58,8 @@ export class AuthHttpService {
     res: ExpressResponse,
   ): Promise<TokenResponseDto> {
     const { ip, userAgent, geo } = extractRequestInfo(req);
-    const result = await this.auth.login(dto, ip, userAgent, geo);
+
+    const result = await this.loginUc.execute(dto, { ip, userAgent, geo });
 
     this.cookies.setAuthCookies(res, req, result.refreshToken);
 
@@ -68,7 +79,11 @@ export class AuthHttpService {
     const refreshToken = getRefreshTokenFromRequest(req);
     if (!refreshToken) throw new UnauthorizedException('Недійсний токен');
 
-    const result = await this.auth.refresh(refreshToken, ip, userAgent, geo);
+    const result = await this.refreshUc.execute(refreshToken, {
+      ip,
+      userAgent,
+      geo,
+    });
 
     this.cookies.setRefreshCookie(res, req, result.refreshToken);
 
@@ -83,7 +98,7 @@ export class AuthHttpService {
     req: Request,
     res: ExpressResponse,
   ): Promise<LogoutResponseDto> {
-    const result = await this.auth.logout(userId);
+    const result = await this.logoutUc.execute(userId);
 
     this.cookies.clearAuthCookies(res, req);
 
@@ -94,7 +109,7 @@ export class AuthHttpService {
   }
 
   async getMe(userId: string): Promise<MeResponseDto> {
-    const user = await this.auth.getMe(userId);
+    const user = await this.meUc.execute(userId);
     return new MeResponseDto(user);
   }
 }
