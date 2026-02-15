@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 
-import { TokenService } from '../../token.service';
+import { JwtTokenService } from '../../jwtTokenService';
 import { UsersService } from 'src/users/users.service';
 import { SessionsService } from 'src/sessions/sessions.service';
 
@@ -14,7 +14,7 @@ import type { JwtPayload } from '../../types/jwt.types';
 @Injectable()
 export class RefreshVerifier {
   constructor(
-    private readonly tokenService: TokenService,
+    private readonly jwtTokenService: JwtTokenService,
     private readonly usersService: UsersService,
     private readonly sessionsService: SessionsService,
     private readonly logger: AppLogger,
@@ -24,7 +24,7 @@ export class RefreshVerifier {
 
   async verifyRefreshOrThrow(refreshToken: string): Promise<JwtPayload> {
     try {
-      return await this.tokenService.verifyRefreshToken(refreshToken);
+      return await this.jwtTokenService.verifyRefreshToken(refreshToken);
     } catch {
       this.logger.warn(
         'Refresh failed: invalid token signature',

@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 
-import { TokenService } from '../../token.service';
+import { JwtTokenService } from '../../jwtTokenService';
 import { AuthTransactionService } from '../../auth-transaction.service';
 
 import { RefreshTokenService } from 'src/sessions/refresh-token.service';
@@ -23,7 +23,7 @@ export class RefreshClaimFailed extends Error {
 @Injectable()
 export class RefreshRotationService {
   constructor(
-    private readonly tokenService: TokenService,
+    private readonly jwtTokenService: JwtTokenService,
     private readonly tx: AuthTransactionService,
     private readonly refreshTokenService: RefreshTokenService,
     private readonly sessionsService: SessionsService,
@@ -54,12 +54,12 @@ export class RefreshRotationService {
     };
 
     const [accessToken, newRefreshToken] = await Promise.all([
-      this.tokenService.signAccessToken(newPayload),
-      this.tokenService.signRefreshToken(newPayload),
+      this.jwtTokenService.signAccessToken(newPayload),
+      this.jwtTokenService.signRefreshToken(newPayload),
     ]);
 
-    const newSalt = this.tokenService.generateRefreshTokenSalt();
-    const newTokenHash = this.tokenService.hashRefreshToken(
+    const newSalt = this.jwtTokenService.generateRefreshTokenSalt();
+    const newTokenHash = this.jwtTokenService.hashRefreshToken(
       newRefreshToken,
       newSalt,
     );

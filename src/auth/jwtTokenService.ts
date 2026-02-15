@@ -7,14 +7,14 @@ import { AppLogger } from 'src/logger/logger.service';
 import { RefreshTokenHashService } from 'src/common/security/crypto/refresh-token-hash.service';
 
 @Injectable()
-export class TokenService {
+export class JwtTokenService {
   constructor(
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly logger: AppLogger,
     private readonly refreshHash: RefreshTokenHashService,
   ) {
-    this.logger.setContext(TokenService.name);
+    this.logger.setContext(JwtTokenService.name);
   }
   private issuer() {
     return this.getRequired('JWT_ISSUER');
@@ -29,7 +29,7 @@ export class TokenService {
       this.logger.error(
         'Missing required config value',
         undefined,
-        TokenService.name,
+        JwtTokenService.name,
         {
           event: 'token.config.missing',
           key,
@@ -100,12 +100,16 @@ export class TokenService {
       const name = err instanceof Error ? err.name : 'UnknownError';
       const msg = err instanceof Error ? err.message : String(err);
 
-      this.logger.warn('Refresh token verification failed', TokenService.name, {
-        event: 'token.refresh.verify_failed',
-        errorName: name,
+      this.logger.warn(
+        'Refresh token verification failed',
+        JwtTokenService.name,
+        {
+          event: 'token.refresh.verify_failed',
+          errorName: name,
 
-        errorMessage: msg,
-      });
+          errorMessage: msg,
+        },
+      );
 
       throw new UnauthorizedException('Недійсний refresh токен');
     }

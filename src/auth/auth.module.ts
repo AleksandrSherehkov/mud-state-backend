@@ -12,7 +12,7 @@ import { ValidatorsModule } from 'src/common/security/validators/validators.modu
 import { SessionsModule } from 'src/sessions/sessions.module';
 import { UsersModule } from 'src/users/users.module';
 
-import { TokenService } from './token.service';
+import { JwtTokenService } from './jwtTokenService';
 import { AuthSecurityService } from './auth-security.service';
 import { AuthMaintenanceService } from './auth-maintenance.service';
 import { AuthTransactionService } from './auth-transaction.service';
@@ -57,7 +57,7 @@ import { RefreshIncidentResponseService } from './use-cases/refresh/refresh.inci
     AuthSecurityService,
     AuthMaintenanceService,
     JwtStrategy,
-    TokenService,
+    JwtTokenService,
     CsrfGuard,
     AuthCookieService,
     AuthTokensService,

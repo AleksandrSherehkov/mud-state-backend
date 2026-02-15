@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { Role } from '@prisma/client';
 
-import { TokenService } from './token.service';
+import { JwtTokenService } from './jwtTokenService';
 import { AuthTransactionService } from './auth-transaction.service';
 
 import { RefreshTokenService } from 'src/sessions/refresh-token.service';
@@ -18,7 +18,7 @@ import type { Tokens, JwtPayload } from './types/jwt.types';
 @Injectable()
 export class AuthTokensService {
   constructor(
-    private readonly tokenService: TokenService,
+    private readonly jwtTokenService: JwtTokenService,
     private readonly refreshTokenService: RefreshTokenService,
     private readonly sessionsService: SessionsService,
     private readonly tx: AuthTransactionService,
@@ -58,12 +58,12 @@ export class AuthTokensService {
     };
 
     const [accessToken, refreshToken] = await Promise.all([
-      this.tokenService.signAccessToken(payload),
-      this.tokenService.signRefreshToken(payload),
+      this.jwtTokenService.signAccessToken(payload),
+      this.jwtTokenService.signRefreshToken(payload),
     ]);
 
-    const tokenSalt = this.tokenService.generateRefreshTokenSalt();
-    const tokenHash = this.tokenService.hashRefreshToken(
+    const tokenSalt = this.jwtTokenService.generateRefreshTokenSalt();
+    const tokenHash = this.jwtTokenService.hashRefreshToken(
       refreshToken,
       tokenSalt,
     );
