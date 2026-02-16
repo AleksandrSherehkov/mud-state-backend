@@ -38,13 +38,35 @@ export const envValidationSchema = Joi.object({
   AUTH_MAX_ACTIVE_SESSIONS: Joi.number().integer().min(1).max(50).default(1),
 
   PORT: Joi.number().default(3000),
-  BASE_URL: Joi.string().uri().default('http://localhost:3000'),
+  BASE_URL: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string()
+      .uri({ scheme: ['https'] })
+      .required(),
+    otherwise: Joi.string().uri().default('http://localhost:3000'),
+  }),
 
   BCRYPT_SALT_ROUNDS: Joi.number().default(10),
 
   // throttler global
   THROTTLE_TTL_SEC: Joi.number().integer().min(1).max(3600).default(60),
   THROTTLE_LIMIT: Joi.number().integer().min(1).max(10000).default(100),
+
+  // ✅ Redis throttling backend (required)
+  THROTTLE_REDIS_URL: Joi.string().min(1).required(),
+  THROTTLE_REDIS_PREFIX: Joi.string().default('throttle:'),
+
+  // ✅ Redis health-check policy (always enabled)
+  THROTTLE_REDIS_HEALTHCHECK: Joi.boolean().default(true),
+  THROTTLE_REDIS_HEALTHCHECK_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(100)
+    .max(10_000)
+    .default(1000),
+
+  // ✅ я би лишив strict=true завжди, бо throttling тепер залежить від Redis
+  THROTTLE_REDIS_HEALTHCHECK_STRICT: Joi.boolean().default(true),
+
   // ✅ hard upper-bound для всех per-route TTL, чтобы store не раздувался
   THROTTLE_STORE_MAX_TTL_SEC: Joi.number()
     .integer()
@@ -52,19 +74,6 @@ export const envValidationSchema = Joi.object({
     .max(3600)
     .default(300),
 
-  // ✅ hard cap на количество ключей в in-memory throttler store
-  THROTTLE_STORE_MAX_KEYS: Joi.number()
-    .integer()
-    .min(1000)
-    .max(5_000_000)
-    .default(50_000),
-
-  // ✅ периодическая чистка истекших ключей (сек)
-  THROTTLE_STORE_CLEANUP_INTERVAL_SEC: Joi.number()
-    .integer()
-    .min(1)
-    .max(3600)
-    .default(60),
   // auth throttles
   THROTTLE_AUTH_LOGIN_LIMIT: Joi.number().integer().min(1).max(1000).default(5),
   THROTTLE_AUTH_LOGIN_TTL_SEC: Joi.number()
@@ -250,8 +259,11 @@ export const envValidationSchema = Joi.object({
   CORS_ORIGINS: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().min(1).required(),
-    otherwise: Joi.string().default(''),
+    otherwise: Joi.string().default(
+      'http://localhost:3000,http://127.0.0.1:3000',
+    ),
   }),
+
   CORS_ALLOW_NO_ORIGIN: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.boolean().valid(false).default(false),
@@ -268,7 +280,9 @@ export const envValidationSchema = Joi.object({
   CSRF_TRUSTED_ORIGINS: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().min(1).required(),
-    otherwise: Joi.string().default(''),
+    otherwise: Joi.string().default(
+      'http://localhost:3000,http://127.0.0.1:3000',
+    ),
   }),
   CSRF_API_KEY: Joi.string().min(32).required(),
 

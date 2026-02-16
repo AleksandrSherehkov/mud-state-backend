@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-
 import { ThrottlerModule } from '@nestjs/throttler';
+import type { ThrottlerStorage } from '@nestjs/throttler';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -24,8 +24,23 @@ import { AuthThrottlerGuard } from './common/security/guards/auth-throttler.guar
 import { FreshAccessGuard } from './common/security/guards/fresh-access.guard';
 import { JwtAuthGuard } from './common/security/guards/jwt-auth.guard';
 import { RolesGuard } from './common/security/guards/roles.guard';
-import { BoundedThrottlerStorage } from './common/throttle/storage/bounded-throttler.storage';
+
+import { RedisThrottlerStorage } from './common/throttle/storage/redis-throttler.storage';
+
 import { HttpLoggingInterceptor } from './common/http/interceptors/http-logging.interceptor';
+
+function resolveThrottlerStorage(config: ConfigService): ThrottlerStorage {
+  const redisUrl = String(config.get('THROTTLE_REDIS_URL') ?? '').trim();
+
+  const rawPrefix = String(config.get('THROTTLE_REDIS_PREFIX') ?? 'throttle:');
+  const prefix = rawPrefix.trim().replace(/\s+/g, '') || 'throttle:';
+
+  if (!redisUrl) {
+    throw new Error('THROTTLE_REDIS_URL is required');
+  }
+
+  return new RedisThrottlerStorage(redisUrl, prefix);
+}
 
 @Module({
   imports: [
@@ -41,14 +56,9 @@ import { HttpLoggingInterceptor } from './common/http/interceptors/http-logging.
         const ttl = Number(config.get('THROTTLE_TTL_SEC') ?? 60);
         const limit = Number(config.get('THROTTLE_LIMIT') ?? 100);
 
-        const maxKeys = Number(config.get('THROTTLE_STORE_MAX_KEYS') ?? 50_000);
-        const cleanupSec = Number(
-          config.get('THROTTLE_STORE_CLEANUP_INTERVAL_SEC') ?? 60,
-        );
-
         return {
           throttlers: [{ ttl, limit }],
-          storage: new BoundedThrottlerStorage(maxKeys, cleanupSec * 1000),
+          storage: resolveThrottlerStorage(config),
         };
       },
     }),
@@ -62,30 +72,12 @@ import { HttpLoggingInterceptor } from './common/http/interceptors/http-logging.
     SecurityModule,
   ],
   providers: [
-    {
-      provide: APP_GUARD,
-      useClass: AuthThrottlerGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: RolesGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: FreshAccessGuard,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: HttpLoggingInterceptor,
-    },
-    {
-      provide: APP_FILTER,
-      useClass: GlobalExceptionFilter,
-    },
+    { provide: APP_GUARD, useClass: AuthThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: FreshAccessGuard },
+    { provide: APP_INTERCEPTOR, useClass: HttpLoggingInterceptor },
+    { provide: APP_FILTER, useClass: GlobalExceptionFilter },
   ],
 })
 export class AppModule {}
