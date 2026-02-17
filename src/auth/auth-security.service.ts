@@ -149,4 +149,109 @@ export class AuthSecurityService {
       },
     );
   }
+  async assertIdentifierNotLocked(emailHash: string) {
+    const rec = await this.prisma.loginIdentifierSecurity.findUnique({
+      where: { emailHash },
+      select: { lockedUntil: true },
+    });
+
+    if (!rec?.lockedUntil) return;
+
+    if (rec.lockedUntil.getTime() > Date.now()) {
+      this.logger.warn(
+        'Login blocked: identifier locked (unknown user)',
+        AuthSecurityService.name,
+        {
+          event: 'auth.lock.block_unknown',
+          emailHash,
+          lockedUntil: rec.lockedUntil.toISOString(),
+        },
+      );
+
+      throw new UnauthorizedException('Невірний email або пароль');
+    }
+  }
+
+  async onUnknownLoginFailed(params: {
+    emailHash: string;
+    ip?: string | null;
+    userAgent?: string | null;
+  }) {
+    const { maxAttempts, baseSec, maxSec, windowSec } = this.policy();
+    const ts = now();
+
+    const uaHash = params.userAgent ? hashId(params.userAgent) : undefined;
+    const ipNorm = params.ip ? normalizeIp(params.ip) : null;
+    const ipMasked = ipNorm ? maskIp(ipNorm) : undefined;
+
+    const prev = await this.prisma.loginIdentifierSecurity.findUnique({
+      where: { emailHash: params.emailHash },
+      select: { failedLoginCount: true, lastFailedAt: true, lockedUntil: true },
+    });
+
+    const windowExpired =
+      !prev?.lastFailedAt ||
+      (ts.getTime() - prev.lastFailedAt.getTime()) / 1000 > windowSec;
+
+    const nextCount = windowExpired ? 1 : (prev?.failedLoginCount ?? 0) + 1;
+    const attempt = Math.min(nextCount, 30);
+
+    const delaySec = Math.min(
+      maxSec,
+      baseSec * Math.pow(2, Math.max(0, attempt - 1)),
+    );
+
+    const lock =
+      attempt >= maxAttempts ? new Date(ts.getTime() + delaySec * 1000) : null;
+
+    await this.prisma.loginIdentifierSecurity.upsert({
+      where: { emailHash: params.emailHash },
+      create: {
+        emailHash: params.emailHash,
+        failedLoginCount: 1,
+        lastFailedAt: ts,
+        lockedUntil: lock,
+        lastFailedIp: ipNorm,
+        lastFailedUaHash: uaHash ?? null,
+      },
+      update: {
+        failedLoginCount: nextCount,
+        lastFailedAt: ts,
+        lockedUntil: lock,
+        lastFailedIp: ipNorm,
+        lastFailedUaHash: uaHash ?? null,
+      },
+    });
+
+    if (lock) {
+      this.logger.warn(
+        'Identifier locked after failed logins (unknown user)',
+        AuthSecurityService.name,
+        {
+          event: 'auth.lock.set_unknown',
+          emailHash: params.emailHash,
+          attempt,
+          delaySec,
+          ipMasked,
+          uaHash,
+          lockedUntil: lock.toISOString(),
+        },
+      );
+    } else {
+      this.logger.warn(
+        'Unknown login failed recorded',
+        AuthSecurityService.name,
+        {
+          event: 'auth.login.fail_unknown_recorded',
+          emailHash: params.emailHash,
+          attempt,
+          delaySec,
+          ipMasked,
+          uaHash,
+        },
+      );
+    }
+
+    throw new UnauthorizedException('Невірний email або пароль');
+  }
 }

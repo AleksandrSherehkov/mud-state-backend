@@ -128,6 +128,55 @@ export const envValidationSchema = Joi.object({
 
   THROTTLE_AUTH_ME_LIMIT: Joi.number().integer().min(1).max(10000).default(30),
   THROTTLE_AUTH_ME_TTL_SEC: Joi.number().integer().min(1).max(3600).default(60),
+  // ✅ secondary per-email throttles (NOT primary)
+  THROTTLE_AUTH_LOGIN_EMAIL_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .max(10000)
+    .default(10),
+  THROTTLE_AUTH_LOGIN_EMAIL_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(300),
+  THROTTLE_AUTH_LOGIN_EMAIL_BLOCK_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(300),
+
+  THROTTLE_AUTH_REGISTER_EMAIL_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .max(10000)
+    .default(5),
+  THROTTLE_AUTH_REGISTER_EMAIL_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(600),
+  THROTTLE_AUTH_REGISTER_EMAIL_BLOCK_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(600),
+
+  // ✅ global unauthenticated burst cap (umbrella)
+  THROTTLE_UNAUTH_BURST_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .max(10000)
+    .default(30),
+  THROTTLE_UNAUTH_BURST_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(10),
+  THROTTLE_UNAUTH_BURST_BLOCK_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(30),
 
   // users throttles
   THROTTLE_USERS_BY_ID_LIMIT: Joi.number()

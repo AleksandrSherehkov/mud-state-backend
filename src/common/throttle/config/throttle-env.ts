@@ -39,6 +39,29 @@ export const THROTTLE_AUTH = {
   },
 } as const;
 
+/**
+ * ✅ Secondary throttles (не як primary ключ!)
+ * - per-email limiter: захищає конкретний email від розподіленої атаки з багатьох IP
+ * - unauth burst umbrella: гасить спайки по всіх POST /auth/* до будь-яких інших лімітів
+ */
+export const THROTTLE_AUTH_SECONDARY = {
+  loginEmail: {
+    limit: num('THROTTLE_AUTH_LOGIN_EMAIL_LIMIT', 10),
+    ttl: ttl('THROTTLE_AUTH_LOGIN_EMAIL_TTL_SEC', 300),
+    blockDuration: ttl('THROTTLE_AUTH_LOGIN_EMAIL_BLOCK_SEC', 300),
+  },
+  registerEmail: {
+    limit: num('THROTTLE_AUTH_REGISTER_EMAIL_LIMIT', 5),
+    ttl: ttl('THROTTLE_AUTH_REGISTER_EMAIL_TTL_SEC', 600),
+    blockDuration: ttl('THROTTLE_AUTH_REGISTER_EMAIL_BLOCK_SEC', 600),
+  },
+  unauthBurst: {
+    limit: num('THROTTLE_UNAUTH_BURST_LIMIT', 30),
+    ttl: ttl('THROTTLE_UNAUTH_BURST_TTL_SEC', 10),
+    blockDuration: ttl('THROTTLE_UNAUTH_BURST_BLOCK_SEC', 30),
+  },
+} as const;
+
 export const THROTTLE_USERS = {
   byId: {
     limit: num('THROTTLE_USERS_BY_ID_LIMIT', 60),

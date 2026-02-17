@@ -1,8 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import {
+  ThrottlerException,
+  ThrottlerGuard,
+  type ThrottlerRequest,
+} from '@nestjs/throttler';
+
 import { normalizeIp } from 'src/common/net/ip-normalize';
 import { hashId } from 'src/common/logging/log-sanitize';
 import { createHash } from 'node:crypto';
+
+import { THROTTLE_AUTH_SECONDARY } from 'src/common/throttle/config/throttle-env';
 
 type BodyWithEmail = { email?: unknown };
 
@@ -17,6 +24,7 @@ type ReqLike = Record<string, unknown> & {
   connection?: unknown;
   cookies?: Record<string, unknown>;
   signedCookies?: Record<string, unknown>;
+  headers?: Record<string, unknown>;
 };
 
 function firstNonEmptyString(v: unknown): string | undefined {
@@ -70,22 +78,18 @@ function normalizeMethod(req: ReqLike): string {
   return typeof req.method === 'string' ? req.method.trim().toUpperCase() : '';
 }
 
-function getEmailHash(req: ReqLike): string | undefined {
-  const body = req.body;
-  if (!body || typeof body !== 'object') return undefined;
-
-  const rawEmail = (body as BodyWithEmail).email;
-  const email =
-    typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
-  return email ? hashId(email) : undefined;
+function isPost(req: ReqLike): boolean {
+  return normalizeMethod(req) === 'POST';
 }
 
 function isPostAndEndsWith(req: ReqLike, suffix: string): boolean {
-  const method = normalizeMethod(req);
-  if (method !== 'POST') return false;
+  if (!isPost(req)) return false;
+  return getPath(req).endsWith(suffix);
+}
 
-  const path = getPath(req);
-  return path.endsWith(suffix);
+function isPostAndStartsWithAuth(req: ReqLike): boolean {
+  if (!isPost(req)) return false;
+  return getPath(req).includes('/auth/');
 }
 
 type AuthedUser = { userId?: unknown };
@@ -97,18 +101,14 @@ function getUserIdFromReq(req: Record<string, unknown>): string | undefined {
 }
 
 function isPathContains(req: ReqLike, segment: string): boolean {
-  const path = getPath(req);
-  return path.includes(segment);
+  return getPath(req).includes(segment);
 }
 
 function getHeaderString(req: ReqLike, name: string): string {
-  const headersUnknown = (req as { headers?: unknown }).headers;
+  const headers = req.headers;
+  if (!headers || typeof headers !== 'object') return '';
 
-  if (!headersUnknown || typeof headersUnknown !== 'object') return '';
-
-  const headers = headersUnknown as Record<string, unknown>;
   const raw = headers[name.toLowerCase()];
-
   if (typeof raw === 'string') return raw;
   if (Array.isArray(raw) && typeof raw[0] === 'string') return raw[0];
 
@@ -118,6 +118,21 @@ function getHeaderString(req: ReqLike, name: string): string {
 function getUserAgent(req: ReqLike): string {
   const ua = getHeaderString(req, 'user-agent').trim();
   return ua ? ua.slice(0, 255) : '';
+}
+
+function getUaHash(req: ReqLike): string {
+  const ua = getUserAgent(req);
+  return ua ? hashId(ua) : 'noua';
+}
+
+function getEmailHash(req: ReqLike): string | undefined {
+  const body = req.body;
+  if (!body || typeof body !== 'object') return undefined;
+
+  const rawEmail = (body as BodyWithEmail).email;
+  const email =
+    typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
+  return email ? hashId(email) : undefined;
 }
 
 function getSignedCookie(req: ReqLike, name: string): string | undefined {
@@ -133,6 +148,7 @@ function sha256hex(input: string, slice = 16): string {
     .digest('hex')
     .slice(0, slice);
 }
+
 @Injectable()
 export class AuthThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Record<string, any>): Promise<string> {
@@ -146,19 +162,16 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     const isRefresh = isPostAndEndsWith(r, '/auth/refresh');
 
     if (isLogin || isRegister) {
-      const emailHash = getEmailHash(r) ?? 'noemail';
-      return `${ip}:${emailHash}`;
+      // ✅ primary key must NOT be bypassable by changing email or User-Agent
+      return ip;
     }
 
     if (isRefresh) {
-      const ua = getUserAgent(r);
-      const uaHash = ua ? hashId(ua) : 'noua';
-
+      const uaHash = getUaHash(r);
       const refreshCookie = getSignedCookie(r, 'refreshToken');
       const cookieKey = refreshCookie
         ? sha256hex(refreshCookie, 16)
         : 'nocookie';
-
       return `${ip}:${uaHash}:${cookieKey}`;
     }
 
@@ -172,5 +185,70 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     }
 
     return ip;
+  }
+
+  private async enforceUnauthBurst(req: Record<string, any>, r: ReqLike) {
+    const userId = getUserIdFromReq(req);
+    if (userId) return;
+    if (!isPostAndStartsWithAuth(r)) return;
+
+    const ip = getIp(r);
+
+    const burst = THROTTLE_AUTH_SECONDARY.unauthBurst;
+    // ✅ umbrella key ip-only to prevent UA rotation bypass
+    const key = `unauth:${ip}`;
+
+    const rec = await this.storageService.increment(
+      key,
+      burst.ttl,
+      burst.limit,
+      burst.blockDuration,
+      'unauthBurst',
+    );
+
+    if (rec.isBlocked) throw new ThrottlerException();
+  }
+
+  private async enforceEmailSecondary(req: Record<string, any>, r: ReqLike) {
+    const userId = getUserIdFromReq(req);
+    if (userId) return;
+
+    const isLogin = isPostAndEndsWith(r, '/auth/login');
+    const isRegister = isPostAndEndsWith(r, '/auth/register');
+    if (!isLogin && !isRegister) return;
+
+    const emailHash = getEmailHash(r);
+    if (!emailHash) return;
+
+    const cfg = isLogin
+      ? THROTTLE_AUTH_SECONDARY.loginEmail
+      : THROTTLE_AUTH_SECONDARY.registerEmail;
+
+    const key = `email:${emailHash}`;
+
+    const rec = await this.storageService.increment(
+      key,
+      cfg.ttl,
+      cfg.limit,
+      cfg.blockDuration,
+      isLogin ? 'loginEmail' : 'registerEmail',
+    );
+
+    if (rec.isBlocked) throw new ThrottlerException();
+  }
+
+  protected async handleRequest(
+    requestProps: ThrottlerRequest,
+  ): Promise<boolean> {
+    const req = requestProps.context
+      .switchToHttp()
+      .getRequest<Record<string, any>>();
+
+    const r = req as ReqLike;
+
+    await this.enforceUnauthBurst(req, r);
+    await this.enforceEmailSecondary(req, r);
+
+    return super.handleRequest(requestProps);
   }
 }

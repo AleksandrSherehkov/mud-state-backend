@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 
@@ -34,25 +34,31 @@ export class LoginUseCase {
   async execute(dto: LoginDto, ctx: AuthRequestContext) {
     const nip = ctx.ip ? normalizeIp(ctx.ip) : 'unknown';
     const ua = ctx.userAgent?.trim() || 'unknown';
-    const emailHash = hashId(dto.email.toLowerCase());
+    const emailHash = hashId(dto.email.trim().toLowerCase());
 
     const user = await this.users.findByEmail(dto.email);
+
     if (!user) {
-      // anti-enum timing dummy compare
       await bcrypt.compare(dto.password, this.dummyPasswordHash);
 
-      this.logger.warn('Login failed: user not found', LoginUseCase.name, {
-        event: 'auth.login.fail',
-        reason: 'user_not_found',
+      await this.authSecurity.assertIdentifierNotLocked(emailHash);
+
+      this.logger.warn('Login failed: unknown identifier', LoginUseCase.name, {
+        event: 'auth.login.fail_unknown',
         emailHash,
       });
 
-      throw new UnauthorizedException('Невірний email або пароль');
+      return this.authSecurity.onUnknownLoginFailed({
+        emailHash,
+        ip: nip,
+        userAgent: ua,
+      }) as never;
     }
 
     await this.authSecurity.assertNotLocked(user.id);
 
     const isValid = await bcrypt.compare(dto.password, user.password);
+
     if (!isValid) {
       return this.authSecurity.onLoginFailed({
         userId: user.id,

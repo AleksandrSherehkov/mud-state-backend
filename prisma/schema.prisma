@@ -93,10 +93,27 @@ model UserSecurity {
   lockedUntil      DateTime?
 
   lastFailedIp     String?
-  lastFailedUaHash String?
+  lastFailedUaHash String?  @db.VarChar(64)
 
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+
+  @@index([lockedUntil])
+  @@index([lastFailedAt])
+}
+model LoginIdentifierSecurity {
+ 
+  emailHash String @id @db.VarChar(64)
+
+  failedLoginCount Int      @default(0)
+  lastFailedAt     DateTime?
+  lockedUntil      DateTime?
+
+  lastFailedIp     String?  @db.VarChar(64)
+  lastFailedUaHash String?  @db.VarChar(64)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([lockedUntil])
   @@index([lastFailedAt])
