@@ -79,11 +79,38 @@ export function setupSwagger(
       {
         type: 'apiKey',
         in: 'header',
-        name: 'X-CSRF-API-Key',
-        description:
-          'Optional machine-to-machine CSRF bypass key used when no Origin/Referer is available in production.',
+        name: 'X-CSRF-M2M-Kid',
+        description: 'M2M key id (kid) for CSRF HMAC proof.',
       },
-      'csrf_api_key',
+      'csrf_m2m_kid',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-CSRF-M2M-TS',
+        description: 'Unix timestamp (seconds). Must be within replay window.',
+      },
+      'csrf_m2m_ts',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-CSRF-M2M-Nonce',
+        description: 'Unique nonce (replay-protected) within replay window.',
+      },
+      'csrf_m2m_nonce',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-CSRF-M2M-Sign',
+        description:
+          'base64url(HMAC-SHA256(secret, `${kid}.${ts}.${nonce}.${METHOD}.${originalUrl}`))',
+      },
+      'csrf_m2m_sign',
     )
     .addSecurity('csrf_cookie', {
       type: 'apiKey',

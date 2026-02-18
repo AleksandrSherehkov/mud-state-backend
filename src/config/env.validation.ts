@@ -353,7 +353,25 @@ export const envValidationSchema = Joi.object({
       'http://localhost:3000,http://127.0.0.1:3000',
     ),
   }),
-  CSRF_API_KEY: Joi.string().min(32).required(),
+
+  // ✅ M2M CSRF proof (HMAC) instead of static master bypass key
+  // Format: "kid1:secret1:/api|/internal; kid2:secret2:*"
+  // secret should be high-entropy (>=32 chars)
+  CSRF_M2M_CLIENTS: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().min(1).required(),
+    otherwise: Joi.string().optional(),
+  }),
+
+  CSRF_M2M_REPLAY_WINDOW_SEC: Joi.number()
+    .integer()
+    .min(10)
+    .max(300)
+    .default(60),
+
+  CSRF_M2M_REDIS_URL: Joi.string().min(1).optional(),
+
+  CSRF_M2M_NONCE_PREFIX: Joi.string().min(1).default('csrf:m2m:nonce:'),
 
   CSRF_ALLOW_NO_ORIGIN: Joi.when('APP_ENV', {
     is: 'production',

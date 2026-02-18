@@ -7,7 +7,8 @@ import {
 import type { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { getCookieString } from 'src/common/http/cookies';
-import { timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import Redis from 'ioredis';
 
 function isSafeMethod(method: string): boolean {
   const m = (method || '').toUpperCase();
@@ -36,24 +37,68 @@ type OriginSignals = {
   secFetchSite: string;
 };
 
+type M2mClient = {
+  kid: string;
+  secret: string;
+  scopes: string[]; // '*' or list of path prefixes
+};
+
+function nowSec(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+function base64Url(buf: Buffer): string {
+  return buf
+    .toString('base64')
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '');
+}
+
 @Injectable()
 export class CsrfGuard implements CanActivate {
-  constructor(private readonly config: ConfigService) {}
+  private readonly redis: Redis;
+  private readonly noncePrefix: string;
 
-  canActivate(ctx: ExecutionContext): boolean {
-    const req = ctx.switchToHttp().getRequest<Request>();
+  constructor(private readonly config: ConfigService) {
+    // ✅ reuse your existing Redis URL by default
+    const url =
+      (this.config.get<string>('CSRF_M2M_REDIS_URL') ?? '').trim() ||
+      (this.config.get<string>('THROTTLE_REDIS_URL') ?? '').trim();
 
-    return isSafeMethod(req.method) || this.validateUnsafeRequest(req);
+    if (!url) {
+      // secure-by-default: in prod non-browser path will be denied anyway
+      // but keep deterministic error for misconfig
+      throw new Error('CSRF_M2M_REDIS_URL/THROTTLE_REDIS_URL is not set');
+    }
+
+    this.noncePrefix = (
+      this.config.get<string>('CSRF_M2M_NONCE_PREFIX') ?? 'csrf:m2m:nonce:'
+    ).trim();
+
+    this.redis = new Redis(url, {
+      lazyConnect: true,
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
+    });
   }
 
-  private validateUnsafeRequest(req: Request): boolean {
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const req = ctx.switchToHttp().getRequest<Request>();
+
+    if (isSafeMethod(req.method)) return true;
+
+    return this.validateUnsafeRequest(req);
+  }
+
+  private async validateUnsafeRequest(req: Request): Promise<boolean> {
     const isProd = this.isProdEnv();
     const trusted = this.getTrustedOrigins();
     const signals = this.getOriginSignals(req);
 
     if (isProd) {
       this.assertProdTrustedConfigured(trusted);
-      this.assertProdOriginOrApiKey(req, trusted, signals);
+      await this.assertProdOriginOrM2m(req, trusted, signals);
     } else {
       this.assertNonProdOriginIfPresent(trusted, signals);
     }
@@ -104,17 +149,16 @@ export class CsrfGuard implements CanActivate {
     );
   }
 
-  private assertProdOriginOrApiKey(
+  private async assertProdOriginOrM2m(
     req: Request,
     trusted: string[],
     signals: OriginSignals,
-  ): void {
+  ): Promise<void> {
     const hasOrigin = Boolean(signals.origin || signals.refererOrigin);
     const hasFetchSite = signals.secFetchSite !== '';
 
     if (hasOrigin) {
       this.assertProdTrustedOrigin(trusted, signals);
-
       this.assertProdFetchSiteIfPresent(signals);
       return;
     }
@@ -126,7 +170,8 @@ export class CsrfGuard implements CanActivate {
 
     if (this.allowNoOriginInProd()) return;
 
-    this.assertNonBrowserAllowedByApiKey(req);
+    // ✅ NON-BROWSER M2M proof (HMAC + replay protection in Redis)
+    await this.assertNonBrowserAllowedByHmac(req);
   }
 
   private assertProdTrustedOrigin(trusted: string[], signals: OriginSignals) {
@@ -177,18 +222,134 @@ export class CsrfGuard implements CanActivate {
     return timingSafeEqual(a, b);
   }
 
-  private assertNonBrowserAllowedByApiKey(req: Request): void {
-    const configuredApiKey = (
-      this.config.get<string>('CSRF_API_KEY') ?? ''
-    ).trim();
-    const requestApiKey = (req.header('x-csrf-api-key') ?? '').trim();
+  private getM2mReplayWindowSec(): number {
+    const v = Number(
+      this.config.get<string>('CSRF_M2M_REPLAY_WINDOW_SEC') ?? 60,
+    );
+    if (!Number.isFinite(v) || v < 10 || v > 300) return 60;
+    return Math.floor(v);
+  }
 
-    const allow =
-      configuredApiKey.length > 0 &&
-      requestApiKey.length > 0 &&
-      this.timingSafeEqualString(configuredApiKey, requestApiKey);
+  private parseM2mClients(): M2mClient[] {
+    // Format:
+    // CSRF_M2M_CLIENTS="kid1:secret1:/api|/internal; kid2:secret2:*"
+    const raw = (this.config.get<string>('CSRF_M2M_CLIENTS') ?? '').trim();
+    if (!raw) return [];
 
-    if (!allow) {
+    return raw
+      .split(/[;,]/g)
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .map((entry) => {
+        const [kid, secret, scopesRaw] = entry.split(':');
+        const k = (kid ?? '').trim();
+        const s = (secret ?? '').trim();
+        const scopes = (scopesRaw ?? '').trim();
+
+        if (!k || !s) return null;
+
+        const scopesList =
+          !scopes || scopes === '*'
+            ? ['*']
+            : scopes
+                .split('|')
+                .map((p) => p.trim())
+                .filter(Boolean);
+
+        return { kid: k, secret: s, scopes: scopesList };
+      })
+      .filter((x): x is M2mClient => Boolean(x));
+  }
+
+  private assertM2mScopeAllowed(client: M2mClient, req: Request): void {
+    if (client.scopes.includes('*')) return;
+
+    const path = req.path || '';
+    const ok = client.scopes.some(
+      (prefix) => prefix && path.startsWith(prefix),
+    );
+    if (!ok) {
+      throw new ForbiddenException('CSRF validation failed (m2m_scope)');
+    }
+  }
+
+  private async assertRedisNonceOnce(
+    key: string,
+    ttlSec: number,
+  ): Promise<void> {
+    try {
+      await this.redis.connect().catch(() => undefined);
+
+      // SET key value NX EX ttl
+      const res = await this.redis.set(key, '1', 'EX', ttlSec, 'NX');
+      if (res !== 'OK') {
+        throw new ForbiddenException('CSRF validation failed (m2m_replay)');
+      }
+    } catch (e) {
+      // secure-by-default: if redis is down, deny non-browser bypass
+      if (e instanceof ForbiddenException) throw e;
+      throw new ForbiddenException('CSRF validation failed (non-browser)');
+    }
+  }
+
+  private async assertNonBrowserAllowedByHmac(req: Request): Promise<void> {
+    const kid = (req.header('x-csrf-m2m-kid') ?? '').trim();
+    const tsRaw = (req.header('x-csrf-m2m-ts') ?? '').trim();
+    const nonce = (req.header('x-csrf-m2m-nonce') ?? '').trim();
+    const sign = (req.header('x-csrf-m2m-sign') ?? '').trim();
+
+    if (!kid || !tsRaw || !nonce || !sign) {
+      throw new ForbiddenException('CSRF validation failed (non-browser)');
+    }
+
+    if (!/^[a-zA-Z0-9_-]{1,32}$/.test(kid)) {
+      throw new ForbiddenException('CSRF validation failed (m2m_kid)');
+    }
+    if (!/^[a-zA-Z0-9_-]{16,128}$/.test(nonce)) {
+      throw new ForbiddenException('CSRF validation failed (m2m_nonce)');
+    }
+
+    const ts = Number(tsRaw);
+    if (!Number.isFinite(ts) || !Number.isInteger(ts)) {
+      throw new ForbiddenException('CSRF validation failed (m2m_ts)');
+    }
+
+    const windowSec = this.getM2mReplayWindowSec();
+    const drift = Math.abs(nowSec() - ts);
+    if (drift > windowSec) {
+      throw new ForbiddenException('CSRF validation failed (m2m_ts_window)');
+    }
+
+    const clients = this.parseM2mClients();
+    const client = clients.find((c) => c.kid === kid);
+    if (!client) {
+      throw new ForbiddenException('CSRF validation failed (non-browser)');
+    }
+
+    this.assertM2mScopeAllowed(client, req);
+
+    // ✅ Redis replay protection (kid+ts+nonce)
+    const replayKey = `${this.noncePrefix}${kid}:${ts}:${nonce}`;
+    await this.assertRedisNonceOnce(replayKey, windowSec);
+
+    // signature over stable canonical string binds request target
+    const canonical = `${kid}.${ts}.${nonce}.${req.method.toUpperCase()}.${req.originalUrl}`;
+    const expected = base64Url(
+      createHmac('sha256', client.secret).update(canonical).digest(),
+    );
+
+    const ok =
+      expected.length > 0 &&
+      sign.length > 0 &&
+      this.timingSafeEqualString(expected, sign);
+
+    if (!ok) {
+      // best-effort delete to not burn nonce on invalid signatures
+      try {
+        await this.redis.del(replayKey);
+      } catch {
+        // ignore
+      }
       throw new ForbiddenException('CSRF validation failed (non-browser)');
     }
   }

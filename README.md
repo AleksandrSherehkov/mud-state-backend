@@ -90,7 +90,7 @@ Production-ready NestJS backend для керування автентифіка
 Система припускає, що:
 
 1. TLS термінація коректна і трафік до клієнта захищений HTTPS у production.
-2. Секрети (`JWT_*_SECRET`, `REFRESH_TOKEN_PEPPER`, `COOKIE_SECRET`, `CSRF_API_KEY`) не скомпрометовані.
+2. Секрети (`JWT_*_SECRET`, `REFRESH_TOKEN_PEPPER`, `COOKIE_SECRET`, а також M2M CSRF secrets з `CSRF_M2M_CLIENTS`) не скомпрометовані.
 3. `TRUST_PROXY_HOPS` коректно налаштований для реального ланцюга проксі.
 4. Клієнт зберігає access token поза cookie (Bearer), refresh токен — у HttpOnly signed cookie.
 
@@ -114,7 +114,12 @@ Production-ready NestJS backend для керування автентифіка
 
 - CSRF токен **короткоживучий** (TTL/Max-Age обмежений);
 - cookie політика: `Secure=true` у production, `SameSite` відповідно до архітектури фронтенду;
-- на mutation-ендпоінтах додатково застосовується **origin policy** (Origin/Referer/Sec-Fetch-Site), а для non-browser сценаріїв — контрольований `X-CSRF-API-Key`;
+- на mutation-ендпоінтах додатково застосовується **origin policy** (Origin/Referer/Sec-Fetch-Site), а для non-browser сценаріїв — **M2M HMAC proof**:
+  - клієнт передає `X-CSRF-M2M-Kid`, `X-CSRF-M2M-TS`, `X-CSRF-M2M-Nonce`, `X-CSRF-M2M-Sign`;
+  - підпис рахується як `base64url(HMAC-SHA256(secret, `${kid}.${ts}.${nonce}.${METHOD}.${originalUrl}`))`;
+  - є **replay window** та **replay-protection** по `nonce` (Redis);
+  - є **scope per client** (дозволені path-prefix).
+
 - XSS ризики зменшуються через CSP/санітизацію/уникнення небезпечних інʼєкцій у фронтенді (CSRF не є заміною XSS-hardening).
 
 Висновок: **CSRF cookie non-HttpOnly — це прийняте архітектурне рішення саме для double-submit**, а ключовий ризик тут — XSS, який має бути закритий окремими шарами захисту.
@@ -226,10 +231,13 @@ Production-ready NestJS backend для керування автентифіка
 - `JWT_REFRESH_SECRET`
 - `JWT_ISSUER`
 - `JWT_AUDIENCE`
-- `REFRESH_TOKEN_PEPPER` (hex, 64 символи)
-- `CSRF_API_KEY`
+  `REFRESH_TOKEN_PEPPER` (hex, 64 символи)
 - `COOKIE_SECRET`
 - `CORS_ORIGINS` (обовʼязково в усіх env, wildcard заборонений)
+- `CSRF_TRUSTED_ORIGINS`
+- `CSRF_M2M_CLIENTS` (production: обовʼязково; non-browser CSRF proof через HMAC)
+- `CSRF_M2M_REPLAY_WINDOW_SEC` (default 60)
+- `THROTTLE_REDIS_URL` (використовується також для nonce replay-protection, якщо `CSRF_M2M_REDIS_URL` не заданий)
 
 ### Чутлива конфігурація
 
