@@ -36,8 +36,9 @@ async function bootstrap() {
   const appEnv = config.get<string>('APP_ENV') ?? 'development';
   const isProd = appEnv === 'production';
 
-  const trustProxy = Number(config.get('TRUST_PROXY_HOPS') ?? 1);
-  app.set('trust proxy', trustProxy);
+  const trustProxyRaw = config.get<string>('TRUST_PROXY_HOPS') ?? '0';
+  const trustProxy = Number.parseInt(trustProxyRaw, 10) || 0;
+  if (trustProxy > 0) app.set('trust proxy', trustProxy);
 
   // ---- SECURITY CONFIG VALIDATION ----
   validateSecurityConfig(config);

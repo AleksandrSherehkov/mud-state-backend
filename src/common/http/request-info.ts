@@ -80,6 +80,59 @@ function extractGeoFromHeaders(req: Request): RequestGeo | undefined {
   return { country, asn, asOrgHash };
 }
 
+function envBool(name: string, def = false): boolean {
+  const v = String(process.env[name] ?? '')
+    .trim()
+    .toLowerCase();
+  if (!v) return def;
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
+
+let TRUSTED_PROXY_IPS_CACHE: Set<string> | null = null;
+
+function getTrustedProxyIps(): Set<string> {
+  if (TRUSTED_PROXY_IPS_CACHE) return TRUSTED_PROXY_IPS_CACHE;
+
+  const raw = String(process.env.TRUSTED_PROXY_IPS ?? '');
+  const ips = raw
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((ip) => normalizeIp(ip));
+
+  TRUSTED_PROXY_IPS_CACHE = new Set(ips);
+  return TRUSTED_PROXY_IPS_CACHE;
+}
+
+function isTrustedProxyRequest(req: Request): boolean {
+  if (!envBool('TRUST_PROXY_GEO_HEADERS', false)) return false;
+
+  const allow = getTrustedProxyIps();
+  if (allow.size === 0) return false;
+
+  const remote = req.socket?.remoteAddress;
+  if (!remote) return false;
+
+  const remoteIp = normalizeIp(remote);
+  if (!allow.has(remoteIp)) return false;
+
+  const markerName = String(
+    process.env.TRUST_PROXY_GEO_MARKER_NAME ?? 'x-ingress-auth',
+  ).toLowerCase();
+  const markerValue = String(
+    process.env.TRUST_PROXY_GEO_MARKER_VALUE ?? '1',
+  ).trim();
+
+  const v = req.headers[markerName];
+  const got = (
+    Array.isArray(v) ? String(v[0] ?? '') : typeof v === 'string' ? v : ''
+  ).trim();
+
+  if (!got || got !== markerValue) return false;
+
+  return true;
+}
+
 export function extractRequestInfo(req: Request): {
   ip: string;
   userAgent: string;
@@ -89,7 +142,10 @@ export function extractRequestInfo(req: Request): {
   const ip = normalizeIp(rawIp);
 
   const userAgent = normalizeUserAgent(req.headers['user-agent']);
-  const geo = extractGeoFromHeaders(req);
+
+  const geo = isTrustedProxyRequest(req)
+    ? extractGeoFromHeaders(req)
+    : undefined;
 
   return { ip, userAgent, geo };
 }

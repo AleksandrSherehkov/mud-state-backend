@@ -64,7 +64,27 @@ export const envValidationSchema = Joi.object({
     .max(10_000)
     .default(1000),
 
-  // ✅ я би лишив strict=true завжди, бо throttling тепер залежить від Redis
+  // ✅ Throttle store driver
+  THROTTLE_STORE_DRIVER: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().valid('redis').required(),
+    otherwise: Joi.string().valid('redis', 'memory').default('redis'),
+  }),
+
+  // ✅ Upper bound on total in-memory keys (defense against cardinality DoS)
+  THROTTLE_STORE_MAX_KEYS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(1_000_000)
+    .default(50_000),
+
+  // ✅ Cleanup interval for bounded store (seconds)
+  THROTTLE_STORE_CLEANUP_INTERVAL_SEC: Joi.number()
+    .integer()
+    .min(10)
+    .max(3600)
+    .default(60),
+
   THROTTLE_REDIS_HEALTHCHECK_STRICT: Joi.boolean().default(true),
 
   // ✅ hard upper-bound для всех per-route TTL, чтобы store не раздувался
@@ -342,6 +362,25 @@ export const envValidationSchema = Joi.object({
   }),
 
   TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(10).default(1),
+  TRUST_PROXY_GEO_HEADERS: Joi.boolean().default(false),
+
+  TRUSTED_PROXY_IPS: Joi.when('TRUST_PROXY_GEO_HEADERS', {
+    is: true,
+    then: Joi.string().min(1).required(),
+    otherwise: Joi.string().optional(),
+  }),
+
+  // ✅ optional: proxy marker header/value (defense-in-depth)
+  TRUST_PROXY_GEO_MARKER_NAME: Joi.when('TRUST_PROXY_GEO_HEADERS', {
+    is: true,
+    then: Joi.string().default('x-ingress-auth'),
+    otherwise: Joi.string().optional(),
+  }),
+  TRUST_PROXY_GEO_MARKER_VALUE: Joi.when('TRUST_PROXY_GEO_HEADERS', {
+    is: true,
+    then: Joi.string().min(1).default('1'),
+    otherwise: Joi.string().optional(),
+  }),
 
   SWAGGER_ENABLED: Joi.boolean().default(false),
 

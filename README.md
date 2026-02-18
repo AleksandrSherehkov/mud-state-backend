@@ -96,6 +96,9 @@ Production-ready NestJS backend для керування автентифіка
 
 ### CSRF (double-submit) і trade-off non-HttpOnly cookie
 
+Рішення про non-HttpOnly CSRF cookie є усвідомленим архітектурним вибором,
+зафіксованим у security-дизайні системи, і не є помилкою конфігурації.
+
 Ми використовуємо **double-submit CSRF**:
 
 - сервер виставляє cookie `csrfToken` (НЕ HttpOnly, short-lived);
