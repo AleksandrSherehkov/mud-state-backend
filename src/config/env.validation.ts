@@ -335,6 +335,12 @@ export const envValidationSchema = Joi.object({
   }),
   CSRF_API_KEY: Joi.string().min(32).required(),
 
+  CSRF_ALLOW_NO_ORIGIN: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.boolean().valid(false).default(false),
+    otherwise: Joi.boolean().default(true),
+  }),
+
   TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(10).default(1),
 
   SWAGGER_ENABLED: Joi.boolean().default(false),
