@@ -7,6 +7,7 @@ Production-ready NestJS backend для керування автентифіка
 ### Що робить система
 
 Цей сервіс реалізує:
+
 - реєстрацію та логін користувачів;
 - JWT access/refresh модель із ротацією refresh токенів;
 - детекцію повторного використання refresh токена (reuse detection);
@@ -68,6 +69,7 @@ Production-ready NestJS backend для керування автентифіка
 ### Session lifecycle модель
 
 Сесія має два валідні стани:
+
 - `isActive=true` і `endedAt IS NULL`;
 - `isActive=false` і `endedAt IS NOT NULL`.
 
@@ -86,10 +88,33 @@ Production-ready NestJS backend для керування автентифіка
 ### Threat model assumptions
 
 Система припускає, що:
+
 1. TLS термінація коректна і трафік до клієнта захищений HTTPS у production.
 2. Секрети (`JWT_*_SECRET`, `REFRESH_TOKEN_PEPPER`, `COOKIE_SECRET`, `CSRF_API_KEY`) не скомпрометовані.
 3. `TRUST_PROXY_HOPS` коректно налаштований для реального ланцюга проксі.
 4. Клієнт зберігає access token поза cookie (Bearer), refresh токен — у HttpOnly signed cookie.
+
+### CSRF (double-submit) і trade-off non-HttpOnly cookie
+
+Ми використовуємо **double-submit CSRF**:
+
+- сервер виставляє cookie `csrfToken` (НЕ HttpOnly, short-lived);
+- клієнт читає `csrfToken` у JS і передає його в заголовку `X-CSRF-Token`;
+- запит вважається валідним, якщо значення cookie та заголовка збігаються.
+
+  **Свідомий trade-off:** `csrfToken` cookie **не може бути HttpOnly** у double-submit схемі, інакше браузерний клієнт не зможе прочитати токен та поставити його в заголовок.
+  Це **нормально** для double-submit, але означає:
+
+- при наявності **XSS** атакер зможе прочитати `csrfToken` і обійти CSRF-захист (як і більшість CSRF-патернів).
+
+  **Як ми зменшуємо ризики (defense-in-depth):**
+
+- CSRF токен **короткоживучий** (TTL/Max-Age обмежений);
+- cookie політика: `Secure=true` у production, `SameSite` відповідно до архітектури фронтенду;
+- на mutation-ендпоінтах додатково застосовується **origin policy** (Origin/Referer/Sec-Fetch-Site), а для non-browser сценаріїв — контрольований `X-CSRF-API-Key`;
+- XSS ризики зменшуються через CSP/санітизацію/уникнення небезпечних інʼєкцій у фронтенді (CSRF не є заміною XSS-hardening).
+
+Висновок: **CSRF cookie non-HttpOnly — це прийняте архітектурне рішення саме для double-submit**, а ключовий ризик тут — XSS, який має бути закритий окремими шарами захисту.
 
 ### Які атаки помʼякшуються
 
@@ -116,6 +141,7 @@ Production-ready NestJS backend для керування автентифіка
 ### Reuse detection policy
 
 Якщо claim не проходить (відсутній/вже revoked/expired/hash mismatch/race), запускається response політика:
+
 - revoke all refresh токенів користувача;
 - terminate all сесій;
 - повернення `401 Unauthorized`.
@@ -263,6 +289,7 @@ npm run start:dev
 У поточному стані репозиторію відсутні `Dockerfile`/`docker-compose.yml`, тому контейнерний запуск не може бути відтворений без додавання цих маніфестів.
 
 Рекомендований production pattern:
+
 - multi-stage Docker build (Node 20/22, non-root user);
 - окремий контейнер PostgreSQL або managed DB;
 - секрети через runtime secret store (не через baked ENV у образі);
@@ -300,6 +327,7 @@ npm run start:dev
 ### Prisma schema overview
 
 Основні сутності:
+
 - `User` (`Role` enum, `email` як `citext unique`);
 - `RefreshToken` (`jti`, hash+salt, revoked, expiresAt);
 - `Session` (стан, binding до refresh token, fingerprint/geo поля);
@@ -320,11 +348,13 @@ npm run start:dev
 ## 9. Testing Strategy
 
 Поточний toolchain має підтримку:
+
 - unit tests (`npm test`);
 - e2e (`npm run test:e2e`);
 - lint/build для quality gates.
 
 Security readiness для тестів:
+
 - сценарії refresh replay/reuse;
 - перевірка lockout-поведінки;
 - перевірка CSRF double-submit та origin policy;
