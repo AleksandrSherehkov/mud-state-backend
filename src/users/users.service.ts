@@ -34,9 +34,26 @@ export class UsersService {
   }
 
   private async hashPassword(password: string): Promise<string> {
-    const roundsStr = this.config.get<string>('BCRYPT_SALT_ROUNDS') ?? '10';
-    const saltRounds = Number.parseInt(roundsStr, 10);
-    const safeRounds = Number.isFinite(saltRounds) ? saltRounds : 10;
+    const roundsStr = this.config.get<string>('BCRYPT_SALT_ROUNDS') ?? '12';
+    const parsed = Number.parseInt(roundsStr, 10);
+
+    let safeRounds = 12;
+
+    if (Number.isFinite(parsed)) {
+      safeRounds = Math.min(Math.max(parsed, 10), 15);
+
+      if (safeRounds !== parsed) {
+        this.logger.warn(
+          'BCRYPT_SALT_ROUNDS is out of safe range; clamped',
+          UsersService.name,
+          {
+            event: 'security.config.bcrypt_salt_rounds.clamped',
+            configured: parsed,
+            applied: safeRounds,
+          },
+        );
+      }
+    }
 
     this.logger.debug('Hashing password', UsersService.name, {
       event: 'user.password_hash.start',

@@ -46,7 +46,7 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.string().uri().default('http://localhost:3000'),
   }),
 
-  BCRYPT_SALT_ROUNDS: Joi.number().default(10),
+  BCRYPT_SALT_ROUNDS: Joi.number().integer().min(10).max(15).default(12),
 
   // throttler global
   THROTTLE_TTL_SEC: Joi.number().integer().min(1).max(3600).default(60),
