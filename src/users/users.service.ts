@@ -72,40 +72,48 @@ export class UsersService {
       emailHash,
     });
 
-    const existing = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existing) {
-      this.logger.warn(
-        'Create user conflict: email exists',
-        UsersService.name,
-        {
-          event: 'user.create.conflict',
-          emailHash,
-          userId: existing.id,
-        },
-      );
-      throw new ConflictException('Електронна адреса вже використовується');
-    }
-
     const hash = await this.hashPassword(dto.password);
 
-    const created = await this.prisma.user.create({
-      data: {
-        email,
-        password: hash,
-      },
-    });
+    try {
+      const created = await this.prisma.user.create({
+        data: {
+          email,
+          password: hash,
+        },
+      });
 
-    this.logger.log('User created', UsersService.name, {
-      event: 'user.create.success',
-      userId: created.id,
-      emailHash,
-      role: created.role,
-    });
+      this.logger.log('User created', UsersService.name, {
+        event: 'user.create.success',
+        userId: created.id,
+        emailHash,
+        role: created.role,
+      });
 
-    return created;
+      return created;
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2002') {
+          this.logger.warn(
+            'Create user conflict: email duplicate (race-safe)',
+            UsersService.name,
+            {
+              event: 'user.create.conflict',
+              emailHash,
+              ...errMeta(err),
+            },
+          );
+          throw new ConflictException('Електронна адреса вже використовується');
+        }
+      }
+
+      this.logger.error('Create user failed', undefined, UsersService.name, {
+        event: 'user.create.fail',
+        emailHash,
+        ...errMeta(err),
+      });
+
+      throw err;
+    }
   }
 
   async findByEmail(email: string): Promise<User | null> {
