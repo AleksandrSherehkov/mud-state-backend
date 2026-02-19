@@ -20,8 +20,6 @@ import { AuthCookieService } from './auth-cookie.service';
 import { AuthHttpService } from './auth-http.service';
 import { AuthTokensService } from './auth-tokens.service';
 
-import { CsrfGuard } from 'src/common/security/guards/csrf.guard';
-
 import { RegisterUseCase } from './use-cases/register.use-case';
 import { LoginUseCase } from './use-cases/login.use-case';
 import { RefreshUseCase } from './use-cases/refresh.use-case';
@@ -58,7 +56,7 @@ import { RefreshIncidentResponseService } from './use-cases/refresh/refresh.inci
     AuthMaintenanceService,
     JwtStrategy,
     JwtTokenService,
-    CsrfGuard,
+
     AuthCookieService,
     AuthTokensService,
 

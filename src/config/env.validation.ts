@@ -354,9 +354,6 @@ export const envValidationSchema = Joi.object({
     ),
   }),
 
-  // ✅ M2M CSRF proof (HMAC) instead of static master bypass key
-  // Format: "kid1:secret1:/api|/internal; kid2:secret2:*"
-  // secret should be high-entropy (>=32 chars)
   CSRF_M2M_CLIENTS: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().min(1).required(),

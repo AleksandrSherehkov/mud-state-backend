@@ -8,7 +8,7 @@ import { JwtPayload } from '../types/jwt.types';
 import { SessionsService } from 'src/sessions/sessions.service';
 import { AppLogger } from 'src/logger/logger.service';
 import { UsersService } from 'src/users/users.service';
-import { extractRequestInfo } from 'src/common/http/request-info';
+import { RequestInfoService } from 'src/common/http/request-info';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -17,6 +17,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly sessionsService: SessionsService,
     private readonly usersService: UsersService,
     private readonly logger: AppLogger,
+    private readonly requestInfo: RequestInfoService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -67,7 +68,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Session is not active');
     }
 
-    const { ip, userAgent, geo } = extractRequestInfo(req);
+    const { ip, userAgent, geo } = this.requestInfo.extract(req);
     await this.sessionsService.assertAccessContext({
       sid,
       userId,

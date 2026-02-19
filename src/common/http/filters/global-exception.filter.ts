@@ -7,9 +7,9 @@ import {
   Injectable,
 } from '@nestjs/common';
 import type { Request, Response } from 'express-serve-static-core';
-import { ConfigService } from '@nestjs/config';
+
 import { AppLogger } from 'src/logger/logger.service';
-import { extractRequestInfo } from 'src/common/http/request-info';
+
 import { getRequestId } from 'src/common/request-context/request-context';
 import {
   maskIp,
@@ -17,6 +17,8 @@ import {
   normalizeUserAgent,
 } from 'src/common/logging/log-sanitize';
 import { UserFromJwt } from 'src/common/security/types/user-from-jwt';
+import { RequestInfoService } from 'src/common/http/request-info';
+import { SecurityPolicyService } from 'src/common/security/policy/security-policy.service';
 
 type ErrorBody = {
   statusCode: number;
@@ -43,19 +45,12 @@ function isUserFromJwt(v: unknown): v is UserFromJwt {
 @Catch()
 @Injectable()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  private readonly isProd: boolean;
-
   constructor(
     private readonly logger: AppLogger,
-    private readonly config: ConfigService,
+    private readonly requestInfo: RequestInfoService,
+    private readonly policy: SecurityPolicyService,
   ) {
     this.logger.setContext(GlobalExceptionFilter.name);
-
-    const env = (
-      this.config.get<string>('APP_ENV', 'development') || 'development'
-    ).toLowerCase();
-
-    this.isProd = env === 'production';
   }
 
   catch(exception: unknown, host: ArgumentsHost) {
@@ -63,7 +58,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const req = ctx.getRequest<Request>();
     const res = ctx.getResponse<Response>();
 
-    const { ip, userAgent, geo } = extractRequestInfo(req);
+    const { ip, userAgent, geo } = this.requestInfo.extract(req);
 
     const rawUser: unknown = (req as Request & { user?: unknown }).user;
     const user = isUserFromJwt(rawUser) ? rawUser : undefined;
@@ -103,15 +98,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           ? exception.message
           : String(exception);
 
-    const logMessage = this.isProd
+    const isProd = this.policy.get().isProd;
+
+    const logMessage = isProd
       ? `${req.method} ${req.path} -> ${status} ${exceptionName}`
       : `${req.method} ${req.path} -> ${status} ${exceptionName}: ${details}`;
 
     if (status >= 500) {
       const trace =
-        !this.isProd && exception instanceof Error
-          ? exception.stack
-          : undefined;
+        !isProd && exception instanceof Error ? exception.stack : undefined;
       this.logger.error(logMessage, trace, GlobalExceptionFilter.name, meta);
     } else {
       this.logger.warn(logMessage, GlobalExceptionFilter.name, meta);

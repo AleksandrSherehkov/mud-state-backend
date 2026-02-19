@@ -1,6 +1,9 @@
-import { Request } from 'express';
-import { normalizeIp } from '../net/ip-normalize';
+import { Injectable } from '@nestjs/common';
+import type { Request } from 'express';
 import { createHash } from 'node:crypto';
+
+import { normalizeIp } from 'src/common/net/ip-normalize';
+import { SecurityPolicyService } from 'src/common/security/policy/security-policy.service';
 
 const MAX_USER_AGENT_LENGTH = 255;
 
@@ -17,11 +20,7 @@ function normalizeUserAgent(ua: unknown): string {
       ? str.slice(0, MAX_USER_AGENT_LENGTH)
       : str;
   }
-
-  if (Array.isArray(ua)) {
-    return normalizeUserAgent(ua[0]);
-  }
-
+  if (Array.isArray(ua)) return normalizeUserAgent(ua[0]);
   return '';
 }
 
@@ -80,72 +79,51 @@ function extractGeoFromHeaders(req: Request): RequestGeo | undefined {
   return { country, asn, asOrgHash };
 }
 
-function envBool(name: string, def = false): boolean {
-  const v = String(process.env[name] ?? '')
-    .trim()
-    .toLowerCase();
-  if (!v) return def;
-  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
-}
+@Injectable()
+export class RequestInfoService {
+  constructor(private readonly policy: SecurityPolicyService) {}
 
-let TRUSTED_PROXY_IPS_CACHE: Set<string> | null = null;
+  extract(req: Request): {
+    ip: string;
+    userAgent: string;
+    geo?: RequestGeo;
+  } {
+    const rawIp = req.ip || (Array.isArray(req.ips) ? req.ips[0] : '') || '';
+    const ip = normalizeIp(rawIp);
 
-function getTrustedProxyIps(): Set<string> {
-  if (TRUSTED_PROXY_IPS_CACHE) return TRUSTED_PROXY_IPS_CACHE;
+    const userAgent = normalizeUserAgent(req.headers['user-agent']);
 
-  const raw = String(process.env.TRUSTED_PROXY_IPS ?? '');
-  const ips = raw
-    .split(',')
-    .map((x) => x.trim())
-    .filter(Boolean)
-    .map((ip) => normalizeIp(ip));
+    const geo = this.isTrustedProxyRequest(req)
+      ? extractGeoFromHeaders(req)
+      : undefined;
 
-  TRUSTED_PROXY_IPS_CACHE = new Set(ips);
-  return TRUSTED_PROXY_IPS_CACHE;
-}
+    return { ip, userAgent, geo };
+  }
 
-function isTrustedProxyRequest(req: Request): boolean {
-  if (!envBool('TRUST_PROXY_GEO_HEADERS', false)) return false;
+  private isTrustedProxyRequest(req: Request): boolean {
+    const pol = this.policy.get().proxyGeoTrust;
 
-  const allow = getTrustedProxyIps();
-  if (allow.size === 0) return false;
+    if (!pol.enabled) return false;
 
-  const remote = req.socket?.remoteAddress;
-  if (!remote) return false;
+    const allow = new Set(pol.trustedProxyIps.map((x) => normalizeIp(x)));
+    if (allow.size === 0) return false;
 
-  const remoteIp = normalizeIp(remote);
-  if (!allow.has(remoteIp)) return false;
+    const remote = req.socket?.remoteAddress;
+    if (!remote) return false;
 
-  const markerName = String(
-    process.env.TRUST_PROXY_GEO_MARKER_NAME ?? 'x-ingress-auth',
-  ).toLowerCase();
-  const markerValue = String(
-    process.env.TRUST_PROXY_GEO_MARKER_VALUE ?? '1',
-  ).trim();
+    const remoteIp = normalizeIp(remote);
+    if (!allow.has(remoteIp)) return false;
 
-  const v = req.headers[markerName];
-  const got = (
-    Array.isArray(v) ? String(v[0] ?? '') : typeof v === 'string' ? v : ''
-  ).trim();
+    const markerName = pol.markerName;
+    const markerValue = pol.markerValue;
 
-  if (!got || got !== markerValue) return false;
+    const v = req.headers[markerName];
+    const got = (
+      Array.isArray(v) ? String(v[0] ?? '') : typeof v === 'string' ? v : ''
+    ).trim();
 
-  return true;
-}
+    if (!got || got !== markerValue) return false;
 
-export function extractRequestInfo(req: Request): {
-  ip: string;
-  userAgent: string;
-  geo?: RequestGeo;
-} {
-  const rawIp = req.ip || (Array.isArray(req.ips) ? req.ips[0] : '') || '';
-  const ip = normalizeIp(rawIp);
-
-  const userAgent = normalizeUserAgent(req.headers['user-agent']);
-
-  const geo = isTrustedProxyRequest(req)
-    ? extractGeoFromHeaders(req)
-    : undefined;
-
-  return { ip, userAgent, geo };
+    return true;
+  }
 }

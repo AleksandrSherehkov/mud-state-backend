@@ -3,7 +3,6 @@ import type { Request, Response as ExpressResponse } from 'express';
 
 import { AuthCookieService } from './auth-cookie.service';
 
-import { extractRequestInfo } from 'src/common/http/request-info';
 import { getRefreshTokenFromRequest } from 'src/common/http/refresh-token';
 
 import { RegisterDto } from './dto/register.dto';
@@ -19,6 +18,7 @@ import { LoginUseCase } from './use-cases/login.use-case';
 import { RefreshUseCase } from './use-cases/refresh.use-case';
 import { LogoutUseCase } from './use-cases/logout.use-case';
 import { GetMeUseCase } from './use-cases/get-me.use-case';
+import { RequestInfoService } from 'src/common/http/request-info';
 
 @Injectable()
 export class AuthHttpService {
@@ -29,6 +29,7 @@ export class AuthHttpService {
     private readonly logoutUc: LogoutUseCase,
     private readonly meUc: GetMeUseCase,
     private readonly cookies: AuthCookieService,
+    private readonly requestInfo: RequestInfoService,
   ) {}
 
   async register(
@@ -36,7 +37,7 @@ export class AuthHttpService {
     req: Request,
     res: ExpressResponse,
   ): Promise<RegisterResponseDto> {
-    const { ip, userAgent, geo } = extractRequestInfo(req);
+    const { ip, userAgent, geo } = this.requestInfo.extract(req);
 
     const result = await this.registerUc.execute(dto, { ip, userAgent, geo });
 
@@ -57,7 +58,7 @@ export class AuthHttpService {
     req: Request,
     res: ExpressResponse,
   ): Promise<TokenResponseDto> {
-    const { ip, userAgent, geo } = extractRequestInfo(req);
+    const { ip, userAgent, geo } = this.requestInfo.extract(req);
 
     const result = await this.loginUc.execute(dto, { ip, userAgent, geo });
 
@@ -74,7 +75,7 @@ export class AuthHttpService {
   }
 
   async refresh(req: Request, res: ExpressResponse): Promise<TokenResponseDto> {
-    const { ip, userAgent, geo } = extractRequestInfo(req);
+    const { ip, userAgent, geo } = this.requestInfo.extract(req);
 
     const refreshToken = getRefreshTokenFromRequest(req);
     if (!refreshToken) throw new UnauthorizedException('Недійсний токен');

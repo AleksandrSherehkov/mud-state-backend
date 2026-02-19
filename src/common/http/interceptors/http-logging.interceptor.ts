@@ -8,7 +8,7 @@ import { Observable } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import type { Request, Response } from 'express';
 import { AppLogger } from 'src/logger/logger.service';
-import { extractRequestInfo } from 'src/common/http/request-info';
+import { RequestInfoService } from 'src/common/http/request-info';
 import { getRequestId } from 'src/common/request-context/request-context';
 import {
   hashId,
@@ -18,7 +18,10 @@ import {
 
 @Injectable()
 export class HttpLoggingInterceptor implements NestInterceptor {
-  constructor(private readonly logger: AppLogger) {
+  constructor(
+    private readonly logger: AppLogger,
+    private readonly requestInfo: RequestInfoService,
+  ) {
     this.logger.setContext(HttpLoggingInterceptor.name);
   }
 
@@ -28,7 +31,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
     const res = http.getResponse<Response>();
 
     const start = Date.now();
-    const { ip, userAgent, geo } = extractRequestInfo(req);
+    const { ip, userAgent, geo } = this.requestInfo.extract(req);
     const ua = normalizeUserAgent(userAgent);
     const uaHash = ua ? hashId(ua) : undefined;
     const path = req.path;
