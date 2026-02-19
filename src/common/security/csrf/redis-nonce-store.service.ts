@@ -10,7 +10,7 @@ export class RedisNonceStoreService {
     const url = (this.policy.get().csrf.m2m.redisUrl ?? '').trim();
 
     if (!url) {
-      this.redis = null; // ✅ M2M replay-store disabled
+      this.redis = null;
       return;
     }
 
@@ -22,7 +22,7 @@ export class RedisNonceStoreService {
   }
 
   async setNxEx(key: string, ttlSec: number): Promise<boolean> {
-    if (!this.redis) return false; // ✅ deny path upstream
+    if (!this.redis) return false;
     await this.redis.connect().catch(() => undefined);
     const res = await this.redis.set(key, '1', 'EX', ttlSec, 'NX');
     return res === 'OK';

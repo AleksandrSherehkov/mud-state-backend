@@ -17,7 +17,6 @@ export class CsrfM2mReplayService {
     const p = this.policy.get().csrf.m2m;
 
     if (!p.redisUrl) {
-      // secure by default: if redis url missing => deny M2M path
       throw new ForbiddenException('CSRF validation failed (non-browser)');
     }
 

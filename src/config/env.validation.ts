@@ -16,7 +16,7 @@ export const envValidationSchema = Joi.object({
   JWT_AUDIENCE: Joi.string().min(1).required(),
   JWT_ACCESS_EXPIRES_IN: Joi.string().default('10m'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
-  // ✅ access token sender-context binding
+  //  access token sender-context binding
   ACCESS_BIND_UA: Joi.boolean().default(true),
   ACCESS_BIND_IP: Joi.boolean().default(false),
 
@@ -26,7 +26,7 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.string().valid('terminate', 'deny', 'log').default('log'),
   }),
 
-  // ✅ geo/ASN anomaly policy (only if proxy provides headers)
+  //  geo/ASN anomaly policy (only if proxy provides headers)
   ACCESS_GEO_ASN_ANOMALY_ACTION: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().valid('terminate', 'deny', 'log').default('terminate'),
@@ -52,11 +52,11 @@ export const envValidationSchema = Joi.object({
   THROTTLE_TTL_SEC: Joi.number().integer().min(1).max(3600).default(60),
   THROTTLE_LIMIT: Joi.number().integer().min(1).max(10000).default(100),
 
-  // ✅ Redis throttling backend (required)
+  //  Redis throttling backend (required)
   THROTTLE_REDIS_URL: Joi.string().min(1).required(),
   THROTTLE_REDIS_PREFIX: Joi.string().default('throttle:'),
 
-  // ✅ Redis health-check policy (always enabled)
+  //  Redis health-check policy (always enabled)
   THROTTLE_REDIS_HEALTHCHECK: Joi.boolean().default(true),
   THROTTLE_REDIS_HEALTHCHECK_TIMEOUT_MS: Joi.number()
     .integer()
@@ -64,21 +64,21 @@ export const envValidationSchema = Joi.object({
     .max(10_000)
     .default(1000),
 
-  // ✅ Throttle store driver
+  //  Throttle store driver
   THROTTLE_STORE_DRIVER: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().valid('redis').required(),
     otherwise: Joi.string().valid('redis', 'memory').default('redis'),
   }),
 
-  // ✅ Upper bound on total in-memory keys (defense against cardinality DoS)
+  //  Upper bound on total in-memory keys (defense against cardinality DoS)
   THROTTLE_STORE_MAX_KEYS: Joi.number()
     .integer()
     .min(1000)
     .max(1_000_000)
     .default(50_000),
 
-  // ✅ Cleanup interval for bounded store (seconds)
+  //  Cleanup interval for bounded store (seconds)
   THROTTLE_STORE_CLEANUP_INTERVAL_SEC: Joi.number()
     .integer()
     .min(10)
@@ -87,7 +87,7 @@ export const envValidationSchema = Joi.object({
 
   THROTTLE_REDIS_HEALTHCHECK_STRICT: Joi.boolean().default(true),
 
-  // ✅ hard upper-bound для всех per-route TTL, чтобы store не раздувался
+  //  hard upper-bound для всех per-route TTL, чтобы store не раздувался
   THROTTLE_STORE_MAX_TTL_SEC: Joi.number()
     .integer()
     .min(1)
@@ -148,7 +148,7 @@ export const envValidationSchema = Joi.object({
 
   THROTTLE_AUTH_ME_LIMIT: Joi.number().integer().min(1).max(10000).default(30),
   THROTTLE_AUTH_ME_TTL_SEC: Joi.number().integer().min(1).max(3600).default(60),
-  // ✅ secondary per-email throttles (NOT primary)
+  //  secondary per-email throttles (NOT primary)
   THROTTLE_AUTH_LOGIN_EMAIL_LIMIT: Joi.number()
     .integer()
     .min(1)
@@ -181,7 +181,7 @@ export const envValidationSchema = Joi.object({
     .max(3600)
     .default(600),
 
-  // ✅ global unauthenticated burst cap (umbrella)
+  //  global unauthenticated burst cap (umbrella)
   THROTTLE_UNAUTH_BURST_LIMIT: Joi.number()
     .integer()
     .min(1)
@@ -389,7 +389,7 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.string().optional(),
   }),
 
-  // ✅ optional: proxy marker header/value (defense-in-depth)
+  //  optional: proxy marker header/value (defense-in-depth)
   TRUST_PROXY_GEO_MARKER_NAME: Joi.when('TRUST_PROXY_GEO_HEADERS', {
     is: true,
     then: Joi.string().default('x-ingress-auth'),

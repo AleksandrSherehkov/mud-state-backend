@@ -162,7 +162,6 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     const isRefresh = isPostAndEndsWith(r, '/auth/refresh');
 
     if (isLogin || isRegister) {
-      // ✅ primary key must NOT be bypassable by changing email or User-Agent
       return ip;
     }
 
@@ -195,7 +194,7 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     const ip = getIp(r);
 
     const burst = THROTTLE_AUTH_SECONDARY.unauthBurst;
-    // ✅ umbrella key ip-only to prevent UA rotation bypass
+
     const key = `unauth:${ip}`;
 
     const rec = await this.storageService.increment(
