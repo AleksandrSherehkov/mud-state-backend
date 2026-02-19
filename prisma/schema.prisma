@@ -13,7 +13,7 @@ enum Role {
 }
 
 model User {
-  id String @id @default(uuid()) @db.Uuid
+  id            String         @id @default(uuid()) @db.Uuid
   email         String         @unique @db.Citext
   password      String
   role          Role           @default(USER)
@@ -37,11 +37,13 @@ model Character {
 }
 
 model RefreshToken {
-  jti       String   @id @db.Uuid
-  tokenHash String   @db.VarChar(64)
-  tokenSalt String  @db.VarChar(32)
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jti       String @id @db.Uuid
+  tokenHash String @db.VarChar(64)
+  tokenSalt String @db.VarChar(32)
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   revoked   Boolean  @default(false)
   expiresAt DateTime
   ip        String?
@@ -50,28 +52,30 @@ model RefreshToken {
 
   sessions Session[] @relation("SessionToRefreshToken")
 
-  @@index([userId, revoked, expiresAt])
-  
-  @@index([expiresAt])
 
+  @@unique([jti, userId], map: "rt_jti_userid_uq")
+  @@index([userId, revoked, expiresAt])
+  @@index([expiresAt])
 }
 
 model Session {
-  id String @id @default(uuid()) @db.Uuid
+  id     String @id @default(uuid()) @db.Uuid
   userId String @db.Uuid
+
   refreshTokenJti String? @db.Uuid
-  refreshToken    RefreshToken? @relation("SessionToRefreshToken", fields: [refreshTokenJti], references: [jti], onDelete: SetNull)
+
+ 
+  refreshToken RefreshToken? @relation("SessionToRefreshToken", fields: [refreshTokenJti, userId], references: [jti, userId], onDelete: Restrict)
 
   ip        String?
   userAgent String?
 
-  
   geoCountry String? @db.Char(2)
   asn        Int?    @db.Integer
   asOrgHash  String? @db.VarChar(64)
 
-  isActive  Boolean  @default(true)
-  startedAt DateTime @default(now())
+  isActive  Boolean   @default(true)
+  startedAt DateTime  @default(now())
   endedAt   DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -80,7 +84,6 @@ model Session {
   @@index([refreshTokenJti])
   @@index([userId, isActive, endedAt, startedAt])
   @@index([userId, startedAt])
-
   @@index([geoCountry, asn])
 }
 
@@ -93,7 +96,7 @@ model UserSecurity {
   lockedUntil      DateTime?
 
   lastFailedIp     String?
-  lastFailedUaHash String?  @db.VarChar(64)
+  lastFailedUaHash String? @db.VarChar(64)
 
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
@@ -101,16 +104,16 @@ model UserSecurity {
   @@index([lockedUntil])
   @@index([lastFailedAt])
 }
+
 model LoginIdentifierSecurity {
- 
   emailHash String @id @db.VarChar(64)
 
-  failedLoginCount Int      @default(0)
+  failedLoginCount Int       @default(0)
   lastFailedAt     DateTime?
   lockedUntil      DateTime?
 
-  lastFailedIp     String?  @db.VarChar(64)
-  lastFailedUaHash String?  @db.VarChar(64)
+  lastFailedIp     String? @db.VarChar(64)
+  lastFailedUaHash String? @db.VarChar(64)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

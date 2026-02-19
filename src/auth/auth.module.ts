@@ -46,7 +46,7 @@ import { RefreshIncidentResponseService } from './use-cases/refresh/refresh.inci
         signOptions: {
           expiresIn: config.get<StringValue>(
             'JWT_ACCESS_EXPIRES_IN',
-            '15m' as StringValue,
+            '10m' as StringValue,
           ),
         },
       }),
