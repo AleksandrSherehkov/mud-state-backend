@@ -410,8 +410,8 @@ Security readiness для тестів:
    - `SameSite` згідно з архітектурою фронтенду (`none` тільки за HTTPS).
 4. **Secrets hygiene**
    - регулярна ротація;
-   - зберігання у vault/KMS.
-   - M2M CSRF secrets зберігаються поза `.env` (file-based secret store або external vault);
+   - зберігання у vault/KMS;
+   - M2M CSRF secrets зберігаються поза `.env` (file-based secret store або external vault).
 
 ## 11. Future Improvements
 
