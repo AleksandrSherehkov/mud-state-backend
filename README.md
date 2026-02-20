@@ -247,16 +247,14 @@ M2M HMAC secrets не зберігаються у `.env`.
 - `JWT_REFRESH_SECRET`
 - `JWT_ISSUER`
 - `JWT_AUDIENCE`
-  `REFRESH_TOKEN_PEPPER` (hex, 64 символи)
+- `REFRESH_TOKEN_PEPPER` (hex, 64 символи)
 - `COOKIE_SECRET`
 - `CORS_ORIGINS` (обовʼязково в усіх env, wildcard заборонений)
 - `CSRF_TRUSTED_ORIGINS`
 - `CSRF_M2M_ENABLED`
 - `CSRF_M2M_SECRETS_FILE` (production: обовʼязково; JSON secret store для non-browser CSRF HMAC proof)
-- `CSRF_M2M_REPLAY_WINDOW_SEC`
-- `THROTTLE_REDIS_URL` (використовується для nonce replay-protection, якщо `CSRF_M2M_REDIS_URL` не заданий)
 - `CSRF_M2M_REPLAY_WINDOW_SEC` (default 60)
-- `THROTTLE_REDIS_URL` (використовується також для nonce replay-protection, якщо `CSRF_M2M_REDIS_URL` не заданий)
+- `THROTTLE_REDIS_URL` (використовується для nonce replay-protection, якщо `CSRF_M2M_REDIS_URL` не заданий)
 
 ### Чутлива конфігурація
 
