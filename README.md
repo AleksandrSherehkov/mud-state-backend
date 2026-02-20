@@ -90,9 +90,25 @@ Production-ready NestJS backend для керування автентифіка
 Система припускає, що:
 
 1. TLS термінація коректна і трафік до клієнта захищений HTTPS у production.
-2. Секрети (`JWT_*_SECRET`, `REFRESH_TOKEN_PEPPER`, `COOKIE_SECRET`, а також M2M CSRF secrets з `CSRF_M2M_CLIENTS`) не скомпрометовані.
+2. Секрети (`JWT_*_SECRET`, `REFRESH_TOKEN_PEPPER`, `COOKIE_SECRET`, а також M2M CSRF secrets з file-based secret store, визначеного через `CSRF_M2M_SECRETS_FILE`) не скомпрометовані.
 3. `TRUST_PROXY_HOPS` коректно налаштований для реального ланцюга проксі.
 4. Клієнт зберігає access token поза cookie (Bearer), refresh токен — у HttpOnly signed cookie.
+
+### M2M Secret Store Model
+
+M2M HMAC secrets не зберігаються у `.env`.  
+Вони завантажуються з file-based secret store (`CSRF_M2M_SECRETS_FILE`) у форматі JSON з підтримкою:
+
+- `kid`
+- `secret` (hex, 64 символи)
+- `scopes`
+- `status` (`active` / `disabled`)
+- `notBefore`
+- `expiresAt`
+
+Сервіс кешує файл з TTL (`CSRF_M2M_SECRETS_RELOAD_TTL_SEC`) та автоматично підхоплює ротацію без рестарту сервера.
+
+У production запуск з увімкненим M2M без валідного secret file завершується fail-fast помилкою.
 
 ### CSRF (double-submit) і trade-off non-HttpOnly cookie
 
@@ -235,7 +251,10 @@ Production-ready NestJS backend для керування автентифіка
 - `COOKIE_SECRET`
 - `CORS_ORIGINS` (обовʼязково в усіх env, wildcard заборонений)
 - `CSRF_TRUSTED_ORIGINS`
-- `CSRF_M2M_CLIENTS` (production: обовʼязково; non-browser CSRF proof через HMAC)
+- `CSRF_M2M_ENABLED`
+- `CSRF_M2M_SECRETS_FILE` (production: обовʼязково; JSON secret store для non-browser CSRF HMAC proof)
+- `CSRF_M2M_REPLAY_WINDOW_SEC`
+- `THROTTLE_REDIS_URL` (використовується для nonce replay-protection, якщо `CSRF_M2M_REDIS_URL` не заданий)
 - `CSRF_M2M_REPLAY_WINDOW_SEC` (default 60)
 - `THROTTLE_REDIS_URL` (використовується також для nonce replay-protection, якщо `CSRF_M2M_REDIS_URL` не заданий)
 
@@ -269,7 +288,10 @@ COOKIE_SECRET=change_me_cookie_secret_min_32_chars
 CORS_ORIGINS=http://localhost:5173
 CORS_ALLOW_NO_ORIGIN=true
 CSRF_TRUSTED_ORIGINS=http://localhost:5173
-CSRF_API_KEY=change_me_csrf_api_key_min_32_chars
+CSRF_M2M_ENABLED=true
+CSRF_M2M_SECRETS_FILE=/run/secrets/csrf-m2m-clients.json
+CSRF_M2M_SECRETS_RELOAD_TTL_SEC=30
+CSRF_M2M_REPLAY_WINDOW_SEC=60
 
 THROTTLE_TTL_SEC=60
 THROTTLE_LIMIT=100
@@ -391,6 +413,7 @@ Security readiness для тестів:
 4. **Secrets hygiene**
    - регулярна ротація;
    - зберігання у vault/KMS.
+   - M2M CSRF secrets зберігаються поза `.env` (file-based secret store або external vault);
 
 ## 11. Future Improvements
 
