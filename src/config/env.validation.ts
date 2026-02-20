@@ -5,20 +5,41 @@ export const envValidationSchema = Joi.object({
     .valid('development', 'production', 'test')
     .default('development'),
 
+  PORT: Joi.number().default(3000),
+
+  BASE_URL: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string()
+      .uri({ scheme: ['https'] })
+      .required(),
+    otherwise: Joi.string().uri().default('http://localhost:3000'),
+  }),
+
   DATABASE_URL: Joi.string().required(),
 
   API_PREFIX: Joi.string().default('api'),
   API_VERSION: Joi.string().pattern(/^\d+$/).default('1'),
 
+  SWAGGER_ENABLED: Joi.boolean().default(false),
+
+  // ===== JWT / Tokens =====
   JWT_ACCESS_SECRET: Joi.string().min(32).required(),
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
+
   JWT_ISSUER: Joi.string().min(1).required(),
   JWT_AUDIENCE: Joi.string().min(1).required(),
+
   JWT_ACCESS_EXPIRES_IN: Joi.string().default('10m'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
-  //  access token sender-context binding
+
+  REFRESH_TOKEN_PEPPER: Joi.string().length(64).hex().required(),
+
+  // ===== Session binding & anomaly policy =====
   ACCESS_BIND_UA: Joi.boolean().default(true),
   ACCESS_BIND_IP: Joi.boolean().default(false),
+
+  REFRESH_BIND_UA: Joi.boolean().default(true),
+  REFRESH_BIND_IP: Joi.boolean().default(false),
 
   ACCESS_FINGERPRINT_MISMATCH_ACTION: Joi.when('APP_ENV', {
     is: 'production',
@@ -26,7 +47,6 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.string().valid('terminate', 'deny', 'log').default('log'),
   }),
 
-  //  geo/ASN anomaly policy (only if proxy provides headers)
   ACCESS_GEO_ASN_ANOMALY_ACTION: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().valid('terminate', 'deny', 'log').default('terminate'),
@@ -37,26 +57,16 @@ export const envValidationSchema = Joi.object({
 
   AUTH_MAX_ACTIVE_SESSIONS: Joi.number().integer().min(1).max(50).default(1),
 
-  PORT: Joi.number().default(3000),
-  BASE_URL: Joi.when('APP_ENV', {
-    is: 'production',
-    then: Joi.string()
-      .uri({ scheme: ['https'] })
-      .required(),
-    otherwise: Joi.string().uri().default('http://localhost:3000'),
-  }),
-
+  // ===== Password hashing =====
   BCRYPT_SALT_ROUNDS: Joi.number().integer().min(10).max(15).default(12),
 
-  // throttler global
+  // ===== Global throttler =====
   THROTTLE_TTL_SEC: Joi.number().integer().min(1).max(3600).default(60),
   THROTTLE_LIMIT: Joi.number().integer().min(1).max(10000).default(100),
 
-  //  Redis throttling backend (required)
   THROTTLE_REDIS_URL: Joi.string().min(1).required(),
   THROTTLE_REDIS_PREFIX: Joi.string().default('throttle:'),
 
-  //  Redis health-check policy (always enabled)
   THROTTLE_REDIS_HEALTHCHECK: Joi.boolean().default(true),
   THROTTLE_REDIS_HEALTHCHECK_TIMEOUT_MS: Joi.number()
     .integer()
@@ -64,37 +74,38 @@ export const envValidationSchema = Joi.object({
     .max(10_000)
     .default(1000),
 
-  //  Throttle store driver
+  // ✅ По-взрослому: strict в prod true, в dev false
+  THROTTLE_REDIS_HEALTHCHECK_STRICT: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.boolean().valid(true).default(true),
+    otherwise: Joi.boolean().default(false),
+  }),
+
   THROTTLE_STORE_DRIVER: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().valid('redis').required(),
     otherwise: Joi.string().valid('redis', 'memory').default('redis'),
   }),
 
-  //  Upper bound on total in-memory keys (defense against cardinality DoS)
   THROTTLE_STORE_MAX_KEYS: Joi.number()
     .integer()
     .min(1000)
     .max(1_000_000)
     .default(50_000),
 
-  //  Cleanup interval for bounded store (seconds)
   THROTTLE_STORE_CLEANUP_INTERVAL_SEC: Joi.number()
     .integer()
     .min(10)
     .max(3600)
     .default(60),
 
-  THROTTLE_REDIS_HEALTHCHECK_STRICT: Joi.boolean().default(true),
-
-  //  hard upper-bound для всех per-route TTL, чтобы store не раздувался
   THROTTLE_STORE_MAX_TTL_SEC: Joi.number()
     .integer()
     .min(1)
     .max(3600)
     .default(300),
 
-  // auth throttles
+  // ===== Per-route throttles (auth) =====
   THROTTLE_AUTH_LOGIN_LIMIT: Joi.number().integer().min(1).max(1000).default(5),
   THROTTLE_AUTH_LOGIN_TTL_SEC: Joi.number()
     .integer()
@@ -148,7 +159,7 @@ export const envValidationSchema = Joi.object({
 
   THROTTLE_AUTH_ME_LIMIT: Joi.number().integer().min(1).max(10000).default(30),
   THROTTLE_AUTH_ME_TTL_SEC: Joi.number().integer().min(1).max(3600).default(60),
-  //  secondary per-email throttles (NOT primary)
+
   THROTTLE_AUTH_LOGIN_EMAIL_LIMIT: Joi.number()
     .integer()
     .min(1)
@@ -181,7 +192,7 @@ export const envValidationSchema = Joi.object({
     .max(3600)
     .default(600),
 
-  //  global unauthenticated burst cap (umbrella)
+  // ===== Global unauth burst =====
   THROTTLE_UNAUTH_BURST_LIMIT: Joi.number()
     .integer()
     .min(1)
@@ -198,7 +209,7 @@ export const envValidationSchema = Joi.object({
     .max(3600)
     .default(30),
 
-  // users throttles
+  // ===== Users throttles =====
   THROTTLE_USERS_BY_ID_LIMIT: Joi.number()
     .integer()
     .min(1)
@@ -243,7 +254,7 @@ export const envValidationSchema = Joi.object({
     .max(3600)
     .default(60),
 
-  // sessions throttles
+  // ===== Sessions throttles =====
   THROTTLE_SESSIONS_ME_LIMIT: Joi.number()
     .integer()
     .min(1)
@@ -288,7 +299,7 @@ export const envValidationSchema = Joi.object({
     .max(3600)
     .default(60),
 
-  // logging
+  // ===== Logging =====
   LOG_DIR: Joi.string().default('logs'),
   LOG_FILE_NAME: Joi.string().default('%DATE%.log'),
   LOG_DATE_PATTERN: Joi.string().default('YYYY-MM-DD'),
@@ -302,20 +313,19 @@ export const envValidationSchema = Joi.object({
   PRISMA_LOG_QUERIES: Joi.boolean().default(false),
   PRISMA_QUERY_SAMPLE_RATE: Joi.number().min(0).max(1).default(0.05),
 
+  // ===== Token maintenance =====
   TOKEN_CLEANUP_DAYS: Joi.number().min(1).max(365).default(7),
   TOKEN_CLEANUP_CRON: Joi.string()
     .pattern(/^(\S+\s+){4}\S+$/)
     .default('0 0 * * *'),
 
-  REFRESH_TOKEN_PEPPER: Joi.string().length(64).hex().required(),
-  REFRESH_BIND_UA: Joi.boolean().default(true),
-  REFRESH_BIND_IP: Joi.boolean().default(false),
-
+  // ===== Auth lock =====
   AUTH_LOCK_MAX_ATTEMPTS: Joi.number().min(3).max(50).default(10),
   AUTH_LOCK_BASE_SECONDS: Joi.number().min(1).max(60).default(2),
   AUTH_LOCK_MAX_SECONDS: Joi.number().min(10).max(3600).default(300),
   AUTH_LOCK_WINDOW_SECONDS: Joi.number().min(60).max(86400).default(900),
 
+  // ===== Password policy =====
   PASSWORD_MIN_LENGTH: Joi.number().min(6).max(128).default(8),
   PASSWORD_MAX_LENGTH: Joi.number()
     .min(Joi.ref('PASSWORD_MIN_LENGTH'))
@@ -325,6 +335,7 @@ export const envValidationSchema = Joi.object({
   PASSWORD_REQUIRE_DIGIT: Joi.boolean().default(true),
   PASSWORD_REQUIRE_SPECIAL: Joi.boolean().default(false),
 
+  // ===== CORS / CSRF =====
   CORS_ORIGINS: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().min(1).required(),
@@ -339,13 +350,6 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.boolean().default(true),
   }),
 
-  COOKIE_SAMESITE: Joi.string().valid('lax', 'strict', 'none').default('lax'),
-  COOKIE_CROSS_SITE: Joi.when('COOKIE_SAMESITE', {
-    is: 'none',
-    then: Joi.boolean().valid(true).required(),
-    otherwise: Joi.boolean().default(false),
-  }),
-
   CSRF_TRUSTED_ORIGINS: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().min(1).required(),
@@ -354,6 +358,22 @@ export const envValidationSchema = Joi.object({
     ),
   }),
 
+  CSRF_ALLOW_NO_ORIGIN: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.boolean().valid(false).default(false),
+    otherwise: Joi.boolean().default(true),
+  }),
+
+  COOKIE_SAMESITE: Joi.string().valid('lax', 'strict', 'none').default('lax'),
+  COOKIE_CROSS_SITE: Joi.when('COOKIE_SAMESITE', {
+    is: 'none',
+    then: Joi.boolean().valid(true).required(),
+    otherwise: Joi.boolean().default(false),
+  }),
+
+  COOKIE_SECRET: Joi.string().min(32).required(),
+
+  // ===== CSRF M2M =====
   CSRF_M2M_CLIENTS: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().min(1).required(),
@@ -365,22 +385,16 @@ export const envValidationSchema = Joi.object({
     .min(10)
     .max(300)
     .default(60),
-
   CSRF_M2M_REDIS_URL: Joi.string().min(1).optional(),
-
   CSRF_M2M_NONCE_PREFIX: Joi.string().min(1).default('csrf:m2m:nonce:'),
 
-  CSRF_ALLOW_NO_ORIGIN: Joi.when('APP_ENV', {
-    is: 'production',
-    then: Joi.boolean().valid(false).default(false),
-    otherwise: Joi.boolean().default(true),
-  }),
-
+  // ===== Proxy trust =====
   TRUST_PROXY_HOPS: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.number().integer().min(1).max(10).required(),
     otherwise: Joi.number().integer().min(0).max(10).default(0),
   }),
+
   TRUST_PROXY_GEO_HEADERS: Joi.boolean().default(false),
 
   TRUSTED_PROXY_IPS: Joi.when('TRUST_PROXY_GEO_HEADERS', {
@@ -389,22 +403,19 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.string().optional(),
   }),
 
-  //  optional: proxy marker header/value (defense-in-depth)
   TRUST_PROXY_GEO_MARKER_NAME: Joi.when('TRUST_PROXY_GEO_HEADERS', {
     is: true,
     then: Joi.string().default('x-ingress-auth'),
     otherwise: Joi.string().optional(),
   }),
+
   TRUST_PROXY_GEO_MARKER_VALUE: Joi.when('TRUST_PROXY_GEO_HEADERS', {
     is: true,
     then: Joi.string().min(1).default('1'),
     otherwise: Joi.string().optional(),
   }),
 
-  SWAGGER_ENABLED: Joi.boolean().default(false),
-
   AUTH_DUMMY_PASSWORD_HASH: Joi.string().min(20).optional(),
-  COOKIE_SECRET: Joi.string().min(32).required(),
 })
   .unknown(true)
   .prefs({ abortEarly: false });
