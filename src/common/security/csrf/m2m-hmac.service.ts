@@ -2,7 +2,8 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { SecurityPolicyService } from '../policy/security-policy.service';
-import type { CsrfM2mClient } from '../policy/security-policy.types';
+import type { CsrfM2mClientRecord } from '../policy/security-policy.types';
+import { CsrfM2mClientsService } from './m2m-clients.service';
 
 function nowSec(): number {
   return Math.floor(Date.now() / 1000);
@@ -18,7 +19,10 @@ function base64Url(buf: Buffer): string {
 
 @Injectable()
 export class CsrfM2mHmacService {
-  constructor(private readonly policy: SecurityPolicyService) {}
+  constructor(
+    private readonly policy: SecurityPolicyService,
+    private readonly clients: CsrfM2mClientsService,
+  ) {}
 
   parseHeaders(
     req: Request,
@@ -57,15 +61,12 @@ export class CsrfM2mHmacService {
     }
   }
 
-  findClientOrThrow(kid: string): CsrfM2mClient {
-    const clients = this.policy.get().csrf.m2m.clients;
-    const client = clients.find((c) => c.kid === kid);
-    if (!client)
-      throw new ForbiddenException('CSRF validation failed (non-browser)');
-    return client;
+  findClientOrThrow(kid: string): CsrfM2mClientRecord {
+    // ✅ секреты/metadata теперь из secret store, а не из env/policy snapshot
+    return this.clients.getActiveClientOrThrow(kid);
   }
 
-  assertScopeAllowed(client: CsrfM2mClient, req: Request): void {
+  assertScopeAllowed(client: CsrfM2mClientRecord, req: Request): void {
     if (client.scopes.includes('*')) return;
 
     const path = req.path || '';
@@ -76,7 +77,7 @@ export class CsrfM2mHmacService {
   }
 
   computeExpected(
-    client: CsrfM2mClient,
+    client: CsrfM2mClientRecord,
     req: Request,
     kid: string,
     ts: number,

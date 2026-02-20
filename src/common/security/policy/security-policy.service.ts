@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type {
-  CsrfM2mClient,
-  FetchSiteValue,
-  SecurityPolicy,
-} from './security-policy.types';
+import type { FetchSiteValue, SecurityPolicy } from './security-policy.types';
 
 function splitList(raw: string | undefined): string[] {
   return (raw ?? '')
@@ -30,35 +26,6 @@ function clampInt(v: number, min: number, max: number, def: number): number {
   const n = Math.floor(v);
   if (n < min || n > max) return def;
   return n;
-}
-
-function parseM2mClients(raw: string | undefined): CsrfM2mClient[] {
-  const s = (raw ?? '').trim();
-  if (!s) return [];
-
-  return s
-    .split(/[;,]/g)
-    .map((x) => x.trim())
-    .filter(Boolean)
-    .map((entry) => {
-      const [kid, secret, scopesRaw] = entry.split(':');
-      const k = (kid ?? '').trim();
-      const sec = (secret ?? '').trim();
-      const scopes = (scopesRaw ?? '').trim();
-
-      if (!k || !sec) return null;
-
-      const scopesList =
-        !scopes || scopes === '*'
-          ? ['*']
-          : scopes
-              .split('|')
-              .map((p) => p.trim())
-              .filter(Boolean);
-
-      return { kid: k, secret: sec, scopes: scopesList };
-    })
-    .filter((x): x is CsrfM2mClient => Boolean(x));
 }
 
 function isFetchSiteValue(v: string): v is FetchSiteValue {
@@ -108,11 +75,13 @@ export class SecurityPolicyService {
       60,
     );
 
+    const m2mEnabled = boolFromConfig(this.config, 'CSRF_M2M_ENABLED', true);
+
     const redisUrl =
       String(this.config.get('CSRF_M2M_REDIS_URL') ?? '').trim() ||
       String(this.config.get('THROTTLE_REDIS_URL') ?? '').trim();
 
-    if (!redisUrl) {
+    if (m2mEnabled && !redisUrl) {
       throw new Error('Redis URL is required for CSRF M2M replay protection');
     }
 
@@ -134,6 +103,17 @@ export class SecurityPolicyService {
       allowedFetchSitesRaw.length > 0
         ? allowedFetchSitesRaw
         : ['same-origin', 'same-site'];
+
+    const secretsFile =
+      String(this.config.get('CSRF_M2M_SECRETS_FILE') ?? '').trim() ||
+      undefined;
+
+    const reloadTtlSec = clampInt(
+      Number(this.config.get('CSRF_M2M_SECRETS_RELOAD_TTL_SEC') ?? 30),
+      1,
+      3600,
+      30,
+    );
 
     return {
       appEnv,
@@ -162,11 +142,12 @@ export class SecurityPolicyService {
         allowedFetchSites,
 
         m2m: {
-          enabled: boolFromConfig(this.config, 'CSRF_M2M_ENABLED', true),
-          clients: parseM2mClients(this.config.get<string>('CSRF_M2M_CLIENTS')),
+          enabled: m2mEnabled,
           replayWindowSec,
           redisUrl,
           noncePrefix,
+          secretsFile,
+          reloadTtlSec,
         },
       },
 

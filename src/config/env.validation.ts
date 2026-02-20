@@ -374,11 +374,18 @@ export const envValidationSchema = Joi.object({
   COOKIE_SECRET: Joi.string().min(32).required(),
 
   // ===== CSRF M2M =====
-  CSRF_M2M_CLIENTS: Joi.when('APP_ENV', {
+
+  CSRF_M2M_SECRETS_FILE: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().min(1).required(),
-    otherwise: Joi.string().optional(),
+    otherwise: Joi.string().min(1).optional(),
   }),
+
+  CSRF_M2M_SECRETS_RELOAD_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(30),
 
   CSRF_M2M_REPLAY_WINDOW_SEC: Joi.number()
     .integer()
@@ -387,6 +394,15 @@ export const envValidationSchema = Joi.object({
     .default(60),
   CSRF_M2M_REDIS_URL: Joi.string().min(1).optional(),
   CSRF_M2M_NONCE_PREFIX: Joi.string().min(1).default('csrf:m2m:nonce:'),
+
+  CSRF_ENABLED: Joi.boolean().default(true),
+  CSRF_COOKIE_NAME: Joi.string().min(1).default('csrfToken'),
+  CSRF_HEADER_NAME: Joi.string().min(1).default('x-csrf-token'),
+
+  CSRF_ENFORCE_FETCH_SITE_IN_PROD: Joi.boolean().default(true),
+  CSRF_ALLOWED_FETCH_SITES: Joi.string().default('same-origin,same-site'),
+
+  CSRF_M2M_ENABLED: Joi.boolean().default(true),
 
   // ===== Proxy trust =====
   TRUST_PROXY_HOPS: Joi.when('APP_ENV', {

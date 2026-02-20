@@ -35,6 +35,13 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
+# secrets (never commit)
+run/secrets/*
+!run/secrets/.gitkeep
+!run/secrets/*.example.json
+!run/secrets/README.md
+
+
 # dotenv environment variable files
 .env
 .env.development.local

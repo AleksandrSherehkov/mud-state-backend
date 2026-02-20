@@ -7,10 +7,15 @@ export type ProxyGeoTrustPolicy = {
   markerValue: string;
 };
 
-export type CsrfM2mClient = {
+export type CsrfM2mClientStatus = 'active' | 'disabled';
+
+export type CsrfM2mClientRecord = {
   kid: string;
-  secret: string;
+  secret: string; // хранится НЕ в env, а в secret store (file)
   scopes: string[];
+  status: CsrfM2mClientStatus;
+  notBefore?: string; // ISO date-time (опционально)
+  expiresAt?: string; // ISO date-time (опционально)
 };
 
 export type CsrfPolicy = {
@@ -27,10 +32,12 @@ export type CsrfPolicy = {
 
   m2m: {
     enabled: boolean;
-    clients: CsrfM2mClient[];
     replayWindowSec: number;
     redisUrl: string;
     noncePrefix: string;
+
+    secretsFile?: string;
+    reloadTtlSec: number;
   };
 };
 export type AppEnv = 'development' | 'test' | 'production';

@@ -8,6 +8,7 @@ import { DoubleSubmitCsrfService } from './double-submit.service';
 import { CsrfM2mHmacService } from './m2m-hmac.service';
 import { CsrfM2mReplayService } from './m2m-replay.service';
 import { CsrfValidationService } from './csrf-validation.service';
+import { CsrfM2mClientsService } from './m2m-clients.service';
 
 @Module({
   imports: [ConfigModule],
@@ -17,6 +18,7 @@ import { CsrfValidationService } from './csrf-validation.service';
     OriginPolicyService,
     FetchSitePolicyService,
     DoubleSubmitCsrfService,
+    CsrfM2mClientsService,
     CsrfM2mHmacService,
     CsrfM2mReplayService,
   ],
@@ -26,6 +28,7 @@ import { CsrfValidationService } from './csrf-validation.service';
     OriginPolicyService,
     FetchSitePolicyService,
     DoubleSubmitCsrfService,
+    CsrfM2mClientsService,
     CsrfM2mHmacService,
     CsrfM2mReplayService,
   ],
