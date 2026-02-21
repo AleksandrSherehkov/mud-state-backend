@@ -255,6 +255,39 @@ export class SessionsService {
       : null;
   }
 
+  async getActiveSessionContext(params: {
+    sid: string;
+    userId: string;
+  }): Promise<{
+    refreshTokenJti: string | null;
+    geoCountry: string | null;
+    asn: number | null;
+    asOrgHash: string | null;
+  } | null> {
+    const session = await this.prisma.session.findFirst({
+      where: {
+        id: params.sid,
+        userId: params.userId,
+        isActive: true,
+        endedAt: null,
+      },
+      select: {
+        refreshTokenJti: true,
+        geoCountry: true,
+        asn: true,
+        asOrgHash: true,
+      },
+    });
+
+    return session
+      ? {
+          refreshTokenJti: session.refreshTokenJti ?? null,
+          geoCountry: session.geoCountry ?? null,
+          asn: session.asn ?? null,
+          asOrgHash: session.asOrgHash ?? null,
+        }
+      : null;
+  }
   async isSessionActiveById(sessionId: string): Promise<boolean> {
     const session = await this.prisma.session.findFirst({
       where: { id: sessionId, isActive: true, endedAt: null },

@@ -171,7 +171,60 @@ export class AuthSecurityService {
       throw new UnauthorizedException('Невірний email або пароль');
     }
   }
+  async recordRefreshReuse(params: {
+    userId: string;
+    geo?: { country?: string; asn?: number; asOrgHash?: string } | null;
+    windowSec: number;
+  }): Promise<{ count: number; windowExpired: boolean }> {
+    const ts = now();
 
+    const prev = await this.prisma.userSecurity.findUnique({
+      where: { userId: params.userId },
+      select: { refreshReuseCount: true, lastRefreshReuseAt: true },
+    });
+
+    const windowExpired =
+      !prev?.lastRefreshReuseAt ||
+      (ts.getTime() - prev.lastRefreshReuseAt.getTime()) / 1000 >
+        params.windowSec;
+
+    const nextCount = windowExpired ? 1 : (prev?.refreshReuseCount ?? 0) + 1;
+
+    const country = (params.geo?.country ?? '').trim().toUpperCase() || null;
+
+    await this.prisma.userSecurity.upsert({
+      where: { userId: params.userId },
+      create: {
+        userId: params.userId,
+        refreshReuseCount: nextCount,
+        lastRefreshReuseAt: ts,
+        lastRefreshReuseCountry: country,
+        lastRefreshReuseAsn:
+          typeof params.geo?.asn === 'number' ? params.geo.asn : null,
+        lastRefreshReuseAsOrgHash: params.geo?.asOrgHash ?? null,
+      },
+      update: {
+        refreshReuseCount: nextCount,
+        lastRefreshReuseAt: ts,
+        lastRefreshReuseCountry: country,
+        lastRefreshReuseAsn:
+          typeof params.geo?.asn === 'number' ? params.geo.asn : null,
+        lastRefreshReuseAsOrgHash: params.geo?.asOrgHash ?? null,
+      },
+    });
+
+    this.logger.warn('Refresh reuse recorded', AuthSecurityService.name, {
+      event: 'auth.refresh.reuse.recorded',
+      userId: params.userId,
+      count: nextCount,
+      windowExpired,
+      geoCountry: country ?? undefined,
+      geoAsn: typeof params.geo?.asn === 'number' ? params.geo.asn : undefined,
+      asOrgHash: params.geo?.asOrgHash ?? undefined,
+    });
+
+    return { count: nextCount, windowExpired };
+  }
   async onUnknownLoginFailed(params: {
     emailHash: string;
     ip?: string | null;

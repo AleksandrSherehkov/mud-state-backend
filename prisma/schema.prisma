@@ -98,11 +98,19 @@ model UserSecurity {
   lastFailedIp     String?
   lastFailedUaHash String? @db.VarChar(64)
 
+  // ===== Refresh reuse counters (adaptive incident response) =====
+  refreshReuseCount         Int       @default(0)
+  lastRefreshReuseAt        DateTime?
+  lastRefreshReuseCountry   String?   @db.Char(2)
+  lastRefreshReuseAsn       Int?      @db.Integer
+  lastRefreshReuseAsOrgHash String?   @db.VarChar(64)
+
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 
   @@index([lockedUntil])
   @@index([lastFailedAt])
+  @@index([lastRefreshReuseAt])
 }
 
 model LoginIdentifierSecurity {

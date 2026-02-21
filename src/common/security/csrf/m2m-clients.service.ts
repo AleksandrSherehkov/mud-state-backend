@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, OnModuleInit } from '@nestjs/common';
 import { readFileSync, statSync } from 'node:fs';
-import type { SecurityPolicyService } from '../policy/security-policy.service';
 import type { CsrfM2mClientRecord } from '../policy/security-policy.types';
+import { SecurityPolicyService } from '../policy/security-policy.service';
 
 function isIsoDate(v: unknown): v is string {
   if (typeof v !== 'string') return false;
@@ -49,12 +49,11 @@ export class CsrfM2mClientsService implements OnModuleInit {
     const p = this.policy.get();
     const m2m = p.csrf.m2m;
 
-    // ✅ Fail-fast в prod: если M2M включён — файл должен быть читаемым и валидным
     if (p.isProd && m2m.enabled) {
       if (!m2m.secretsFile) {
         throw new Error('CSRF M2M secrets file is required in production');
       }
-      // Попробуем загрузить один раз на старте (без раскрытия содержимого)
+
       this.loadClientsOrThrowStartup();
     }
   }

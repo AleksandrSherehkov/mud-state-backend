@@ -48,6 +48,28 @@ export const envValidationSchema = Joi.object({
     .valid('scoped', 'user_wide')
     .default('scoped'),
 
+  // ===== Adaptive refresh reuse incident response =====
+  REFRESH_REUSE_ADAPTIVE_ENABLED: Joi.boolean().default(true),
+
+  // CSV roles: ADMIN,MODERATOR,USER
+  REFRESH_REUSE_ESCALATE_ROLES: Joi.string()
+    .trim()
+    .pattern(/^(ADMIN|MODERATOR|USER)(,(ADMIN|MODERATOR|USER))*$/i)
+    .default('ADMIN,MODERATOR'),
+
+  REFRESH_REUSE_ESCALATE_ON_GEO_ASN: Joi.boolean().default(true),
+
+  REFRESH_REUSE_REPEAT_WINDOW_SEC: Joi.number()
+    .integer()
+    .min(60)
+    .max(86400)
+    .default(900),
+
+  REFRESH_REUSE_REPEAT_THRESHOLD: Joi.number()
+    .integer()
+    .min(2)
+    .max(10)
+    .default(2),
   ACCESS_FINGERPRINT_MISMATCH_ACTION: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().valid('terminate', 'deny', 'log').default('terminate'),

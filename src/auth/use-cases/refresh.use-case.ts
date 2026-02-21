@@ -64,11 +64,12 @@ export class RefreshUseCase {
     } catch (e: unknown) {
       if (e instanceof RefreshClaimFailed) {
         return this.incidents.handleReuseDetected({
-          payload: { ...payload, jti }, // гарантуємо валідний jti у downstream
+          payload: { ...payload, jti },
           userId,
           sid,
           ip: ctx.ip,
           userAgent: ctx.userAgent,
+          geo: ctx.geo,
         });
       }
       throw e;
