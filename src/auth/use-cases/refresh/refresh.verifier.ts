@@ -11,6 +11,18 @@ import { hashId, maskIp } from 'src/common/logging/log-sanitize';
 
 import type { JwtPayload } from '../../types/jwt.types';
 
+function isUuid(v: string): boolean {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      v,
+    )
+  ) {
+    return false;
+  }
+
+  return v.toLowerCase() !== '00000000-0000-0000-0000-000000000000';
+}
+
 @Injectable()
 export class RefreshVerifier {
   constructor(
@@ -36,6 +48,40 @@ export class RefreshVerifier {
       );
       throw new UnauthorizedException('Недійсний токен');
     }
+  }
+
+  requireJti(payload: JwtPayload): string {
+    const raw = (payload.jti ?? '').trim();
+
+    if (!raw) {
+      this.logger.warn(
+        'Refresh failed: missing jti in token',
+        RefreshVerifier.name,
+        {
+          event: 'auth.refresh.fail',
+          reason: 'missing_jti',
+          sid: payload.sid,
+          sub: payload.sub,
+        },
+      );
+      throw new UnauthorizedException('Недійсний токен');
+    }
+
+    if (!isUuid(raw)) {
+      this.logger.warn(
+        'Refresh failed: invalid jti format',
+        RefreshVerifier.name,
+        {
+          event: 'auth.refresh.fail',
+          reason: 'invalid_jti',
+          sid: payload.sid,
+          sub: payload.sub,
+        },
+      );
+      throw new UnauthorizedException('Недійсний токен');
+    }
+
+    return raw;
   }
 
   requireUserId(payload: JwtPayload): string {

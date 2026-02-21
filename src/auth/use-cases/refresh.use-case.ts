@@ -29,6 +29,9 @@ export class RefreshUseCase {
     const payload = await this.verifier.verifyRefreshOrThrow(refreshToken);
 
     const userId = this.verifier.requireUserId(payload);
+
+    const jti = this.verifier.requireJti(payload);
+
     const sid = this.verifier.requireSid(payload, userId);
 
     await this.verifier.assertSessionActiveOrThrow({
@@ -41,7 +44,7 @@ export class RefreshUseCase {
 
     await this.refreshTokenService.assertFingerprint({
       userId,
-      jti: payload.jti,
+      jti,
       sid,
       ip: ctx.ip ? normalizeIp(ctx.ip) : null,
       userAgent: ctx.userAgent?.trim() || null,
@@ -53,7 +56,7 @@ export class RefreshUseCase {
       return await this.rotation.rotateAtomic({
         user,
         sid,
-        oldJti: payload.jti,
+        oldJti: jti,
         refreshToken,
         ip: ctx.ip,
         userAgent: ctx.userAgent,
@@ -61,7 +64,7 @@ export class RefreshUseCase {
     } catch (e: unknown) {
       if (e instanceof RefreshClaimFailed) {
         return this.incidents.handleReuseDetected({
-          payload,
+          payload: { ...payload, jti }, // гарантуємо валідний jti у downstream
           userId,
           sid,
           ip: ctx.ip,
