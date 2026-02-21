@@ -58,9 +58,17 @@ export class AuthHttpService {
     req: Request,
     res: ExpressResponse,
   ): Promise<TokenResponseDto> {
-    const { ip, userAgent, geo } = this.requestInfo.extract(req);
+    const { ip, userAgent, geo, challenge } = this.requestInfo.extract(req);
 
-    const result = await this.loginUc.execute(dto, { ip, userAgent, geo });
+    const result = await this.loginUc.execute(dto, {
+      ip,
+      userAgent,
+      geo,
+      challenge: {
+        nonce: challenge?.nonce,
+        solution: challenge?.solution,
+      },
+    });
 
     this.cookies.setAuthCookies(res, req, result.refreshToken);
 

@@ -8,6 +8,7 @@ import { AuthRequestContext } from './types/auth-request-context';
 import { UsersService } from 'src/users/users.service';
 import { AuthSecurityService } from '../auth-security.service';
 import { AuthTokensService } from '../auth-tokens.service';
+import { AuthChallengeService } from '../auth-challenge.service';
 
 import { normalizeIp } from 'src/common/net/ip-normalize';
 import { AppLogger } from 'src/logger/logger.service';
@@ -21,6 +22,7 @@ export class LoginUseCase {
     private readonly users: UsersService,
     private readonly authSecurity: AuthSecurityService,
     private readonly tokens: AuthTokensService,
+    private readonly authChallenge: AuthChallengeService,
     private readonly config: ConfigService,
     private readonly logger: AppLogger,
   ) {
@@ -32,9 +34,19 @@ export class LoginUseCase {
   }
 
   async execute(dto: LoginDto, ctx: AuthRequestContext) {
-    const nip = ctx.ip ? normalizeIp(ctx.ip) : 'unknown';
+    const maybeIp = ctx.ip ? normalizeIp(ctx.ip) || undefined : undefined;
+
     const ua = ctx.userAgent?.trim() || 'unknown';
     const emailHash = hashId(dto.email.trim().toLowerCase());
+
+    await this.authChallenge.assertSatisfiedOrThrow({
+      identifierHash: emailHash,
+      ip: maybeIp,
+      headers: {
+        nonce: ctx.challenge?.nonce,
+        solution: ctx.challenge?.solution,
+      },
+    });
 
     const user = await this.users.findByEmail(dto.email);
 
@@ -43,6 +55,11 @@ export class LoginUseCase {
 
       await this.authSecurity.assertIdentifierNotLocked(emailHash);
 
+      await this.authChallenge.recordLoginFail({
+        identifierHash: emailHash,
+        ip: maybeIp,
+      });
+
       this.logger.warn('Login failed: unknown identifier', LoginUseCase.name, {
         event: 'auth.login.fail_unknown',
         emailHash,
@@ -50,7 +67,7 @@ export class LoginUseCase {
 
       return this.authSecurity.onUnknownLoginFailed({
         emailHash,
-        ip: nip,
+        ip: maybeIp,
         userAgent: ua,
       }) as never;
     }
@@ -60,14 +77,24 @@ export class LoginUseCase {
     const isValid = await bcrypt.compare(dto.password, user.password);
 
     if (!isValid) {
+      await this.authChallenge.recordLoginFail({
+        identifierHash: emailHash,
+        ip: maybeIp,
+      });
+
       return this.authSecurity.onLoginFailed({
         userId: user.id,
-        ip: nip,
+        ip: maybeIp,
         userAgent: ua,
       }) as never;
     }
 
     await this.authSecurity.onLoginSuccess(user.id);
+
+    await this.authChallenge.clearOnSuccess({
+      identifierHash: emailHash,
+      ip: maybeIp,
+    });
 
     this.logger.log('Login success', LoginUseCase.name, {
       event: 'auth.login.success',

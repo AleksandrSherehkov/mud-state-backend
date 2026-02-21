@@ -13,6 +13,11 @@ export type RequestGeo = {
   asOrgHash?: string;
 };
 
+export type RequestChallenge = {
+  nonce?: string;
+  solution?: string;
+};
+
 function normalizeUserAgent(ua: unknown): string {
   if (typeof ua === 'string') {
     const str = ua.trim();
@@ -79,6 +84,17 @@ function extractGeoFromHeaders(req: Request): RequestGeo | undefined {
   return { country, asn, asOrgHash };
 }
 
+function extractChallengeFromHeaders(
+  req: Request,
+): RequestChallenge | undefined {
+  const nonce = pickHeader(req, 'x-auth-challenge-nonce');
+  const solution = pickHeader(req, 'x-auth-challenge-solution');
+
+  if (!nonce && !solution) return undefined;
+
+  return { nonce, solution };
+}
+
 @Injectable()
 export class RequestInfoService {
   constructor(private readonly policy: SecurityPolicyService) {}
@@ -87,6 +103,7 @@ export class RequestInfoService {
     ip: string;
     userAgent: string;
     geo?: RequestGeo;
+    challenge?: RequestChallenge;
   } {
     const rawIp = req.ip || (Array.isArray(req.ips) ? req.ips[0] : '') || '';
     const ip = normalizeIp(rawIp);
@@ -97,7 +114,9 @@ export class RequestInfoService {
       ? extractGeoFromHeaders(req)
       : undefined;
 
-    return { ip, userAgent, geo };
+    const challenge = extractChallengeFromHeaders(req);
+
+    return { ip, userAgent, geo, challenge };
   }
 
   private isTrustedProxyRequest(req: Request): boolean {

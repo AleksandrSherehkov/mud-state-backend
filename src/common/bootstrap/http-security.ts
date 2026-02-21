@@ -89,6 +89,8 @@ export function applyCors(
       'X-CSRF-M2M-TS',
       'X-CSRF-M2M-Nonce',
       'X-CSRF-M2M-Sign',
+      'X-Auth-Challenge-Nonce',
+      'X-Auth-Challenge-Solution',
     ],
     credentials: true,
     maxAge: 600,

@@ -28,6 +28,7 @@ import { GetMeUseCase } from './use-cases/get-me.use-case';
 import { RefreshVerifier } from './use-cases/refresh/refresh.verifier';
 import { RefreshRotationService } from './use-cases/refresh/refresh.rotation.service';
 import { RefreshIncidentResponseService } from './use-cases/refresh/refresh.incident-response.service';
+import { AuthChallengeService } from './auth-challenge.service';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { RefreshIncidentResponseService } from './use-cases/refresh/refresh.inci
 
     AuthCookieService,
     AuthTokensService,
+    AuthChallengeService,
 
     RegisterUseCase,
     LoginUseCase,

@@ -353,6 +353,34 @@ export const envValidationSchema = Joi.object({
   AUTH_LOCK_BASE_SECONDS: Joi.number().min(1).max(60).default(2),
   AUTH_LOCK_MAX_SECONDS: Joi.number().min(10).max(3600).default(300),
   AUTH_LOCK_WINDOW_SECONDS: Joi.number().min(60).max(86400).default(900),
+  // ===== Adaptive auth challenge (PoW step-up) =====
+  AUTH_CHALLENGE_ENABLED: Joi.boolean().default(true),
+
+  // window for counting failed attempts (per id/ip)
+  AUTH_CHALLENGE_WINDOW_SEC: Joi.number()
+    .integer()
+    .min(60)
+    .max(86400)
+    .default(900),
+
+  // require challenge after N fails in the window
+  AUTH_CHALLENGE_AFTER_FAILS: Joi.number().integer().min(1).max(100).default(6),
+
+  // PoW difficulty in leading-zero BITS (tradeoff UX vs defense)
+  AUTH_CHALLENGE_DIFFICULTY_BITS: Joi.number()
+    .integer()
+    .min(12)
+    .max(28)
+    .default(18),
+
+  // nonce TTL (client has this long to solve)
+  AUTH_CHALLENGE_NONCE_TTL_SEC: Joi.number()
+    .integer()
+    .min(10)
+    .max(600)
+    .default(120),
+
+  AUTH_CHALLENGE_PREFIX: Joi.string().min(1).default('auth:chal:'),
 
   // ===== Password policy =====
   PASSWORD_MIN_LENGTH: Joi.number().min(6).max(128).default(8),
