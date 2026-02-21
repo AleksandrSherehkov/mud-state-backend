@@ -33,7 +33,7 @@ export class RefreshRotationService {
   }
 
   async rotateAtomic(params: {
-    user: { id: string; email: string; role: Role };
+    user: { id: string; email: string; role: Role; tokenVersion: number };
     sid: string;
     oldJti: string;
     refreshToken: string;
@@ -51,6 +51,7 @@ export class RefreshRotationService {
       role: params.user.role,
       sid: params.sid,
       jti: newJti,
+      tv: params.user.tokenVersion,
     };
 
     const [accessToken, newRefreshToken] = await Promise.all([

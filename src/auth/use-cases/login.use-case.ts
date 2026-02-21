@@ -103,10 +103,14 @@ export class LoginUseCase {
       emailHash,
     });
 
+    const snap = await this.users.getAuthSnapshotById(user.id);
+    const tokenVersion = snap?.tokenVersion ?? 0;
+
     return this.tokens.issueForUser({
       userId: user.id,
       email: user.email,
       role: user.role,
+      tokenVersion,
       ip: ctx.ip,
       userAgent: ctx.userAgent,
       geo: ctx.geo,

@@ -92,6 +92,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User not found');
     }
 
+    const tokenTv = typeof payload.tv === 'number' ? payload.tv : 0;
+
+    if (tokenTv !== snap.tokenVersion) {
+      this.logger.warn(
+        'Access token rejected: tokenVersion mismatch',
+        JwtStrategy.name,
+        {
+          event: 'auth.access.reject',
+          reason: 'token_version_mismatch',
+          userId,
+          sid,
+          tokenTv,
+          dbTv: snap.tokenVersion,
+        },
+      );
+      throw new UnauthorizedException('Токен відкликано або недійсний');
+    }
+
     if (payload.role && payload.role !== snap.role) {
       this.logger.warn(
         'Access token role mismatch (DB wins)',

@@ -158,10 +158,32 @@ export class UsersService {
     if (role) data.role = role;
     if (password) data.password = await this.hashPassword(password);
 
+    const shouldBumpTokenVersion = Boolean(email || password || role);
+
     try {
-      const updated = await this.prisma.user.update({
-        where: { id },
-        data,
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const u = await tx.user.update({
+          where: { id },
+          data,
+        });
+
+        if (shouldBumpTokenVersion) {
+          const res = await tx.userSecurity.upsert({
+            where: { userId: id },
+            create: { userId: id, tokenVersion: 1 },
+            update: { tokenVersion: { increment: 1 } },
+            select: { tokenVersion: true },
+          });
+
+          this.logger.warn('User tokenVersion bumped', UsersService.name, {
+            event: 'security.user.token_version.bumped',
+            userId: id,
+            newTokenVersion: res.tokenVersion,
+            changes,
+          });
+        }
+
+        return u;
       });
 
       this.logger.log('User updated', UsersService.name, {
@@ -257,17 +279,34 @@ export class UsersService {
     return user.role;
   }
 
-  async getAuthSnapshotById(
-    id: string,
-  ): Promise<{ id: string; email: string; role: User['role'] } | null> {
+  async getAuthSnapshotById(id: string): Promise<{
+    id: string;
+    email: string;
+    role: User['role'];
+    tokenVersion: number;
+  } | null> {
     this.logger.debug('Get auth snapshot by id', UsersService.name, {
       event: 'user.auth_snapshot.by_id',
       userId: id,
     });
 
-    return this.prisma.user.findUnique({
+    const u = await this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, role: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        security: { select: { tokenVersion: true } },
+      },
     });
+
+    if (!u) return null;
+
+    return {
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      tokenVersion: u.security?.tokenVersion ?? 0,
+    };
   }
 }

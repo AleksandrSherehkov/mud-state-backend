@@ -12,4 +12,5 @@ export type JwtPayload = {
   role: Role;
   jti: string;
   sid: string;
+  tv: number;
 };

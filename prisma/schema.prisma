@@ -91,6 +91,9 @@ model UserSecurity {
   userId String @id @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // ✅ User-level token versioning (invalidates old access tokens after security events)
+  tokenVersion Int @default(0)
+
   failedLoginCount Int       @default(0)
   lastFailedAt     DateTime?
   lockedUntil      DateTime?

@@ -24,6 +24,7 @@ export class RegisterUseCase {
       userId: user.id,
       email: user.email,
       role: user.role,
+      tokenVersion: 0,
       ip: ctx.ip,
       userAgent: ctx.userAgent,
       geo: ctx.geo,

@@ -12,6 +12,7 @@ import {
 import { RefreshIncidentResponseService } from './refresh/refresh.incident-response.service';
 
 import { normalizeIp } from 'src/common/net/ip-normalize';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class RefreshUseCase {
@@ -20,6 +21,7 @@ export class RefreshUseCase {
     private readonly rotation: RefreshRotationService,
     private readonly incidents: RefreshIncidentResponseService,
     private readonly refreshTokenService: RefreshTokenService,
+    private readonly usersService: UsersService,
   ) {}
 
   async execute(
@@ -52,9 +54,12 @@ export class RefreshUseCase {
 
     const user = await this.verifier.getUserOrThrow(userId, payload);
 
+    const snap = await this.usersService.getAuthSnapshotById(userId);
+    const tokenVersion = snap?.tokenVersion ?? 0;
+
     try {
       return await this.rotation.rotateAtomic({
-        user,
+        user: { ...user, tokenVersion },
         sid,
         oldJti: jti,
         refreshToken,

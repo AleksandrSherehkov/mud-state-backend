@@ -39,6 +39,7 @@ export class AuthTokensService {
     userId: string;
     email: string;
     role: Role;
+    tokenVersion: number; // ✅ required
     ip?: string;
     userAgent?: string;
     geo?: { country?: string; asn?: number; asOrgHash?: string };
@@ -55,6 +56,7 @@ export class AuthTokensService {
       jti: refreshJti,
       role: params.role,
       sid: sessionId,
+      tv: params.tokenVersion,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
