@@ -41,6 +41,13 @@ export const envValidationSchema = Joi.object({
   REFRESH_BIND_UA: Joi.boolean().default(true),
   REFRESH_BIND_IP: Joi.boolean().default(false),
 
+  // ===== Refresh incident strategy (blast radius) =====
+  // scoped   - revoke only presented jti + terminate only that session (availability-friendly)
+  // user_wide - revoke all refresh tokens + terminate all sessions (paranoid)
+  REFRESH_INCIDENT_STRATEGY: Joi.string()
+    .valid('scoped', 'user_wide')
+    .default('scoped'),
+
   ACCESS_FINGERPRINT_MISMATCH_ACTION: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().valid('terminate', 'deny', 'log').default('terminate'),
