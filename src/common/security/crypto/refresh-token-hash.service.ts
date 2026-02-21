@@ -1,11 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  createHmac,
-  randomBytes,
-  scryptSync,
-  timingSafeEqual,
-} from 'node:crypto';
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
 const REFRESH_SALT_BYTES = 16;
 const SCRYPT_KEYLEN = 32;
@@ -20,7 +15,11 @@ export class RefreshTokenHashService {
   }
 
   hash(refreshToken: string, salt?: string | null): string {
-    if (!salt) return this.hashLegacy(refreshToken);
+    if (!salt) {
+      throw new Error(
+        'Refresh token hashing invariant violated: tokenSalt is missing (legacy hashing is disabled)',
+      );
+    }
 
     const pepper = this.getPepper();
     const s = `${pepper}:${salt}`;
@@ -39,11 +38,6 @@ export class RefreshTokenHashService {
     if (ba.length !== bb.length) return false;
 
     return timingSafeEqual(ba, bb);
-  }
-
-  private hashLegacy(token: string): string {
-    const pepper = this.getPepper();
-    return createHmac('sha256', pepper).update(token).digest('hex');
   }
 
   private getPepper(): string {
