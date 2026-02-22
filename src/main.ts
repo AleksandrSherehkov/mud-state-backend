@@ -18,6 +18,7 @@ import {
   applyCookieParser,
   applyValidation,
 } from './common/bootstrap';
+import { PrismaService } from './prisma/prisma.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -46,6 +47,21 @@ async function bootstrap() {
   // ---- Redis health-check (throttling backend is always Redis) ----
   await checkRedisOrThrow(config, logger);
 
+  // ---- PostgreSQL health-check ----
+  const redisStatus = await checkRedisOrThrow(config, logger);
+
+  // ---- PostgreSQL health-check ----
+  let pgStatus: 'connected' | 'unavailable' = 'unavailable';
+  try {
+    const prisma = app.get(PrismaService);
+    await prisma.$queryRaw`SELECT 1`;
+    pgStatus = 'connected';
+  } catch {
+    pgStatus = 'unavailable';
+    logger.error('🗄️ PostgreSQL: connection failed', undefined, 'Bootstrap');
+    throw new Error('PostgreSQL connection failed');
+  }
+
   // ---- Swagger ----
   const { shouldEnableSwagger, apiBase } = setupSwagger(app, config);
 
@@ -68,6 +84,17 @@ async function bootstrap() {
   logger.log('==============================', 'Bootstrap');
   logger.log('✅ APP STARTED', 'Bootstrap');
   logger.log(`🔌 Listening on port: ${port}`, 'Bootstrap');
+  logger.log(
+    `🧠 Redis: ${
+      redisStatus === 'connected'
+        ? 'connected'
+        : redisStatus === 'skipped'
+          ? 'skipped'
+          : 'unavailable'
+    }`,
+    'Bootstrap',
+  );
+  logger.log(`🗄️ PostgreSQL: ${pgStatus}`, 'Bootstrap');
   logger.log(`🌐 Trust proxy hops: ${trustProxy}`, 'Bootstrap');
   logger.log(`🌍 ENV: ${appEnv}`, 'Bootstrap');
   logger.log(`🚀 Server: ${apiBase ?? 'n/a'}`, 'Bootstrap');

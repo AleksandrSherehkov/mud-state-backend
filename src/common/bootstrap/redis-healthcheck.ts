@@ -61,24 +61,16 @@ async function pingRedisOrThrow(redisUrl: string, timeoutMs: number) {
   ]);
 }
 
-function maskRedisUrl(value: string): string {
-  try {
-    const u = new URL(value);
-    if (u.password) u.password = '***';
-    return u.toString();
-  } catch {
-    return 'n/a';
-  }
-}
+export type RedisHealthStatus = 'connected' | 'unavailable' | 'skipped';
 
 export async function checkRedisOrThrow(
   config: ConfigService,
   logger: AppLogger,
-): Promise<void> {
+): Promise<RedisHealthStatus> {
   const redisHealthcheck = Boolean(
     config.get('THROTTLE_REDIS_HEALTHCHECK') ?? true,
   );
-  if (!redisHealthcheck) return;
+  if (!redisHealthcheck) return 'skipped';
 
   const redisUrl = String(config.get('THROTTLE_REDIS_URL') ?? '').trim();
   const timeoutMs = Number(
@@ -88,19 +80,20 @@ export async function checkRedisOrThrow(
     config.get('THROTTLE_REDIS_HEALTHCHECK_STRICT') ?? true,
   );
 
-  const maskedUrl = redisUrl ? maskRedisUrl(redisUrl) : 'n/a';
-
   try {
     await pingRedisOrThrow(redisUrl, timeoutMs);
-    logger.log(`🟢 Redis backend OK (${maskedUrl})`, 'Bootstrap');
+    return 'connected';
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (strict)
+
+    if (strict) {
       throw new Error(`SECURITY: Redis throttling backend unavailable: ${msg}`);
+    }
 
     logger.warn(
       `⚠️ Redis throttling backend unavailable (non-strict): ${msg}`,
       'Bootstrap',
     );
+    return 'unavailable';
   }
 }
