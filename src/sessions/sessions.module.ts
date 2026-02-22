@@ -7,9 +7,10 @@ import { SessionsService } from './sessions.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SessionsHttpService } from './sessions-http.service';
 import { SessionLifecycleService } from './session-lifecycle.service';
+import { RiskEngineModule } from 'src/common/security/risk-engine/risk-engine.module';
 
 @Module({
-  imports: [PrismaModule, LoggerModule],
+  imports: [PrismaModule, LoggerModule, RiskEngineModule],
   providers: [
     SessionsService,
     RefreshTokenService,

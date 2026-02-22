@@ -84,6 +84,29 @@ export const envValidationSchema = Joi.object({
 
   ACCESS_ANOMALY_LOG: Joi.boolean().default(true),
 
+  // ===== Adaptive access anomaly response (context-aware) =====
+  ACCESS_ANOMALY_ADAPTIVE_ENABLED: Joi.boolean().default(true),
+
+  // CSV roles: ADMIN,MODERATOR,USER
+  ACCESS_ANOMALY_ESCALATE_ROLES: Joi.string()
+    .trim()
+    .pattern(/^(ADMIN|MODERATOR|USER)(,(ADMIN|MODERATOR|USER))*$/i)
+    .default('ADMIN,MODERATOR'),
+
+  ACCESS_ANOMALY_ESCALATE_ON_GEO_ASN: Joi.boolean().default(true),
+
+  ACCESS_ANOMALY_REPEAT_WINDOW_SEC: Joi.number()
+    .integer()
+    .min(60)
+    .max(86400)
+    .default(900),
+
+  ACCESS_ANOMALY_REPEAT_THRESHOLD: Joi.number()
+    .integer()
+    .min(2)
+    .max(10)
+    .default(2),
+
   AUTH_MAX_ACTIVE_SESSIONS: Joi.number().integer().min(1).max(50).default(1),
 
   // ===== Password hashing =====

@@ -28,6 +28,7 @@ import { GetMeUseCase } from '../use-cases/get-me.use-case';
 import { RefreshVerifier } from '../use-cases/refresh/refresh.verifier';
 import { RefreshRotationService } from '../use-cases/refresh/refresh.rotation.service';
 import { RefreshIncidentResponseService } from '../use-cases/refresh/refresh.incident-response.service';
+import { RiskEngineModule } from 'src/common/security/risk-engine/risk-engine.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { RefreshIncidentResponseService } from '../use-cases/refresh/refresh.inc
     ValidatorsModule,
     SessionsModule,
     UsersModule,
+    RiskEngineModule,
 
     // Token infra lives in Core (reusable), not in HTTP transport.
     JwtModule.registerAsync({
