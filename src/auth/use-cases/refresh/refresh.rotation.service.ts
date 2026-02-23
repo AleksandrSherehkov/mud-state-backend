@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 
-import { JwtTokenService } from '../../jwtTokenService';
+import { JwtTokenService } from '../../jwt-token.service';
 import { AuthTransactionService } from '../../auth-transaction.service';
 
 import { RefreshTokenService } from 'src/sessions/refresh-token.service';

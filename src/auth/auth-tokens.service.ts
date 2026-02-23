@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { Role } from '@prisma/client';
 
-import { JwtTokenService } from './jwtTokenService';
+import { JwtTokenService } from './jwt-token.service';
 import { AuthTransactionService } from './auth-transaction.service';
 
 import { RefreshTokenService } from 'src/sessions/refresh-token.service';

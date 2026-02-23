@@ -12,7 +12,7 @@ import { UsersModule } from 'src/users/users.module';
 
 import { JwtStrategy } from '../strategies/jwt.strategy';
 
-import { JwtTokenService } from '../jwtTokenService';
+import { JwtTokenService } from '../jwt-token.service';
 import { AuthSecurityService } from '../auth-security.service';
 import { AuthMaintenanceService } from '../auth-maintenance.service';
 import { AuthTransactionService } from '../auth-transaction.service';

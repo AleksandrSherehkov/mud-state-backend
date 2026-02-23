@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 
-import { JwtTokenService } from '../../jwtTokenService';
+import { JwtTokenService } from '../../jwt-token.service';
 import { UsersService } from 'src/users/users.service';
 import { SessionsService } from 'src/sessions/sessions.service';
 
