@@ -95,6 +95,8 @@ export class JwtTokenService {
         secret: this.getRequired('JWT_REFRESH_SECRET'),
         issuer: this.issuer(),
         audience: this.audience(),
+
+        algorithms: ['HS256'],
       });
     } catch (err: unknown) {
       const name = err instanceof Error ? err.name : 'UnknownError';
