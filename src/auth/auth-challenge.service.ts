@@ -1,7 +1,9 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { createHash, randomBytes } from 'node:crypto';
+
+import { AUTH_CHALLENGE_REDIS } from 'src/common/redis/shared-redis.constants';
 
 type ChallengeHeaders = { nonce?: string; solution?: string };
 
@@ -13,18 +15,11 @@ type ChallengeIssued = {
 
 @Injectable()
 export class AuthChallengeService {
-  private readonly redis: Redis;
-
-  constructor(private readonly config: ConfigService) {
-    const redisUrl = String(this.config.get('THROTTLE_REDIS_URL') ?? '').trim();
-    if (!redisUrl) throw new Error('THROTTLE_REDIS_URL is required');
-
-    this.redis = new Redis(redisUrl, {
-      lazyConnect: true,
-      enableOfflineQueue: false,
-      maxRetriesPerRequest: 1,
-    });
-  }
+  constructor(
+    private readonly config: ConfigService,
+    @Inject(AUTH_CHALLENGE_REDIS)
+    private readonly redis: Redis, // ✅ теперь обязателен
+  ) {}
 
   private enabled(): boolean {
     return Boolean(this.config.get<boolean>('AUTH_CHALLENGE_ENABLED') ?? true);
@@ -52,14 +47,6 @@ export class AuthChallengeService {
     ).trim();
   }
 
-  private async connect(): Promise<void> {
-    try {
-      await this.redis.connect();
-    } catch {
-      // ignore
-    }
-  }
-
   private keyFailId(idHash: string): string {
     return `${this.prefix()}fail:id:${idHash}`;
   }
@@ -72,17 +59,19 @@ export class AuthChallengeService {
     return `${this.prefix()}nonce:${nonce}`;
   }
 
+  private assertEnabledOrNoop(): boolean {
+    return this.enabled();
+  }
+
   async recordLoginFail(params: {
     identifierHash: string;
     ip?: string;
   }): Promise<void> {
-    if (!this.enabled()) return;
+    if (!this.assertEnabledOrNoop()) return;
 
     const id = params.identifierHash.trim();
     const ip = (params.ip ?? '').trim();
     const ttl = this.windowSec();
-
-    await this.connect();
 
     await this.redis
       .multi()
@@ -103,12 +92,10 @@ export class AuthChallengeService {
     identifierHash: string;
     ip?: string;
   }): Promise<void> {
-    if (!this.enabled()) return;
+    if (!this.assertEnabledOrNoop()) return;
 
     const id = params.identifierHash.trim();
     const ip = (params.ip ?? '').trim();
-
-    await this.connect();
 
     const keys = [this.keyFailId(id)];
     if (ip && ip !== 'unknown') keys.push(this.keyFailIp(ip));
@@ -128,8 +115,6 @@ export class AuthChallengeService {
 
     const id = params.identifierHash.trim();
     const ip = (params.ip ?? '').trim();
-
-    await this.connect();
 
     const keys = [this.keyFailId(id)];
     if (ip && ip !== 'unknown') keys.push(this.keyFailIp(ip));
@@ -185,7 +170,6 @@ export class AuthChallengeService {
     const nonce = this.issueNonce();
     const ttlSec = this.nonceTtlSec();
 
-    await this.connect();
     const ok = await this.redis.set(
       this.keyNonce(nonce),
       '1',
@@ -199,7 +183,6 @@ export class AuthChallengeService {
   }
 
   private async consumeNonce(nonce: string): Promise<boolean> {
-    await this.connect();
     const key = this.keyNonce(nonce);
     const val = await this.redis.get(key);
     if (!val) return false;

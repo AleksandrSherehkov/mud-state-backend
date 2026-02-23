@@ -9,9 +9,10 @@ import { CsrfM2mHmacService } from './m2m-hmac.service';
 import { CsrfM2mReplayService } from './m2m-replay.service';
 import { CsrfValidationService } from './csrf-validation.service';
 import { CsrfM2mClientsService } from './m2m-clients.service';
+import { SharedRedisModule } from 'src/common/redis/shared-redis.module';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, SharedRedisModule],
   providers: [
     CsrfValidationService,
     RedisNonceStoreService,

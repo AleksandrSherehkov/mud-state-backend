@@ -126,18 +126,9 @@ export const envValidationSchema = Joi.object({
     .max(10_000)
     .default(1000),
 
-  // ✅ По-взрослому: strict в prod true, в dev false
-  THROTTLE_REDIS_HEALTHCHECK_STRICT: Joi.when('APP_ENV', {
-    is: 'production',
-    then: Joi.boolean().valid(true).default(true),
-    otherwise: Joi.boolean().default(false),
-  }),
+  THROTTLE_REDIS_HEALTHCHECK_STRICT: Joi.boolean().valid(true).default(true),
 
-  THROTTLE_STORE_DRIVER: Joi.when('APP_ENV', {
-    is: 'production',
-    then: Joi.string().valid('redis').required(),
-    otherwise: Joi.string().valid('redis', 'memory').default('redis'),
-  }),
+  THROTTLE_STORE_DRIVER: Joi.string().valid('redis').required(),
 
   THROTTLE_STORE_MAX_KEYS: Joi.number()
     .integer()
@@ -405,6 +396,16 @@ export const envValidationSchema = Joi.object({
 
   AUTH_CHALLENGE_PREFIX: Joi.string().min(1).default('auth:chal:'),
 
+  // ===== Auth challenge Redis =====
+  AUTH_CHALLENGE_REDIS_URL: Joi.string().min(1).required(),
+
+  AUTH_CHALLENGE_REDIS_STRICT: Joi.boolean().valid(true).default(true),
+
+  AUTH_CHALLENGE_REDIS_CONNECT_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(100)
+    .max(10_000)
+    .default(1000),
   // ===== Password policy =====
   PASSWORD_MIN_LENGTH: Joi.number().min(6).max(128).default(8),
   PASSWORD_MAX_LENGTH: Joi.number()
@@ -472,7 +473,20 @@ export const envValidationSchema = Joi.object({
     .min(10)
     .max(300)
     .default(60),
-  CSRF_M2M_REDIS_URL: Joi.string().min(1).optional(),
+
+  CSRF_M2M_REDIS_URL: Joi.when('CSRF_M2M_ENABLED', {
+    is: true,
+    then: Joi.string().min(1).required(),
+    otherwise: Joi.string().min(1).optional(),
+  }),
+
+  CSRF_M2M_REDIS_STRICT: Joi.boolean().valid(true).default(true),
+
+  CSRF_M2M_REDIS_CONNECT_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(100)
+    .max(10_000)
+    .default(1000),
   CSRF_M2M_NONCE_PREFIX: Joi.string().min(1).default('csrf:m2m:nonce:'),
 
   CSRF_ENABLED: Joi.boolean().default(true),

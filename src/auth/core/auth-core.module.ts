@@ -10,6 +10,9 @@ import { ValidatorsModule } from 'src/common/security/validators/validators.modu
 import { SessionsModule } from 'src/sessions/sessions.module';
 import { UsersModule } from 'src/users/users.module';
 
+import { RiskEngineModule } from 'src/common/security/risk-engine/risk-engine.module';
+import { SharedRedisModule } from 'src/common/redis/shared-redis.module';
+
 import { JwtStrategy } from '../strategies/jwt.strategy';
 
 import { JwtTokenService } from '../jwt-token.service';
@@ -28,7 +31,6 @@ import { GetMeUseCase } from '../use-cases/get-me.use-case';
 import { RefreshVerifier } from '../use-cases/refresh/refresh.verifier';
 import { RefreshRotationService } from '../use-cases/refresh/refresh.rotation.service';
 import { RefreshIncidentResponseService } from '../use-cases/refresh/refresh.incident-response.service';
-import { RiskEngineModule } from 'src/common/security/risk-engine/risk-engine.module';
 
 @Module({
   imports: [
@@ -39,8 +41,8 @@ import { RiskEngineModule } from 'src/common/security/risk-engine/risk-engine.mo
     SessionsModule,
     UsersModule,
     RiskEngineModule,
+    SharedRedisModule,
 
-    // Token infra lives in Core (reusable), not in HTTP transport.
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -80,18 +82,15 @@ import { RiskEngineModule } from 'src/common/security/risk-engine/risk-engine.mo
     RefreshIncidentResponseService,
   ],
   exports: [
-    // what transport layer needs
     RegisterUseCase,
     LoginUseCase,
     RefreshUseCase,
     LogoutUseCase,
     GetMeUseCase,
 
-    // what other modules might need (as before)
     AuthMaintenanceService,
     AuthTokensService,
 
-    // keep passport strategy visible to the app
     JwtStrategy,
   ],
 })
