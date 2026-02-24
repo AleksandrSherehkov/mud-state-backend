@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import Redis from 'ioredis';
 
 import { CSRF_M2M_REDIS } from 'src/common/redis/shared-redis.constants';

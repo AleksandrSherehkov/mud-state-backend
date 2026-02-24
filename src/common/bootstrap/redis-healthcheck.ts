@@ -80,6 +80,18 @@ export async function checkRedisOrThrow(
     config.get('THROTTLE_REDIS_HEALTHCHECK_STRICT') ?? true,
   );
 
+  if (!redisUrl) {
+    if (strict) {
+      throw new Error('SECURITY: THROTTLE_REDIS_URL is not set');
+    }
+
+    logger.warn(
+      '⚠️ Redis healthcheck skipped/unavailable (non-strict): THROTTLE_REDIS_URL is not set',
+      'Bootstrap',
+    );
+    return 'unavailable';
+  }
+
   try {
     await pingRedisOrThrow(redisUrl, timeoutMs);
     return 'connected';

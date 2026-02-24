@@ -45,13 +45,11 @@ async function bootstrap() {
   validateSecurityConfig(config);
 
   // ---- Redis health-check (throttling backend is always Redis) ----
-  await checkRedisOrThrow(config, logger);
-
-  // ---- PostgreSQL health-check ----
   const redisStatus = await checkRedisOrThrow(config, logger);
 
   // ---- PostgreSQL health-check ----
   let pgStatus: 'connected' | 'unavailable' = 'unavailable';
+
   try {
     const prisma = app.get(PrismaService);
     await prisma.$queryRaw`SELECT 1`;
