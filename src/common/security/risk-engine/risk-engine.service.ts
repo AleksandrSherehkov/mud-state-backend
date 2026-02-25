@@ -4,8 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersService } from 'src/users/users.service';
 import { AppLogger } from 'src/logger/logger.service';
+import { AccessAction } from '../types/access-action';
 
-type AccessAction = 'terminate' | 'deny' | 'log';
 type RefreshIncidentStrategy = 'scoped' | 'user_wide';
 
 type SessionCtx = {

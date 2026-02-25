@@ -8,14 +8,24 @@ import { RefreshTokenService } from './refresh-token.service';
 import { SessionsHttpService } from './sessions-http.service';
 import { SessionLifecycleService } from './session-lifecycle.service';
 import { RiskEngineModule } from 'src/common/security/risk-engine/risk-engine.module';
+import { SessionRepositoryService } from './session-repository.service';
+import { SessionTerminationService } from './session-termination.service';
+import { RefreshBindingService } from './refresh-binding.service';
+import { AccessAnomalyService } from './access-anomaly.service';
 
 @Module({
   imports: [PrismaModule, LoggerModule, RiskEngineModule],
   providers: [
     SessionsService,
+
     RefreshTokenService,
     SessionsHttpService,
     SessionLifecycleService,
+
+    SessionRepositoryService,
+    SessionTerminationService,
+    RefreshBindingService,
+    AccessAnomalyService,
   ],
   controllers: [SessionsController],
   exports: [SessionsService, RefreshTokenService, SessionLifecycleService],
