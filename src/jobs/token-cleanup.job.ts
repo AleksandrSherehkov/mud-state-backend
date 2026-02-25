@@ -4,7 +4,7 @@ import { CronJob } from 'cron';
 import { ConfigService } from '@nestjs/config';
 
 import { AppLogger } from 'src/logger/logger.service';
-import { AuthMaintenanceService } from 'src/auth/auth-maintenance.service';
+import { AuthMaintenanceService } from 'src/auth/core/auth-core.public';
 
 const DEFAULT_CLEANUP_CRON = '0 0 * * *';
 const DEFAULT_CLEANUP_DAYS = 7;
