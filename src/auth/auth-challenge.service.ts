@@ -1,9 +1,15 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { createHash, randomBytes } from 'node:crypto';
 
 import { AUTH_CHALLENGE_REDIS } from 'src/common/redis/shared-redis.constants';
+import { AppLogger } from 'src/logger/logger.service';
 
 type ChallengeHeaders = { nonce?: string; solution?: string };
 
@@ -15,11 +21,18 @@ type ChallengeIssued = {
 
 @Injectable()
 export class AuthChallengeService {
+  private static readonly ISSUE_RETRIES = 5;
+  private static readonly METRIC_ISSUE_FAIL_TOTAL =
+    'challenge_issue_fail_total';
+
   constructor(
     private readonly config: ConfigService,
     @Inject(AUTH_CHALLENGE_REDIS)
-    private readonly redis: Redis, // ✅ теперь обязателен
-  ) {}
+    private readonly redis: Redis,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(AuthChallengeService.name);
+  }
 
   private enabled(): boolean {
     return Boolean(this.config.get<boolean>('AUTH_CHALLENGE_ENABLED') ?? true);
@@ -167,19 +180,54 @@ export class AuthChallengeService {
   }
 
   private async newChallenge(): Promise<ChallengeIssued> {
-    const nonce = this.issueNonce();
     const ttlSec = this.nonceTtlSec();
 
-    const ok = await this.redis.set(
-      this.keyNonce(nonce),
-      '1',
-      'EX',
-      ttlSec,
-      'NX',
-    );
-    if (ok !== 'OK') return this.newChallenge();
+    let lastErr: unknown;
 
-    return { nonce, difficultyBits: this.difficultyBits(), ttlSec };
+    for (
+      let attempt = 1;
+      attempt <= AuthChallengeService.ISSUE_RETRIES;
+      attempt++
+    ) {
+      const nonce = this.issueNonce();
+
+      try {
+        const ok = await this.redis.set(
+          this.keyNonce(nonce),
+          '1',
+          'EX',
+          ttlSec,
+          'NX',
+        );
+
+        if (ok === 'OK') {
+          return { nonce, difficultyBits: this.difficultyBits(), ttlSec };
+        }
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
+    const trace =
+      lastErr instanceof Error ? (lastErr.stack ?? lastErr.message) : undefined;
+
+    this.logger.error(
+      'Auth challenge issue failed (bounded retries exhausted)',
+      trace,
+      AuthChallengeService.name,
+      {
+        event: 'auth.challenge.issue_failed',
+        metric: AuthChallengeService.METRIC_ISSUE_FAIL_TOTAL,
+        attempts: AuthChallengeService.ISSUE_RETRIES,
+        ttlSec,
+        hasError: Boolean(lastErr),
+      },
+    );
+
+    throw new ServiceUnavailableException({
+      code: 'challenge_unavailable',
+      message: 'Auth challenge temporarily unavailable',
+    });
   }
 
   private async consumeNonce(nonce: string): Promise<boolean> {

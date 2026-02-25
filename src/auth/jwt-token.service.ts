@@ -148,7 +148,6 @@ export class JwtTokenService {
         reason,
       };
 
-      // Only expose internal errorName outside production
       if (appEnv !== 'production') {
         meta.errorName = err instanceof Error ? err.name : 'UnknownError';
       }
