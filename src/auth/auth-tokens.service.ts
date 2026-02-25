@@ -73,38 +73,45 @@ export class AuthTokensService {
     const maxActive = this.getMaxActiveSessions();
 
     try {
-      await this.tx.run(async (tx) => {
-        await this.sessionsService.enforceMaxActiveSessions({
-          userId: params.userId,
-          maxActive,
-          tx,
-          meta: {
-            event: 'auth.tokens.cap',
-            sidNew: sessionId,
-            jtiNew: refreshJti,
-          },
-        });
+      await this.tx.run(
+        async (tx) => {
+          await this.sessionsService.enforceMaxActiveSessions({
+            userId: params.userId,
+            maxActive,
+            tx,
+            meta: {
+              event: 'auth.tokens.cap',
+              sidNew: sessionId,
+              jtiNew: refreshJti,
+            },
+          });
 
-        await this.refreshTokenService.create(
-          params.userId,
-          refreshJti,
-          tokenHash,
-          tokenSalt,
-          nip ?? undefined,
-          ua ?? undefined,
-          tx,
-        );
+          await this.refreshTokenService.create(
+            params.userId,
+            refreshJti,
+            tokenHash,
+            tokenSalt,
+            nip ?? undefined,
+            ua ?? undefined,
+            tx,
+          );
 
-        await this.sessionsService.create(
-          sessionId,
-          params.userId,
-          refreshJti,
-          nip ?? undefined,
-          ua ?? undefined,
-          params.geo,
-          tx,
-        );
-      });
+          await this.sessionsService.create(
+            sessionId,
+            params.userId,
+            refreshJti,
+            nip ?? undefined,
+            ua ?? undefined,
+            params.geo,
+            tx,
+          );
+        },
+        {
+          name: 'auth.tokens.issue',
+          retries: 1,
+          retryDelayMs: 50,
+        },
+      );
     } catch (err: unknown) {
       const errorName = err instanceof Error ? err.name : 'UnknownError';
       const errorMessage = err instanceof Error ? err.message : String(err);

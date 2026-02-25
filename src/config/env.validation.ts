@@ -524,6 +524,13 @@ export const envValidationSchema = Joi.object({
     then: Joi.string().min(1).default('1'),
     otherwise: Joi.string().optional(),
   }),
+  // ===== Auth critical TX policy (Prisma interactive tx) =====
+  AUTH_TX_MAX_WAIT_MS: Joi.number()
+    .integer()
+    .min(100)
+    .max(30_000)
+    .default(2000),
+  AUTH_TX_TIMEOUT_MS: Joi.number().integer().min(500).max(60_000).default(5000),
 
   AUTH_DUMMY_PASSWORD_HASH: Joi.string().min(20).optional(),
 })

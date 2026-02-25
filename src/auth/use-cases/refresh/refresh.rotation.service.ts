@@ -65,43 +65,52 @@ export class RefreshRotationService {
       newSalt,
     );
 
-    await this.tx.run(async (tx) => {
-      const claim = await this.refreshTokenService.claimRefreshToken(
-        {
-          jti: params.oldJti,
+    await this.tx.run(
+      async (tx) => {
+        const claim = await this.refreshTokenService.claimRefreshToken(
+          {
+            jti: params.oldJti,
+            userId: params.user.id,
+            refreshToken: params.refreshToken,
+          },
+          tx,
+        );
+
+        if (claim.count === 0) {
+          throw new RefreshClaimFailed();
+        }
+
+        await this.refreshTokenService.create(
+          params.user.id,
+          newJti,
+          newTokenHash,
+          newSalt,
+          nip ?? undefined,
+          ua ?? undefined,
+          tx,
+        );
+
+        const updatedCount = await this.sessionsService.updateRefreshBinding({
+          sid: params.sid,
           userId: params.user.id,
-          refreshToken: params.refreshToken,
-        },
-        tx,
-      );
+          newJti,
+          ip: nip,
+          userAgent: ua,
+          tx,
+        });
 
-      if (claim.count === 0) {
-        throw new RefreshClaimFailed();
-      }
-
-      await this.refreshTokenService.create(
-        params.user.id,
-        newJti,
-        newTokenHash,
-        newSalt,
-        nip ?? undefined,
-        ua ?? undefined,
-        tx,
-      );
-
-      const updatedCount = await this.sessionsService.updateRefreshBinding({
-        sid: params.sid,
-        userId: params.user.id,
-        newJti,
-        ip: nip,
-        userAgent: ua,
-        tx,
-      });
-
-      if (updatedCount === 0) {
-        throw new UnauthorizedException('Сесію завершено або недійсна');
-      }
-    });
+        if (updatedCount === 0) {
+          throw new UnauthorizedException('Сесію завершено або недійсна');
+        }
+      },
+      {
+        name: 'auth.refresh.rotate_atomic',
+        // retry ТІЛЬКИ на транзієнтний timeout/tx-closed
+        // (safe, бо claim+create+bind всередині 1 tx; якщо tx не комітнувся — повтор ок)
+        retries: 1,
+        retryDelayMs: 50,
+      },
+    );
 
     this.logger.log(
       'Refresh success (atomic claim+rotate+bind)',
