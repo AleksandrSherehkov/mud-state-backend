@@ -89,28 +89,74 @@ export class JwtTokenService {
     );
   }
 
+  private mapRefreshVerifyErrorToReason(
+    err: unknown,
+  ):
+    | 'expired'
+    | 'not_active_yet'
+    | 'invalid_signature'
+    | 'malformed'
+    | 'invalid_claims'
+    | 'unknown' {
+    if (!(err instanceof Error)) return 'unknown';
+
+    switch (err.name) {
+      case 'TokenExpiredError':
+        return 'expired';
+      case 'NotBeforeError':
+        return 'not_active_yet';
+      case 'JsonWebTokenError': {
+        const m = (err.message ?? '').toLowerCase();
+
+        if (m.includes('signature')) return 'invalid_signature';
+        if (m.includes('malformed')) return 'malformed';
+
+        if (
+          m.includes('audience') ||
+          m.includes('issuer') ||
+          m.includes('subject') ||
+          m.includes('claim') ||
+          m.includes('invalid')
+        ) {
+          return 'invalid_claims';
+        }
+
+        return 'unknown';
+      }
+      default:
+        return 'unknown';
+    }
+  }
+
   async verifyRefreshToken(token: string): Promise<JwtPayload> {
     try {
       return await this.jwt.verifyAsync<JwtPayload>(token, {
         secret: this.getRequired('JWT_REFRESH_SECRET'),
         issuer: this.issuer(),
         audience: this.audience(),
-
         algorithms: ['HS256'],
       });
     } catch (err: unknown) {
-      const name = err instanceof Error ? err.name : 'UnknownError';
-      const msg = err instanceof Error ? err.message : String(err);
+      const reason = this.mapRefreshVerifyErrorToReason(err);
+
+      const appEnv = (
+        this.config.get<string>('APP_ENV') ?? 'development'
+      ).toLowerCase();
+
+      const meta: Record<string, unknown> = {
+        event: 'token.refresh.verify_failed',
+        reason,
+      };
+
+      // Only expose internal errorName outside production
+      if (appEnv !== 'production') {
+        meta.errorName = err instanceof Error ? err.name : 'UnknownError';
+      }
 
       this.logger.warn(
         'Refresh token verification failed',
         JwtTokenService.name,
-        {
-          event: 'token.refresh.verify_failed',
-          errorName: name,
-
-          errorMessage: msg,
-        },
+        meta,
       );
 
       throw new UnauthorizedException('Недійсний refresh токен');
