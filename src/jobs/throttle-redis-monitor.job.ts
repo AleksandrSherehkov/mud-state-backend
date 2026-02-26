@@ -19,15 +19,18 @@ function parseInfoToMap(info: string): Record<string, string> {
   }
   return out;
 }
-
+const KEYSPACE_KEYS_RE = /keys=(\d+)/;
 function parseKeyspaceKeys(infoKeyspace: string): number {
   let total = 0;
+
   for (const line of infoKeyspace.split('\n')) {
     const s = line.trim();
     if (!s.startsWith('db')) continue;
-    const m = s.match(/keys=(\d+)/);
+
+    const m = KEYSPACE_KEYS_RE.exec(s);
     if (m) total += Number(m[1] ?? 0);
   }
+
   return total;
 }
 
