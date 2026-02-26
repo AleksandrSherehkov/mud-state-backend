@@ -44,10 +44,18 @@ export const envValidationSchema = Joi.object({
 
   // ===== Session binding & anomaly policy =====
   ACCESS_BIND_UA: Joi.boolean().default(true),
-  ACCESS_BIND_IP: Joi.boolean().default(false),
+  ACCESS_BIND_IP: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.boolean().valid(true).default(true),
+    otherwise: Joi.boolean().default(false),
+  }),
 
   REFRESH_BIND_UA: Joi.boolean().default(true),
-  REFRESH_BIND_IP: Joi.boolean().default(false),
+  REFRESH_BIND_IP: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.boolean().valid(true).default(true),
+    otherwise: Joi.boolean().default(false),
+  }),
 
   // ===== Refresh incident strategy (blast radius) =====
   // scoped    - revoke only presented jti + terminate only that session (availability-friendly)
