@@ -352,6 +352,37 @@ export const envValidationSchema = Joi.object({
     .max(3600)
     .default(60),
 
+  // ===== Refresh tracker cardinality control =====
+  THROTTLE_REFRESH_TRACKER_MODE: Joi.string()
+    .valid('ip_ua', 'ip_ua_cookie', 'ip_ua_cookie_bucket')
+    .default('ip_ua'),
+
+  // Used only when THROTTLE_REFRESH_TRACKER_MODE=ip_ua_cookie_bucket
+  // How many hex chars to keep from sha256(refreshCookie). 2 => 256 buckets.
+  THROTTLE_REFRESH_COOKIE_BUCKET_LEN: Joi.number()
+    .integer()
+    .min(1)
+    .max(8)
+    .default(2),
+  // ===== Throttle Redis monitoring (log-based, no Prometheus required) =====
+  THROTTLE_REDIS_MONITOR_ENABLED: Joi.boolean().default(true),
+
+  THROTTLE_REDIS_MONITOR_CRON: Joi.string()
+    .pattern(/^(\S+\s+){4}\S+$/)
+    .default('*/1 * * * *'), // every minute
+
+  THROTTLE_REDIS_MONITOR_KEYS_WARN: Joi.number()
+    .integer()
+    .min(100)
+    .max(10_000_000)
+    .default(80_000),
+
+  THROTTLE_REDIS_MONITOR_EVICTIONS_WARN_DELTA: Joi.number()
+    .integer()
+    .min(1)
+    .max(10_000_000)
+    .default(1),
+
   // ===== Logging =====
   LOG_DIR: Joi.string().default('logs'),
   LOG_FILE_NAME: Joi.string().default('%DATE%.log'),

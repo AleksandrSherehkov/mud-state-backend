@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ThrottlerException,
   ThrottlerGuard,
@@ -151,6 +152,9 @@ function sha256hex(input: string, slice = 16): string {
 
 @Injectable()
 export class AuthThrottlerGuard extends ThrottlerGuard {
+  @Inject(ConfigService)
+  private readonly config!: ConfigService;
+
   protected async getTracker(req: Record<string, any>): Promise<string> {
     await Promise.resolve();
 
@@ -167,10 +171,39 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
 
     if (isRefresh) {
       const uaHash = getUaHash(r);
+
+      const mode = String(
+        this.config.get<string>('THROTTLE_REFRESH_TRACKER_MODE', 'ip_ua'),
+      )
+        .trim()
+        .toLowerCase();
+
+      if (mode === 'ip_ua') {
+        return `${ip}:${uaHash}`;
+      }
+
       const refreshCookie = getSignedCookie(r, 'refreshToken');
-      const cookieKey = refreshCookie
-        ? sha256hex(refreshCookie, 16)
-        : 'nocookie';
+      if (!refreshCookie) {
+        return `${ip}:${uaHash}:nocookie`;
+      }
+
+      if (mode === 'ip_ua_cookie_bucket') {
+        const bucketLenRaw = Number(
+          this.config.get<number>('THROTTLE_REFRESH_COOKIE_BUCKET_LEN', 2),
+        );
+
+        const bucketLen =
+          Number.isFinite(bucketLenRaw) &&
+          bucketLenRaw >= 1 &&
+          bucketLenRaw <= 8
+            ? Math.floor(bucketLenRaw)
+            : 2;
+
+        const bucket = sha256hex(refreshCookie, bucketLen);
+        return `${ip}:${uaHash}:b${bucket}`;
+      }
+
+      const cookieKey = sha256hex(refreshCookie, 16);
       return `${ip}:${uaHash}:${cookieKey}`;
     }
 
