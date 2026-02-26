@@ -24,7 +24,15 @@ export const envValidationSchema = Joi.object({
 
   // ===== JWT / Tokens =====
   JWT_ACCESS_SECRET: Joi.string().min(32).required(),
-  JWT_REFRESH_SECRET: Joi.string().min(32).required(),
+
+  JWT_REFRESH_SECRET: Joi.string()
+    .min(32)
+    .invalid(Joi.ref('JWT_ACCESS_SECRET'))
+    .required()
+    .messages({
+      'any.invalid':
+        'SECURITY: JWT_REFRESH_SECRET must be different from JWT_ACCESS_SECRET',
+    }),
 
   JWT_ISSUER: Joi.string().min(1).required(),
   JWT_AUDIENCE: Joi.string().min(1).required(),
