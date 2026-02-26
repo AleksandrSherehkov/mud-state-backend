@@ -113,10 +113,6 @@ export class SessionTerminationService {
     );
   }
 
-  // ============================================================
-  // internals
-  // ============================================================
-
   private async terminateSessions(
     where: Prisma.SessionWhereInput,
     meta: Record<string, unknown>,
