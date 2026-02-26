@@ -26,7 +26,7 @@ export const THROTTLE_AUTH = {
     ttl: ttl('THROTTLE_AUTH_REFRESH_TTL_SEC', 60),
   },
   csrf: {
-    limit: num('THROTTLE_AUTH_CSRF_LIMIT', 60),
+    limit: num('THROTTLE_AUTH_CSRF_LIMIT', 20),
     ttl: ttl('THROTTLE_AUTH_CSRF_TTL_SEC', 60),
   },
   logout: {

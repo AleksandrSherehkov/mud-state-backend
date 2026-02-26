@@ -38,6 +38,7 @@ import { AuthHttpService } from './auth-http.service';
 import { Public } from 'src/common/security/decorators/public.decorator';
 import { CurrentUser } from 'src/common/security/decorators/current-user.decorator';
 import { ApiCsrfM2mProtected } from 'src/common/swagger/decorators/api-csrf-m2m';
+import { CsrfIssueGuard } from 'src/common/security/guards/csrf-issue.guard';
 
 @ApiTags('auth')
 @Controller({
@@ -114,6 +115,7 @@ export class AuthController {
 
   @Get('csrf')
   @Public()
+  @UseGuards(CsrfIssueGuard)
   @HttpCode(204)
   @Throttle({ default: THROTTLE_AUTH.csrf })
   @ApiOperation({
@@ -125,14 +127,18 @@ export class AuthController {
     notes: [
       'Потрібен для відновлення CSRF cookie, якщо вона протухла/очистилась.',
       'Не вимагає auth.',
+      'У production вимагає browser-сигнали (Origin/Referer або Sec-Fetch-Site) + trusted origins policy.',
     ],
   })
   @ApiAuthLinks.csrf204()
   @ApiMutationErrorResponses({
     includeBadRequest: false,
     includeUnauthorized: false,
-    includeForbidden: false,
+    includeForbidden: true,
     includeConflict: false,
+    forbiddenDescription:
+      'У production: якщо Origin/Referer заблокований або відсутні browser-сигнали (origin/fetch-site)',
+    forbiddenMessageExample: 'CSRF validation failed',
   })
   csrf(
     @Req() req: Request,

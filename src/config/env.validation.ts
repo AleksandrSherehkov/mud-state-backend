@@ -192,7 +192,7 @@ export const envValidationSchema = Joi.object({
     .integer()
     .min(1)
     .max(10000)
-    .default(60),
+    .default(20),
   THROTTLE_AUTH_CSRF_TTL_SEC: Joi.number()
     .integer()
     .min(1)

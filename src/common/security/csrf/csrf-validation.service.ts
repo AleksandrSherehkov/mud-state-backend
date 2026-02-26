@@ -39,7 +39,39 @@ export class CsrfValidationService {
 
     this.doubleSubmit.assertValid(req);
   }
+  assertCsrfIssuanceAllowed(req: Request): void {
+    const snap = this.policy.get();
+    const pol = snap.csrf;
 
+    if (!pol.enabled) return;
+    if (!snap.isProd) return;
+
+    const trusted = pol.trustedOrigins;
+
+    if (trusted.length === 0) {
+      throw new ForbiddenException(
+        'CSRF validation failed (trusted origins not configured)',
+      );
+    }
+
+    const { hasOriginSignals, hasFetchSite } = this.getBrowserSignals(req);
+
+    if (!hasOriginSignals && !hasFetchSite) {
+      throw new ForbiddenException('CSRF validation failed (non-browser)');
+    }
+
+    if (hasOriginSignals) {
+      this.originPolicy.assertAllowed(req);
+      if (pol.enforceFetchSiteInProd) {
+        this.fetchSite.assertAllowedIfPresent(req);
+      }
+      return;
+    }
+
+    if (pol.enforceFetchSiteInProd) {
+      this.fetchSite.assertAllowedWhenOnlySignal(req);
+    }
+  }
   private async tryHandleM2m(req: Request): Promise<boolean> {
     const m2mHeaders = this.m2m.parseHeaders(req);
     if (!m2mHeaders) return false;
