@@ -13,23 +13,23 @@ export function applyHelmet(
 ) {
   const { shouldEnableSwagger, isProd } = opts;
 
+  const apiPrefix = config.get<string>('API_PREFIX', 'api');
+  const swaggerPath = `/${apiPrefix}/docs`;
+  const swaggerPathWithSlash = `/${apiPrefix}/docs/`;
+
   app.use(
     helmet({
-      contentSecurityPolicy: shouldEnableSwagger
-        ? false
-        : {
-            useDefaults: true,
-            directives: {
-              defaultSrc: ["'none'"],
-              baseUri: ["'none'"],
-              frameAncestors: ["'none'"],
-              formAction: ["'none'"],
-            },
-          },
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          defaultSrc: ["'none'"],
+          baseUri: ["'none'"],
+          frameAncestors: ["'none'"],
+          formAction: ["'none'"],
+        },
+      },
 
-      crossOriginResourcePolicy: shouldEnableSwagger
-        ? false
-        : { policy: 'same-site' },
+      crossOriginResourcePolicy: { policy: 'same-site' },
 
       hsts: isProd
         ? { maxAge: 15552000, includeSubDomains: true, preload: true }
@@ -38,6 +38,23 @@ export function applyHelmet(
       referrerPolicy: { policy: 'no-referrer' },
     }),
   );
+
+  if (shouldEnableSwagger) {
+    const swaggerUiHelmet = helmet({
+      contentSecurityPolicy: false,
+
+      crossOriginResourcePolicy: { policy: 'same-site' },
+
+      hsts: isProd
+        ? { maxAge: 15552000, includeSubDomains: true, preload: true }
+        : false,
+
+      referrerPolicy: { policy: 'no-referrer' },
+    });
+
+    app.use(swaggerPath, swaggerUiHelmet);
+    app.use(swaggerPathWithSlash, swaggerUiHelmet);
+  }
 }
 
 export function applyCookieParser(
