@@ -380,6 +380,10 @@ export const envValidationSchema = Joi.object({
   // ===== Adaptive auth challenge (PoW step-up) =====
   AUTH_CHALLENGE_ENABLED: Joi.boolean().default(true),
 
+  // Register anti-automation: secure-by-default (true).
+  // If false - behaves like login step-up (only after N fails).
+  AUTH_CHALLENGE_REGISTER_ALWAYS: Joi.boolean().default(true),
+
   // window for counting failed attempts (per id/ip)
   AUTH_CHALLENGE_WINDOW_SEC: Joi.number()
     .integer()

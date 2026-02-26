@@ -239,15 +239,36 @@ export class AuthChallengeService {
     return true;
   }
 
-  async assertSatisfiedOrThrow(params: {
+  private registerAlwaysRequired(): boolean {
+    return Boolean(
+      this.config.get<boolean>('AUTH_CHALLENGE_REGISTER_ALWAYS') ?? true,
+    );
+  }
+
+  async assertRegisterSatisfiedOrThrow(params: {
     identifierHash: string;
     ip?: string;
     headers?: ChallengeHeaders;
   }): Promise<void> {
-    const need = await this.shouldRequire({
-      identifierHash: params.identifierHash,
-      ip: params.ip,
+    return this.assertSatisfiedOrThrow({
+      ...params,
+      force: this.registerAlwaysRequired(),
     });
+  }
+
+  async assertSatisfiedOrThrow(params: {
+    identifierHash: string;
+    ip?: string;
+    headers?: ChallengeHeaders;
+    force?: boolean;
+  }): Promise<void> {
+    const need =
+      Boolean(params.force) ||
+      (await this.shouldRequire({
+        identifierHash: params.identifierHash,
+        ip: params.ip,
+      }));
+
     if (!need) return;
 
     const nonce = (params.headers?.nonce ?? '').trim();
