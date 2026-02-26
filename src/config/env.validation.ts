@@ -50,8 +50,10 @@ export const envValidationSchema = Joi.object({
   REFRESH_BIND_IP: Joi.boolean().default(false),
 
   // ===== Refresh incident strategy (blast radius) =====
-  // scoped   - revoke only presented jti + terminate only that session (availability-friendly)
+  // scoped    - revoke only presented jti + terminate only that session (availability-friendly)
   // user_wide - revoke all refresh tokens + terminate all sessions (paranoid)
+  // NOTE: privileged roles (REFRESH_REUSE_ESCALATE_ROLES) are ALWAYS escalated to user_wide on reuse,
+  // regardless of this default/fallback or REFRESH_REUSE_ADAPTIVE_ENABLED.
   REFRESH_INCIDENT_STRATEGY: Joi.string()
     .valid('scoped', 'user_wide')
     .default('scoped'),

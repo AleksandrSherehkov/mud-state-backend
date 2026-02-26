@@ -347,7 +347,7 @@ export class RiskEngineService {
     jti: string;
     sessionCtx: SessionCtx | null;
     geo: { country?: string; asn?: number; asOrgHash?: string } | null;
-    // если хочешь override — можно передавать base/adaptive, иначе берём из env
+
     base?: RefreshIncidentStrategy;
     adaptiveEnabled?: boolean;
   }): Promise<{
@@ -360,18 +360,41 @@ export class RiskEngineService {
 
     const escalationReasons: string[] = [];
 
-    if (base === 'user_wide' || !adaptiveEnabled) {
-      return { strategy: base, escalationReasons };
+    const byRole = await this.shouldEscalateRefreshByRole(params.userId);
+    if (byRole) {
+      escalationReasons.push('high_privilege_role');
+
+      this.logger.warn(
+        'Refresh reuse escalation forced by role (user-wide)',
+        RiskEngineService.name,
+        {
+          event: 'risk.refresh.reuse_escalated_forced',
+          userId: params.userId,
+          sid: params.sid,
+          jti: params.jti,
+          reasons: escalationReasons,
+          base,
+          adaptiveEnabled,
+        },
+      );
+
+      return { strategy: 'user_wide', escalationReasons };
     }
 
-    const byRole = await this.shouldEscalateRefreshByRole(params.userId);
-    if (byRole) escalationReasons.push('high_privilege_role');
+    if (base === 'user_wide') {
+      return { strategy: 'user_wide', escalationReasons };
+    }
 
     const reuseRec = await this.recordRefreshReuse({
       userId: params.userId,
       geo: params.geo ?? null,
       windowSec: this.refreshRepeatWindowSec(),
     });
+
+    if (!adaptiveEnabled) {
+      return { strategy: base, escalationReasons };
+    }
+
     const byRepeat = reuseRec.count >= this.refreshRepeatThreshold();
     if (byRepeat) escalationReasons.push('repeat_reuse');
 
