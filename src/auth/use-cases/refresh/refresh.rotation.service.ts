@@ -60,7 +60,7 @@ export class RefreshRotationService {
     ]);
 
     const newSalt = this.jwtTokenService.generateRefreshTokenSalt();
-    const newTokenHash = this.jwtTokenService.hashRefreshToken(
+    const newTokenHash = await this.jwtTokenService.hashRefreshToken(
       newRefreshToken,
       newSalt,
     );

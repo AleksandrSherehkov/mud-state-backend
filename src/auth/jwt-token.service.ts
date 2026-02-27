@@ -56,8 +56,8 @@ export class JwtTokenService {
     return this.refreshHash.generateSaltHex();
   }
 
-  hashRefreshToken(token: string, salt?: string | null): string {
-    return this.refreshHash.hash(token, salt);
+  async hashRefreshToken(token: string, salt?: string | null): Promise<string> {
+    return await this.refreshHash.hash(token, salt);
   }
   safeEqualHex(a: string, b: string): boolean {
     return this.refreshHash.safeEqualHex(a, b);

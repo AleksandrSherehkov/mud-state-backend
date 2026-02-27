@@ -65,7 +65,7 @@ export class AuthTokensService {
     ]);
 
     const tokenSalt = this.jwtTokenService.generateRefreshTokenSalt();
-    const tokenHash = this.jwtTokenService.hashRefreshToken(
+    const tokenHash = await this.jwtTokenService.hashRefreshToken(
       refreshToken,
       tokenSalt,
     );

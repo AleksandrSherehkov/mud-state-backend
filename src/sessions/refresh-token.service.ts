@@ -439,7 +439,7 @@ export class RefreshTokenService {
       return { count: 0 };
     }
 
-    const expectedHash = this.refreshHash.hash(
+    const expectedHash = await this.refreshHash.hash(
       params.refreshToken,
       row.tokenSalt ?? null,
     );
