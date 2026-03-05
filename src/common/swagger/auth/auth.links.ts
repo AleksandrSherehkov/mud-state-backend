@@ -2,7 +2,6 @@ import { applyDecorators } from '@nestjs/common';
 import {
   ApiCreatedResponse,
   ApiExtraModels,
-  ApiNoContentResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
 
@@ -10,16 +9,17 @@ import { RegisterResponseDto } from 'src/auth/dto/register-response.dto';
 import { TokenResponseDto } from 'src/auth/dto/token-response.dto';
 import { LogoutResponseDto } from 'src/auth/dto/logout-response.dto';
 import { MeResponseDto } from 'src/auth/dto/me-response.dto';
+import { CsrfResponseDto } from 'src/auth/dto/csrf-response.dto';
 const SET_AUTH_COOKIES_HEADER = {
   'Set-Cookie': {
     description:
-      'Sets authentication cookies: refreshToken (HttpOnly) and csrfToken (readable by JS). ' +
+      'Sets authentication cookies: refreshToken (HttpOnly, signed) and csrfToken (signed, readable by JS). ' +
+      'Client must use csrfToken from JSON body for x-csrf-token header (do not read from cookie). ' +
       'Exact attributes depend on env (Secure/SameSite/Path).',
     schema: { type: 'string' },
-
     example:
-      'refreshToken=eyJ...; Path=/api; HttpOnly; SameSite=Lax; Secure; ' +
-      'csrfToken=550e8400-e29b-41d4-a716-446655440000; Path=/api; SameSite=Lax; Secure',
+      'refreshToken=s%3AeyJ...<sig>; Path=/api; HttpOnly; SameSite=Lax; Secure; ' +
+      'csrfToken=s%3A550e8400-e29b-41d4-a716-446655440000.<sig>; Path=/api; SameSite=Lax; Secure',
   },
 } as const;
 
@@ -28,17 +28,19 @@ const SET_REFRESH_COOKIE_HEADER = {
     description:
       'Sets refreshToken cookie (HttpOnly, signed). Exact attributes depend on env (Secure/SameSite/Path).',
     schema: { type: 'string' },
-    example: 'refreshToken=eyJ...; Path=/api; HttpOnly; SameSite=Lax; Secure',
+    example:
+      'refreshToken=s%3AeyJ...<sig>; Path=/api; HttpOnly; SameSite=Lax; Secure',
   },
 } as const;
 
 const SET_CSRF_COOKIE_HEADER = {
   'Set-Cookie': {
     description:
-      'Sets csrfToken cookie (readable by JS, short-lived). Exact attributes depend on env (Secure/SameSite/Path).',
+      'Sets csrfToken cookie (signed, short-lived). Client should use csrfToken from response body for x-csrf-token header. ' +
+      'Exact attributes depend on env (Secure/SameSite/Path).',
     schema: { type: 'string' },
     example:
-      'csrfToken=550e8400-e29b-41d4-a716-446655440000; Path=/api; SameSite=Lax; Secure',
+      'csrfToken=s%3A550e8400-e29b-41d4-a716-446655440000.<sig>; Path=/api; SameSite=Lax; Secure',
   },
 } as const;
 
@@ -104,10 +106,13 @@ export const ApiAuthLinks = {
     );
   },
 
-  csrf204() {
+  csrf200() {
     return applyDecorators(
-      ApiNoContentResponse({
-        description: 'CSRF cookie встановлено або оновлено',
+      ApiExtraModels(CsrfResponseDto),
+      ApiOkResponse({
+        description:
+          'CSRF cookie встановлено/оновлено + повернуто csrfToken для заголовка',
+        type: CsrfResponseDto,
         headers: SET_CSRF_COOKIE_HEADER,
         links: {
           register: {

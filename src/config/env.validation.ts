@@ -544,6 +544,7 @@ export const envValidationSchema = Joi.object({
 
   CSRF_ENABLED: Joi.boolean().default(true),
   CSRF_COOKIE_NAME: Joi.string().min(1).default('csrfToken'),
+  REFRESH_COOKIE_NAME: Joi.string().min(1).default('refreshToken'),
   CSRF_HEADER_NAME: Joi.string().min(1).default('x-csrf-token'),
 
   CSRF_ENFORCE_FETCH_SITE_IN_PROD: Joi.boolean().default(true),

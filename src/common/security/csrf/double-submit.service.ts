@@ -11,7 +11,7 @@ export class DoubleSubmitCsrfService {
   assertValid(req: Request): boolean {
     const p = this.policy.get().csrf;
 
-    const csrfCookie = getCookieString(req, p.cookieName);
+    const csrfCookie = getCookieString(req, p.cookieName, { signed: true });
     const csrfHeader = req.header(p.headerName);
 
     const ok =

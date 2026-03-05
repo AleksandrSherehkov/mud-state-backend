@@ -25,6 +25,14 @@ export class AuthCookieService {
     return this.appEnv === 'production';
   }
 
+  private refreshCookieName(): string {
+    return this.config.get<string>('REFRESH_COOKIE_NAME', 'refreshToken');
+  }
+
+  private csrfCookieName(): string {
+    return this.config.get<string>('CSRF_COOKIE_NAME', 'csrfToken');
+  }
+
   private isRequestSecure(req: Request): boolean {
     if (req.secure) return true;
     const xfProto = req.header('x-forwarded-proto');
@@ -91,6 +99,8 @@ export class AuthCookieService {
   }
 
   csrfCookieOptions(req: Request): CookieOptions {
+    const maxAge = 15 * 60 * 1000;
+
     const secure = this.isProd() ? true : this.isRequestSecure(req);
 
     let sameSite: CookieSameSite = this.cookieSameSite();
@@ -114,13 +124,17 @@ export class AuthCookieService {
       secure,
       sameSite,
       path: this.apiPath(),
-      maxAge: 15 * 60 * 1000,
+
+      signed: true,
+
+      maxAge,
+      expires: new Date(Date.now() + maxAge),
     };
   }
 
   setCsrfCookie(res: ExpressResponse, req: Request): string {
     const csrfToken = randomUUID();
-    res.cookie('csrfToken', csrfToken, this.csrfCookieOptions(req));
+    res.cookie(this.csrfCookieName(), csrfToken, this.csrfCookieOptions(req));
     return csrfToken;
   }
 
@@ -129,7 +143,11 @@ export class AuthCookieService {
     req: Request,
     refreshToken: string,
   ): void {
-    res.cookie('refreshToken', refreshToken, this.refreshCookieOptions(req));
+    res.cookie(
+      this.refreshCookieName(),
+      refreshToken,
+      this.refreshCookieOptions(req),
+    );
   }
 
   setAuthCookies(
@@ -142,8 +160,11 @@ export class AuthCookieService {
   }
 
   clearAuthCookies(res: ExpressResponse, req: Request): void {
-    res.clearCookie('refreshToken', this.refreshCookieClearOptions(req));
-    res.clearCookie('csrfToken', this.csrfCookieClearOptions(req));
+    res.clearCookie(
+      this.refreshCookieName(),
+      this.refreshCookieClearOptions(req),
+    );
+    res.clearCookie(this.csrfCookieName(), this.csrfCookieClearOptions(req));
   }
 
   private stripExpiry(opts: CookieOptions): CookieOptions {

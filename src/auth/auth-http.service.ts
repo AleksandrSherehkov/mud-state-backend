@@ -19,6 +19,7 @@ import { RefreshUseCase } from './use-cases/refresh.use-case';
 import { LogoutUseCase } from './use-cases/logout.use-case';
 import { GetMeUseCase } from './use-cases/get-me.use-case';
 import { RequestInfoService } from 'src/common/http/request-info';
+import { CsrfResponseDto } from './dto/csrf-response.dto';
 
 @Injectable()
 export class AuthHttpService {
@@ -78,8 +79,9 @@ export class AuthHttpService {
     });
   }
 
-  csrf(req: Request, res: ExpressResponse): void {
-    this.cookies.setCsrfCookie(res, req);
+  csrf(req: Request, res: ExpressResponse): CsrfResponseDto {
+    const csrfToken = this.cookies.setCsrfCookie(res, req);
+    return new CsrfResponseDto({ csrfToken });
   }
 
   async refresh(req: Request, res: ExpressResponse): Promise<TokenResponseDto> {
