@@ -60,6 +60,19 @@ export const THROTTLE_AUTH_SECONDARY = {
     ttl: ttl('THROTTLE_UNAUTH_BURST_TTL_SEC', 10),
     blockDuration: ttl('THROTTLE_UNAUTH_BURST_BLOCK_SEC', 30),
   },
+  // GET /auth/csrf secondary protection:
+  // 1) finer bucket: IP + ASN (or noasn fallback)
+  // 2) wider bucket: ASN-wide burst (only when ASN comes from trusted proxy headers)
+  csrfIpAsn: {
+    limit: num('THROTTLE_AUTH_CSRF_IP_ASN_LIMIT', 12),
+    ttl: ttl('THROTTLE_AUTH_CSRF_IP_ASN_TTL_SEC', 60),
+    blockDuration: ttl('THROTTLE_AUTH_CSRF_IP_ASN_BLOCK_SEC', 120),
+  },
+  csrfAsn: {
+    limit: num('THROTTLE_AUTH_CSRF_ASN_LIMIT', 40),
+    ttl: ttl('THROTTLE_AUTH_CSRF_ASN_TTL_SEC', 60),
+    blockDuration: ttl('THROTTLE_AUTH_CSRF_ASN_BLOCK_SEC', 180),
+  },
 } as const;
 
 export const THROTTLE_USERS = {

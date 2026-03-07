@@ -11,6 +11,7 @@ import { hashId } from 'src/common/logging/log-sanitize';
 import { createHash } from 'node:crypto';
 
 import { THROTTLE_AUTH_SECONDARY } from 'src/common/throttle/config/throttle-env';
+import { SecurityPolicyService } from 'src/common/security/policy/security-policy.service';
 
 type BodyWithEmail = { email?: unknown };
 
@@ -83,8 +84,17 @@ function isPost(req: ReqLike): boolean {
   return normalizeMethod(req) === 'POST';
 }
 
+function isGet(req: ReqLike): boolean {
+  return normalizeMethod(req) === 'GET';
+}
+
 function isPostAndEndsWith(req: ReqLike, suffix: string): boolean {
   if (!isPost(req)) return false;
+  return getPath(req).endsWith(suffix);
+}
+
+function isGetAndEndsWith(req: ReqLike, suffix: string): boolean {
+  if (!isGet(req)) return false;
   return getPath(req).endsWith(suffix);
 }
 
@@ -150,10 +160,24 @@ function sha256hex(input: string, slice = 16): string {
     .slice(0, slice);
 }
 
+function normalizeAsn(raw?: string): number | undefined {
+  const s = (raw ?? '').trim();
+  const m = /^(?:AS)?(\d{1,10})$/i.exec(s);
+  if (!m) return undefined;
+
+  const n = Number(m[1]);
+  if (!Number.isInteger(n) || n <= 0) return undefined;
+
+  return n;
+}
+
 @Injectable()
 export class AuthThrottlerGuard extends ThrottlerGuard {
   @Inject(ConfigService)
   private readonly config!: ConfigService;
+
+  @Inject(SecurityPolicyService)
+  private readonly securityPolicy!: SecurityPolicyService;
 
   protected async getTracker(req: Record<string, any>): Promise<string> {
     await Promise.resolve();
@@ -219,6 +243,45 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     return ip;
   }
 
+  private isTrustedProxyRequest(r: ReqLike): boolean {
+    const pol = this.securityPolicy.get().proxyGeoTrust;
+
+    if (!pol.enabled) return false;
+
+    const allow = new Set(pol.trustedProxyIps.map((x) => normalizeIp(x)));
+    if (allow.size === 0) return false;
+
+    const remote = getIpFromSocket(r) ?? getIpFromConnection(r);
+
+    if (!remote) return false;
+
+    const remoteIp = normalizeIp(remote);
+    if (!allow.has(remoteIp)) return false;
+
+    const headers = r.headers;
+    if (!headers || typeof headers !== 'object') return false;
+
+    const raw = headers[pol.markerName];
+    const got = (
+      Array.isArray(raw)
+        ? String(raw[0] ?? '')
+        : typeof raw === 'string'
+          ? raw
+          : ''
+    ).trim();
+
+    return Boolean(got && got === pol.markerValue);
+  }
+
+  private getTrustedAsn(r: ReqLike): number | undefined {
+    if (!this.isTrustedProxyRequest(r)) return undefined;
+
+    const xGeoAsn = getHeaderString(r, 'x-geo-asn');
+    const xAsn = getHeaderString(r, 'x-asn');
+
+    return normalizeAsn(xGeoAsn || xAsn || undefined);
+  }
+
   private async enforceUnauthBurst(req: Record<string, any>, r: ReqLike) {
     const userId = getUserIdFromReq(req);
     if (userId) return;
@@ -269,6 +332,44 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     if (rec.isBlocked) throw new ThrottlerException();
   }
 
+  private async enforceCsrfSecondary(req: Record<string, any>, r: ReqLike) {
+    const userId = getUserIdFromReq(req);
+    if (userId) return;
+    if (!isGetAndEndsWith(r, '/auth/csrf')) return;
+
+    const ip = getIp(r);
+    const asn = this.getTrustedAsn(r);
+    const asnPart = asn ?? 'noasn';
+
+    const ipAsnCfg = THROTTLE_AUTH_SECONDARY.csrfIpAsn;
+    const ipAsnKey = `csrf:ip_asn:${ip}:as${asnPart}`;
+
+    const ipAsnRec = await this.storageService.increment(
+      ipAsnKey,
+      ipAsnCfg.ttl,
+      ipAsnCfg.limit,
+      ipAsnCfg.blockDuration,
+      'csrfIpAsn',
+    );
+
+    if (ipAsnRec.isBlocked) throw new ThrottlerException();
+
+    if (asn === undefined) return;
+
+    const asnCfg = THROTTLE_AUTH_SECONDARY.csrfAsn;
+    const asnKey = `csrf:asn:${asn}`;
+
+    const asnRec = await this.storageService.increment(
+      asnKey,
+      asnCfg.ttl,
+      asnCfg.limit,
+      asnCfg.blockDuration,
+      'csrfAsn',
+    );
+
+    if (asnRec.isBlocked) throw new ThrottlerException();
+  }
+
   protected async handleRequest(
     requestProps: ThrottlerRequest,
   ): Promise<boolean> {
@@ -280,6 +381,7 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
 
     await this.enforceUnauthBurst(req, r);
     await this.enforceEmailSecondary(req, r);
+    await this.enforceCsrfSecondary(req, r);
 
     return super.handleRequest(requestProps);
   }

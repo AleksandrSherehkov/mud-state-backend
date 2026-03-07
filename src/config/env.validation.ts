@@ -207,6 +207,38 @@ export const envValidationSchema = Joi.object({
     .max(3600)
     .default(60),
 
+  THROTTLE_AUTH_CSRF_IP_ASN_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .max(10000)
+    .default(12),
+  THROTTLE_AUTH_CSRF_IP_ASN_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(60),
+  THROTTLE_AUTH_CSRF_IP_ASN_BLOCK_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(120),
+
+  THROTTLE_AUTH_CSRF_ASN_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .max(10000)
+    .default(40),
+  THROTTLE_AUTH_CSRF_ASN_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(60),
+  THROTTLE_AUTH_CSRF_ASN_BLOCK_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .max(3600)
+    .default(180),
+
   THROTTLE_AUTH_LOGOUT_LIMIT: Joi.number()
     .integer()
     .min(1)
@@ -559,7 +591,7 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.number().integer().min(0).max(10).default(0),
   }),
 
-  TRUST_PROXY_GEO_HEADERS: Joi.boolean().default(false),
+    TRUST_PROXY_GEO_HEADERS: Joi.boolean().default(false),
 
   TRUSTED_PROXY_IPS: Joi.when('TRUST_PROXY_GEO_HEADERS', {
     is: true,
@@ -569,7 +601,7 @@ export const envValidationSchema = Joi.object({
 
   TRUST_PROXY_GEO_MARKER_NAME: Joi.when('TRUST_PROXY_GEO_HEADERS', {
     is: true,
-    then: Joi.string().default('x-ingress-auth'),
+    then: Joi.string().min(1).default('x-ingress-auth'),
     otherwise: Joi.string().optional(),
   }),
 
