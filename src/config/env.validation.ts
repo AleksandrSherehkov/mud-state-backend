@@ -591,7 +591,7 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.number().integer().min(0).max(10).default(0),
   }),
 
-    TRUST_PROXY_GEO_HEADERS: Joi.boolean().default(false),
+  TRUST_PROXY_GEO_HEADERS: Joi.boolean().default(false),
 
   TRUSTED_PROXY_IPS: Joi.when('TRUST_PROXY_GEO_HEADERS', {
     is: true,

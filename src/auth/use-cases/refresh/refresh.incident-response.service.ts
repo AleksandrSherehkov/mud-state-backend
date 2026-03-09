@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { SessionsService } from 'src/sessions/sessions.service';
@@ -178,7 +174,7 @@ export class RefreshIncidentResponseService {
         },
       );
 
-      throw new ConflictException('Refresh token outdated, retry');
+      throw new UnauthorizedException('Токен відкликано або недійсний');
     }
   }
 

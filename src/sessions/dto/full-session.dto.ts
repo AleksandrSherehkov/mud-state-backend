@@ -7,10 +7,16 @@ export class FullSessionDto {
   })
   id: string;
 
-  @ApiProperty({ example: '192.168.1.1' })
+  @ApiProperty({
+    example: '192.168.x.x',
+    description: 'Маскована IP-адреса сесії',
+  })
   ip: string;
 
-  @ApiProperty({ example: 'Mozilla/5.0...' })
+  @ApiProperty({
+    example: 'Chrome',
+    description: 'Скорочена family user-agent без повного сирого рядка',
+  })
   userAgent: string;
 
   @ApiProperty({ example: true })
@@ -30,4 +36,20 @@ export class FullSessionDto {
     format: 'date-time',
   })
   endedAt: string | null;
+
+  constructor(data: {
+    id: string;
+    ip: string;
+    userAgent: string;
+    isActive: boolean;
+    startedAt: string;
+    endedAt: string | null;
+  }) {
+    this.id = data.id;
+    this.ip = data.ip;
+    this.userAgent = data.userAgent;
+    this.isActive = data.isActive;
+    this.startedAt = data.startedAt;
+    this.endedAt = data.endedAt;
+  }
 }
