@@ -28,9 +28,15 @@ export class LoginUseCase {
   ) {
     this.logger.setContext(LoginUseCase.name);
 
-    this.dummyPasswordHash =
-      this.config.get<string>('AUTH_DUMMY_PASSWORD_HASH') ??
-      '$2b$12$0IP/zdzyXTrX7AZRHVrTQeVvCAklfEeF8VCj0.9pJqlDmbqgth5Dq';
+    const dummyPasswordHash = String(
+      this.config.get<string>('AUTH_DUMMY_PASSWORD_HASH') ?? '',
+    ).trim();
+
+    if (!dummyPasswordHash) {
+      throw new Error('AUTH_DUMMY_PASSWORD_HASH is not set');
+    }
+
+    this.dummyPasswordHash = dummyPasswordHash;
   }
 
   async execute(dto: LoginDto, ctx: AuthRequestContext) {

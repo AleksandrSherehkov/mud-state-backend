@@ -15,7 +15,7 @@ function normalizeEnvFlag(value: unknown): string {
 
 function isTrueLike(value: unknown): boolean {
   const raw = normalizeEnvFlag(value);
-  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+  return raw === 'true' || raw === '1' || raw === 'yes' || raw === 'on';
 }
 
 function assertDistinctJwtSecrets(config: ConfigService): void {
@@ -25,6 +25,18 @@ function assertDistinctJwtSecrets(config: ConfigService): void {
   if (accessSecret && refreshSecret && accessSecret === refreshSecret) {
     throw new Error(
       'SECURITY: JWT_ACCESS_SECRET must not equal JWT_REFRESH_SECRET (separate secrets required)',
+    );
+  }
+}
+
+function assertDummyPasswordHash(isProd: boolean, config: ConfigService): void {
+  if (!isProd) return;
+
+  const hash = String(config.get('AUTH_DUMMY_PASSWORD_HASH') ?? '').trim();
+
+  if (!hash) {
+    throw new Error(
+      'SECURITY: AUTH_DUMMY_PASSWORD_HASH must be set in production',
     );
   }
 }
@@ -115,6 +127,7 @@ export function validateSecurityConfig(config: ConfigService) {
   const isProd = appEnv === 'production';
 
   assertDistinctJwtSecrets(config);
+  assertDummyPasswordHash(isProd, config);
 
   const baseUrl = config.get<string>('BASE_URL', 'http://localhost:3000');
   const cookieSameSite = config.get<string>('COOKIE_SAMESITE');
