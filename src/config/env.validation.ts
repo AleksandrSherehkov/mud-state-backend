@@ -443,6 +443,22 @@ export const envValidationSchema = Joi.object({
     .pattern(/^(\S+\s+){4}\S+$/)
     .default('0 0 * * *'),
 
+  // ===== Login identifier retention =====
+  LOGIN_IDENTIFIER_RETENTION_ENABLED: Joi.boolean().default(true),
+  LOGIN_IDENTIFIER_RETENTION_DAYS: Joi.number()
+    .integer()
+    .min(7)
+    .max(3650)
+    .default(90),
+  LOGIN_IDENTIFIER_RETENTION_CRON: Joi.string()
+    .pattern(/^(\S+\s+){4}\S+$/)
+    .default('15 0 * * *'),
+  LOGIN_IDENTIFIER_RETENTION_DELETE_LIMIT: Joi.number()
+    .integer()
+    .min(100)
+    .max(100_000)
+    .default(5000),
+
   // ===== Auth lock =====
   AUTH_LOCK_MAX_ATTEMPTS: Joi.number().min(3).max(50).default(10),
   AUTH_LOCK_BASE_SECONDS: Joi.number().min(1).max(60).default(2),
@@ -611,6 +627,13 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.string().optional(),
   }),
   // ===== Auth critical TX policy (Prisma interactive tx) =====
+  // ===== Auth critical TX policy (Prisma interactive tx) =====
+  AUTH_TX_MAX_WAIT_MS: Joi.number()
+    .integer()
+    .min(100)
+    .max(60_000)
+    .default(2000),
+
   AUTH_TX_TIMEOUT_MS: Joi.number().integer().min(500).max(60_000).default(5000),
 
   AUTH_DUMMY_PASSWORD_HASH: Joi.when('APP_ENV', {

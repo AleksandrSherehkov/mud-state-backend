@@ -52,7 +52,6 @@ model RefreshToken {
 
   sessions Session[] @relation("SessionToRefreshToken")
 
-
   @@unique([jti, userId], map: "rt_jti_userid_uq")
   @@index([userId, revoked, expiresAt])
   @@index([expiresAt])
@@ -64,8 +63,7 @@ model Session {
 
   refreshTokenJti String? @db.Uuid
 
- 
-  refreshToken RefreshToken? @relation("SessionToRefreshToken", fields: [refreshTokenJti, userId], references: [jti, userId], onDelete: Restrict)
+    refreshToken RefreshToken? @relation("SessionToRefreshToken", fields: [refreshTokenJti, userId], references: [jti, userId], onDelete: Restrict)
 
   ip        String?
   userAgent String?
@@ -74,8 +72,8 @@ model Session {
   asn        Int?    @db.Integer
   asOrgHash  String? @db.VarChar(64)
 
-  isActive  Boolean   @default(true)
-  startedAt DateTime  @default(now())
+  isActive  Boolean  @default(true)
+  startedAt DateTime @default(now())
   endedAt   DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -99,12 +97,12 @@ model UserSecurity {
 
   lastFailedIp     String?
   lastFailedUaHash String? @db.VarChar(64)
- 
-  refreshReuseCount         Int       @default(0)
+
+  refreshReuseCount         Int     @default(0)
   lastRefreshReuseAt        DateTime?
-  lastRefreshReuseCountry   String?   @db.Char(2)
-  lastRefreshReuseAsn       Int?      @db.Integer
-  lastRefreshReuseAsOrgHash String?   @db.VarChar(64)
+  lastRefreshReuseCountry   String? @db.Char(2)
+  lastRefreshReuseAsn       Int?    @db.Integer
+  lastRefreshReuseAsOrgHash String? @db.VarChar(64)
 
   accessAnomalyCount  Int       @default(0)
   lastAccessAnomalyAt DateTime?
@@ -133,4 +131,5 @@ model LoginIdentifierSecurity {
 
   @@index([lockedUntil])
   @@index([lastFailedAt])
+  @@index([updatedAt])
 }

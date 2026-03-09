@@ -82,4 +82,84 @@ export class AuthMaintenanceService {
 
     return deleted.count;
   }
+
+  async cleanLoginIdentifierSecurity(
+    olderThanDays = 90,
+    deleteLimit = 5000,
+  ): Promise<number> {
+    const now = new Date();
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - olderThanDays);
+
+    this.logger.log(
+      'Cleanup login identifier security start',
+      AuthMaintenanceService.name,
+      {
+        event: 'cleanup.login_identifier_security.start',
+        olderThanDays,
+        deleteLimit,
+        threshold: dateThreshold.toISOString(),
+      },
+    );
+
+    const candidates = await this.prisma.loginIdentifierSecurity.findMany({
+      where: {
+        updatedAt: { lt: dateThreshold },
+        AND: [
+          {
+            OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }],
+          },
+          {
+            OR: [
+              { lastFailedAt: null },
+              { lastFailedAt: { lt: dateThreshold } },
+            ],
+          },
+        ],
+      },
+      select: {
+        emailHash: true,
+      },
+      orderBy: {
+        updatedAt: 'asc',
+      },
+      take: deleteLimit,
+    });
+
+    if (candidates.length === 0) {
+      this.logger.log(
+        'Cleanup login identifier security done',
+        AuthMaintenanceService.name,
+        {
+          event: 'cleanup.login_identifier_security.done',
+          olderThanDays,
+          deleteLimit,
+          deleted: 0,
+        },
+      );
+
+      return 0;
+    }
+
+    const deleted = await this.prisma.loginIdentifierSecurity.deleteMany({
+      where: {
+        emailHash: {
+          in: candidates.map((item) => item.emailHash),
+        },
+      },
+    });
+
+    this.logger.log(
+      'Cleanup login identifier security done',
+      AuthMaintenanceService.name,
+      {
+        event: 'cleanup.login_identifier_security.done',
+        olderThanDays,
+        deleteLimit,
+        deleted: deleted.count,
+      },
+    );
+
+    return deleted.count;
+  }
 }
