@@ -1,6 +1,23 @@
 import { ConfigService } from '@nestjs/config';
 import { parseList } from './parse-list';
 
+function normalizeEnvFlag(value: unknown): string {
+  if (typeof value === 'string') {
+    return value.trim().toLowerCase();
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value).trim().toLowerCase();
+  }
+
+  return '';
+}
+
+function isTrueLike(value: unknown): boolean {
+  const raw = normalizeEnvFlag(value);
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
 function assertDistinctJwtSecrets(config: ConfigService): void {
   const accessSecret = String(config.get('JWT_ACCESS_SECRET') ?? '').trim();
   const refreshSecret = String(config.get('JWT_REFRESH_SECRET') ?? '').trim();
@@ -37,6 +54,19 @@ function assertTrustProxy(
   if (!ok) {
     throw new Error(
       'SECURITY: TRUST_PROXY_HOPS має бути цілим числом 1..10 у production (щоб req.ip був реальним клієнтом за проксі)',
+    );
+  }
+}
+
+function assertCsrfNoOriginPolicy(
+  isProd: boolean,
+  csrfAllowNoOriginRaw: unknown,
+): void {
+  if (!isProd) return;
+
+  if (isTrueLike(csrfAllowNoOriginRaw)) {
+    throw new Error(
+      'SECURITY: CSRF_ALLOW_NO_ORIGIN=true is forbidden in production. Use explicit CSRF M2M HMAC flow for controlled non-browser clients.',
     );
   }
 }
@@ -95,6 +125,7 @@ export function validateSecurityConfig(config: ConfigService) {
 
   assertCorsConfig(isProd, corsOrigins);
   assertTrustProxy(isProd, config.get<string>('TRUST_PROXY_HOPS'));
+  assertCsrfNoOriginPolicy(isProd, config.get('CSRF_ALLOW_NO_ORIGIN'));
 
   if (!isProd) return;
 
