@@ -8,7 +8,8 @@ type LifecycleReason =
   | 'refresh_reuse_detected'
   | 'fingerprint_mismatch'
   | 'admin_terminate'
-  | 'security_policy';
+  | 'security_policy'
+  | 'user_security_sensitive_update';
 
 @Injectable()
 export class SessionLifecycleService {

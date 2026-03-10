@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 
 import { RefreshTokenService } from 'src/sessions/refresh-token.service';
+import { SessionLifecycleService } from 'src/sessions/session-lifecycle.service';
 import type { Tokens } from '../types/jwt.types';
 import type { AuthRequestContext } from './types/auth-request-context';
 
@@ -13,6 +14,7 @@ import { RefreshIncidentResponseService } from './refresh/refresh.incident-respo
 
 import { normalizeIp } from 'src/common/net/ip-normalize';
 import { UsersService } from 'src/users/users.service';
+import { AppLogger } from 'src/logger/logger.service';
 
 @Injectable()
 export class RefreshUseCase {
@@ -22,7 +24,11 @@ export class RefreshUseCase {
     private readonly incidents: RefreshIncidentResponseService,
     private readonly refreshTokenService: RefreshTokenService,
     private readonly usersService: UsersService,
-  ) {}
+    private readonly lifecycle: SessionLifecycleService,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(RefreshUseCase.name);
+  }
 
   async execute(
     refreshToken: string,
@@ -55,11 +61,37 @@ export class RefreshUseCase {
     const user = await this.verifier.getUserOrThrow(userId, payload);
 
     const snap = await this.usersService.getAuthSnapshotById(userId);
-    const tokenVersion = snap?.tokenVersion ?? 0;
+    const dbTokenVersion = snap?.tokenVersion ?? 0;
+    const payloadTokenVersion = typeof payload.tv === 'number' ? payload.tv : 0;
+
+    if (payloadTokenVersion !== dbTokenVersion) {
+      this.logger.warn(
+        'Refresh blocked: tokenVersion mismatch',
+        RefreshUseCase.name,
+        {
+          event: 'auth.refresh.blocked',
+          reason: 'token_version_mismatch',
+          userId,
+          sid,
+          jti,
+          payloadTv: payloadTokenVersion,
+          dbTv: dbTokenVersion,
+        },
+      );
+
+      await this.lifecycle.revokeJtiAndTerminateSession({
+        userId,
+        jti,
+        sid,
+        reason: 'security_policy',
+      });
+
+      throw new UnauthorizedException('Токен відкликано або недійсний');
+    }
 
     try {
       return await this.rotation.rotateAtomic({
-        user: { ...user, tokenVersion },
+        user: { ...user, tokenVersion: dbTokenVersion },
         sid,
         oldJti: jti,
         refreshToken,

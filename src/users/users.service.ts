@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AppLogger } from 'src/logger/logger.service';
 import { hashId } from 'src/common/logging/log-sanitize';
+import { SessionLifecycleService } from 'src/sessions/session-lifecycle.service';
 
 function errMeta(err: unknown) {
   if (err instanceof Error) {
@@ -25,6 +26,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly logger: AppLogger,
+    private readonly lifecycle: SessionLifecycleService,
   ) {
     this.logger.setContext(UsersService.name);
   }
@@ -181,6 +183,25 @@ export class UsersService {
             newTokenVersion: res.tokenVersion,
             changes,
           });
+
+          const lifecycle = await this.lifecycle.revokeAllAndTerminateAll({
+            userId: id,
+            reason: 'user_security_sensitive_update',
+            tx,
+          });
+
+          this.logger.warn(
+            'Security-sensitive user update forced global re-auth',
+            UsersService.name,
+            {
+              event: 'security.user.reauth_forced',
+              userId: id,
+              changes,
+              revokedTokens: lifecycle.revokedTokens,
+              terminatedSessions: lifecycle.terminatedSessions,
+              newTokenVersion: res.tokenVersion,
+            },
+          );
         }
 
         return u;
@@ -270,6 +291,7 @@ export class UsersService {
       throw err;
     }
   }
+
   async getUserRoleById(userId: string): Promise<Role> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
