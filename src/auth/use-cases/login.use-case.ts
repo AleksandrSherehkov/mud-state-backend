@@ -46,6 +46,7 @@ export class LoginUseCase {
     const emailHash = hashId(dto.email.trim().toLowerCase());
 
     await this.authChallenge.assertSatisfiedOrThrow({
+      scope: 'login',
       identifierHash: emailHash,
       ip: maybeIp,
       headers: {
@@ -97,7 +98,7 @@ export class LoginUseCase {
 
     await this.authSecurity.onLoginSuccess(user.id);
 
-    await this.authChallenge.clearOnSuccess({
+    await this.authChallenge.clearLoginOnSuccess({
       identifierHash: emailHash,
       ip: maybeIp,
     });

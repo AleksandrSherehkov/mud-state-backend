@@ -19,6 +19,8 @@ type ChallengeIssued = {
   ttlSec: number;
 };
 
+type ChallengeScope = 'login' | 'register';
+
 @Injectable()
 export class AuthChallengeService {
   private static readonly ISSUE_RETRIES = 5;
@@ -60,12 +62,16 @@ export class AuthChallengeService {
     ).trim();
   }
 
-  private keyFailId(idHash: string): string {
-    return `${this.prefix()}fail:id:${idHash}`;
+  private normalizeScope(scope: ChallengeScope): ChallengeScope {
+    return scope === 'register' ? 'register' : 'login';
   }
 
-  private keyFailIp(ip: string): string {
-    return `${this.prefix()}fail:ip:${ip}`;
+  private keyFailId(scope: ChallengeScope, idHash: string): string {
+    return `${this.prefix()}${this.normalizeScope(scope)}:fail:id:${idHash}`;
+  }
+
+  private keyFailIp(scope: ChallengeScope, ip: string): string {
+    return `${this.prefix()}${this.normalizeScope(scope)}:fail:ip:${ip}`;
   }
 
   private keyNonce(nonce: string): string {
@@ -88,20 +94,20 @@ export class AuthChallengeService {
 
     await this.redis
       .multi()
-      .incr(this.keyFailId(id))
-      .expire(this.keyFailId(id), ttl, 'NX')
+      .incr(this.keyFailId('login', id))
+      .expire(this.keyFailId('login', id), ttl, 'NX')
       .exec();
 
     if (ip && ip !== 'unknown') {
       await this.redis
         .multi()
-        .incr(this.keyFailIp(ip))
-        .expire(this.keyFailIp(ip), ttl, 'NX')
+        .incr(this.keyFailIp('login', ip))
+        .expire(this.keyFailIp('login', ip), ttl, 'NX')
         .exec();
     }
   }
 
-  async clearOnSuccess(params: {
+  async clearLoginOnSuccess(params: {
     identifierHash: string;
     ip?: string;
   }): Promise<void> {
@@ -110,8 +116,27 @@ export class AuthChallengeService {
     const id = params.identifierHash.trim();
     const ip = (params.ip ?? '').trim();
 
-    const keys = [this.keyFailId(id)];
-    if (ip && ip !== 'unknown') keys.push(this.keyFailIp(ip));
+    const keys = [this.keyFailId('login', id)];
+    if (ip && ip !== 'unknown') keys.push(this.keyFailIp('login', ip));
+
+    try {
+      await this.redis.del(...keys);
+    } catch {
+      // ignore
+    }
+  }
+
+  async clearRegisterOnSuccess(params: {
+    identifierHash: string;
+    ip?: string;
+  }): Promise<void> {
+    if (!this.assertEnabledOrNoop()) return;
+
+    const id = params.identifierHash.trim();
+    const ip = (params.ip ?? '').trim();
+
+    const keys = [this.keyFailId('register', id)];
+    if (ip && ip !== 'unknown') keys.push(this.keyFailIp('register', ip));
 
     try {
       await this.redis.del(...keys);
@@ -121,16 +146,18 @@ export class AuthChallengeService {
   }
 
   private async shouldRequire(params: {
+    scope: ChallengeScope;
     identifierHash: string;
     ip?: string;
   }): Promise<boolean> {
     if (!this.enabled()) return false;
 
+    const scope = this.normalizeScope(params.scope);
     const id = params.identifierHash.trim();
     const ip = (params.ip ?? '').trim();
 
-    const keys = [this.keyFailId(id)];
-    if (ip && ip !== 'unknown') keys.push(this.keyFailIp(ip));
+    const keys = [this.keyFailId(scope, id)];
+    if (ip && ip !== 'unknown') keys.push(this.keyFailIp(scope, ip));
 
     const vals = await this.redis.mget(...keys);
     const counts = vals.map((v) => Number(v ?? 0));
@@ -252,19 +279,24 @@ export class AuthChallengeService {
   }): Promise<void> {
     return this.assertSatisfiedOrThrow({
       ...params,
+      scope: 'register',
       force: this.registerAlwaysRequired(),
     });
   }
 
   async assertSatisfiedOrThrow(params: {
+    scope?: ChallengeScope;
     identifierHash: string;
     ip?: string;
     headers?: ChallengeHeaders;
     force?: boolean;
   }): Promise<void> {
+    const scope = this.normalizeScope(params.scope ?? 'login');
+
     const need =
       Boolean(params.force) ||
       (await this.shouldRequire({
+        scope,
         identifierHash: params.identifierHash,
         ip: params.ip,
       }));

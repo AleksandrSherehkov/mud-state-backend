@@ -37,11 +37,6 @@ export class RegisterUseCase {
 
     await this.authSecurity.onLoginSuccess(user.id);
 
-    await this.authChallenge.clearOnSuccess({
-      identifierHash: emailHash,
-      ip: maybeIp,
-    });
-
     const issued = await this.tokens.issueForUser({
       userId: user.id,
       email: user.email,
