@@ -14,8 +14,12 @@ export type CsrfM2mClientRecord = {
   secret: string; // хранится НЕ в env, а в secret store (file)
   scopes: string[];
   status: CsrfM2mClientStatus;
-  notBefore?: string; // ISO date-time (опционально)
-  expiresAt?: string; // ISO date-time (опционально)
+  notBefore?: string;
+  expiresAt?: string;
+};
+
+export type AuthPolicy = {
+  refreshCookieName: string;
 };
 
 export type CsrfPolicy = {
@@ -40,11 +44,14 @@ export type CsrfPolicy = {
     reloadTtlSec: number;
   };
 };
+
 export type AppEnv = 'development' | 'test' | 'production';
+
 export type SecurityPolicy = {
   appEnv: AppEnv;
   isProd: boolean;
 
+  auth: AuthPolicy;
   csrf: CsrfPolicy;
   proxyGeoTrust: ProxyGeoTrustPolicy;
 };

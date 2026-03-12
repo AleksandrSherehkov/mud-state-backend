@@ -2,8 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import type { Request, Response as ExpressResponse } from 'express';
 
 import { AuthCookieService } from './auth-cookie.service';
-
-import { getRefreshTokenFromRequest } from 'src/common/http/refresh-token';
+import { RefreshTokenRequestService } from 'src/common/http/refresh-token';
 
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -31,6 +30,7 @@ export class AuthHttpService {
     private readonly meUc: GetMeUseCase,
     private readonly cookies: AuthCookieService,
     private readonly requestInfo: RequestInfoService,
+    private readonly refreshTokenRequest: RefreshTokenRequestService,
   ) {}
 
   async register(
@@ -87,7 +87,8 @@ export class AuthHttpService {
   async refresh(req: Request, res: ExpressResponse): Promise<TokenResponseDto> {
     const { ip, userAgent, geo } = this.requestInfo.extract(req);
 
-    const refreshToken = getRefreshTokenFromRequest(req);
+    const refreshToken =
+      this.refreshTokenRequest.getRefreshTokenFromRequest(req);
     if (!refreshToken) throw new UnauthorizedException('Недійсний токен');
 
     const result = await this.refreshUc.execute(refreshToken, {

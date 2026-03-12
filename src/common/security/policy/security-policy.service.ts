@@ -56,6 +56,19 @@ export class SecurityPolicyService {
 
     const isProd = appEnv === 'production';
 
+    const refreshCookieName =
+      String(this.config.get('REFRESH_COOKIE_NAME') ?? 'refreshToken').trim() ||
+      'refreshToken';
+
+    const csrfCookieName =
+      String(this.config.get('CSRF_COOKIE_NAME') ?? 'csrfToken').trim() ||
+      'csrfToken';
+
+    const csrfHeaderName =
+      String(this.config.get('CSRF_HEADER_NAME') ?? 'x-csrf-token')
+        .trim()
+        .toLowerCase() || 'x-csrf-token';
+
     const csrfTrusted = splitList(
       this.config.get<string>('CSRF_TRUSTED_ORIGINS'),
     );
@@ -119,18 +132,14 @@ export class SecurityPolicyService {
       appEnv,
       isProd,
 
+      auth: {
+        refreshCookieName,
+      },
+
       csrf: {
         enabled: boolFromConfig(this.config, 'CSRF_ENABLED', true),
-
-        cookieName:
-          String(this.config.get('CSRF_COOKIE_NAME') ?? 'csrfToken').trim() ||
-          'csrfToken',
-
-        headerName:
-          String(this.config.get('CSRF_HEADER_NAME') ?? 'x-csrf-token')
-            .trim()
-            .toLowerCase() || 'x-csrf-token',
-
+        cookieName: csrfCookieName,
+        headerName: csrfHeaderName,
         trustedOrigins,
         allowNoOriginInProd,
 

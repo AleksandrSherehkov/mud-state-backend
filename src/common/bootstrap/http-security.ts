@@ -5,6 +5,7 @@ import * as cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
 
 import { parseList } from './parse-list';
+import { SecurityPolicyService } from 'src/common/security/policy/security-policy.service';
 
 export function applyHelmet(
   app: NestExpressApplication,
@@ -82,6 +83,8 @@ export function applyCors(
 
   const allowAnyInNonProd = !isProd && origins.length === 0;
 
+  const csrfHeaderName = app.get(SecurityPolicyService).get().csrf.headerName;
+
   app.enableCors({
     origin: (origin, cb) => {
       if (!origin) {
@@ -101,7 +104,7 @@ export function applyCors(
       'Authorization',
       'Content-Type',
       'Accept',
-      'X-CSRF-Token',
+      csrfHeaderName,
       'X-CSRF-M2M-Kid',
       'X-CSRF-M2M-TS',
       'X-CSRF-M2M-Nonce',

@@ -10,48 +10,59 @@ import { TokenResponseDto } from 'src/auth/dto/token-response.dto';
 import { LogoutResponseDto } from 'src/auth/dto/logout-response.dto';
 import { MeResponseDto } from 'src/auth/dto/me-response.dto';
 import { CsrfResponseDto } from 'src/auth/dto/csrf-response.dto';
+import {
+  SWAGGER_CSRF_COOKIE_NAME_PLACEHOLDER,
+  SWAGGER_CSRF_HEADER_NAME_PLACEHOLDER,
+  SWAGGER_REFRESH_COOKIE_NAME_PLACEHOLDER,
+} from './auth.placeholders';
+
 const SET_AUTH_COOKIES_HEADER = {
   'Set-Cookie': {
     description:
-      'Sets authentication cookies: refreshToken (HttpOnly, signed) and csrfToken (signed, readable by JS). ' +
-      'Client must use csrfToken from JSON body for x-csrf-token header (do not read from cookie). ' +
+      `Sets authentication cookies: ${SWAGGER_REFRESH_COOKIE_NAME_PLACEHOLDER} (HttpOnly, signed) and ` +
+      `${SWAGGER_CSRF_COOKIE_NAME_PLACEHOLDER} (signed, readable by JS). ` +
+      `Client must use ${SWAGGER_CSRF_COOKIE_NAME_PLACEHOLDER} from JSON body for ` +
+      `${SWAGGER_CSRF_HEADER_NAME_PLACEHOLDER} header (do not read from cookie). ` +
       'Exact attributes depend on env (Secure/SameSite/Path).',
     schema: { type: 'string' },
     example:
-      'refreshToken=s%3AeyJ...<sig>; Path=/api; HttpOnly; SameSite=Lax; Secure; ' +
-      'csrfToken=s%3A550e8400-e29b-41d4-a716-446655440000.<sig>; Path=/api; SameSite=Lax; Secure',
+      `${SWAGGER_REFRESH_COOKIE_NAME_PLACEHOLDER}=s%3AeyJ...<sig>; Path=/api; HttpOnly; SameSite=Lax; Secure; ` +
+      `${SWAGGER_CSRF_COOKIE_NAME_PLACEHOLDER}=s%3A550e8400-e29b-41d4-a716-446655440000.<sig>; Path=/api; SameSite=Lax; Secure`,
   },
 } as const;
 
 const SET_REFRESH_COOKIE_HEADER = {
   'Set-Cookie': {
     description:
-      'Sets refreshToken cookie (HttpOnly, signed). Exact attributes depend on env (Secure/SameSite/Path).',
+      `Sets ${SWAGGER_REFRESH_COOKIE_NAME_PLACEHOLDER} cookie (HttpOnly, signed). ` +
+      'Exact attributes depend on env (Secure/SameSite/Path).',
     schema: { type: 'string' },
-    example:
-      'refreshToken=s%3AeyJ...<sig>; Path=/api; HttpOnly; SameSite=Lax; Secure',
+    example: `${SWAGGER_REFRESH_COOKIE_NAME_PLACEHOLDER}=s%3AeyJ...<sig>; Path=/api; HttpOnly; SameSite=Lax; Secure`,
   },
 } as const;
 
 const SET_CSRF_COOKIE_HEADER = {
   'Set-Cookie': {
     description:
-      'Sets csrfToken cookie (signed, short-lived). Client should use csrfToken from response body for x-csrf-token header. ' +
+      `Sets ${SWAGGER_CSRF_COOKIE_NAME_PLACEHOLDER} cookie (signed, short-lived). ` +
+      `Client should use ${SWAGGER_CSRF_COOKIE_NAME_PLACEHOLDER} from response body for ` +
+      `${SWAGGER_CSRF_HEADER_NAME_PLACEHOLDER} header. ` +
       'Exact attributes depend on env (Secure/SameSite/Path).',
     schema: { type: 'string' },
-    example:
-      'csrfToken=s%3A550e8400-e29b-41d4-a716-446655440000.<sig>; Path=/api; SameSite=Lax; Secure',
+    example: `${SWAGGER_CSRF_COOKIE_NAME_PLACEHOLDER}=s%3A550e8400-e29b-41d4-a716-446655440000.<sig>; Path=/api; SameSite=Lax; Secure`,
   },
 } as const;
 
 const CLEAR_AUTH_COOKIES_HEADER = {
   'Set-Cookie': {
     description:
-      'Clears authentication cookies: refreshToken and csrfToken (Set-Cookie with Max-Age=0/Expires in past).',
+      `Clears authentication cookies: ${SWAGGER_REFRESH_COOKIE_NAME_PLACEHOLDER} and ` +
+      `${SWAGGER_CSRF_COOKIE_NAME_PLACEHOLDER} ` +
+      '(Set-Cookie with Max-Age=0/Expires in past).',
     schema: { type: 'string' },
     example:
-      'refreshToken=; Path=/api; HttpOnly; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; ' +
-      'csrfToken=; Path=/api; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+      `${SWAGGER_REFRESH_COOKIE_NAME_PLACEHOLDER}=; Path=/api; HttpOnly; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; ` +
+      `${SWAGGER_CSRF_COOKIE_NAME_PLACEHOLDER}=; Path=/api; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`,
   },
 } as const;
 
@@ -110,8 +121,7 @@ export const ApiAuthLinks = {
     return applyDecorators(
       ApiExtraModels(CsrfResponseDto),
       ApiOkResponse({
-        description:
-          'CSRF cookie встановлено/оновлено + повернуто csrfToken для заголовка',
+        description: `CSRF cookie встановлено/оновлено + повернуто ${SWAGGER_CSRF_COOKIE_NAME_PLACEHOLDER} для заголовка ${SWAGGER_CSRF_HEADER_NAME_PLACEHOLDER}`,
         type: CsrfResponseDto,
         headers: SET_CSRF_COOKIE_HEADER,
         links: {

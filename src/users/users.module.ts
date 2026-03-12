@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 
@@ -9,7 +9,12 @@ import { UsersHttpService } from './users-http.service';
 import { SessionsModule } from 'src/sessions/sessions.module';
 
 @Module({
-  imports: [PrismaModule, LoggerModule, ValidatorsModule, SessionsModule],
+  imports: [
+    PrismaModule,
+    LoggerModule,
+    ValidatorsModule,
+    forwardRef(() => SessionsModule),
+  ],
   providers: [UsersService, UsersHttpService],
   controllers: [UsersController],
   exports: [UsersService],

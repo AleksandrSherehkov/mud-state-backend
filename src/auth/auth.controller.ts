@@ -19,7 +19,10 @@ import {
   ApiQueryErrorResponses,
 } from 'src/common/swagger/decorators/api-exceptions';
 import { ApiRolesAccess } from 'src/common/swagger/decorators/api-roles';
-import { AUTH_SIDE_EFFECTS } from 'src/common/swagger/auth/auth.swagger';
+import {
+  AUTH_SIDE_EFFECTS,
+  AUTH_SWAGGER_NOTES,
+} from 'src/common/swagger/auth/auth.swagger';
 import { ApiAuthLinks } from 'src/common/swagger/auth/auth.links';
 
 import { CsrfGuard } from 'src/common/security/guards/csrf.guard';
@@ -124,10 +127,7 @@ export class AuthController {
     operationId: 'auth_csrf',
   })
   @ApiRolesAccess('PUBLIC', {
-    sideEffects: [
-      'Sets csrfToken cookie (signed, non-HttpOnly, short-lived)',
-      'Returns csrfToken in JSON body for x-csrf-token header (do not read from cookie)',
-    ],
+    sideEffects: [...AUTH_SWAGGER_NOTES.csrfIssue],
     notes: [
       'Потрібен для відновлення CSRF cookie, якщо вона протухла/очистилась.',
       'Не вимагає auth.',
@@ -160,12 +160,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Оновлення токенів', operationId: 'auth_refresh' })
   @ApiRolesAccess('PUBLIC', {
     sideEffects: AUTH_SIDE_EFFECTS.refresh,
-    notes: [
-      'Refresh має rate limit (Throttle).',
-      'При reuse/revoked повертається 401.',
-      'Refresh “claim” одноразовий: попередній jti відкликається та його сесія завершується.',
-      'Оновлюється лише refreshToken cookie; csrfToken cookie не змінюється.',
-    ],
+    notes: [...AUTH_SWAGGER_NOTES.refresh],
   })
   @ApiAuthLinks.refresh200()
   @ApiMutationErrorResponses({

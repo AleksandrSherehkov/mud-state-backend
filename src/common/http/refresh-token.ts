@@ -1,8 +1,15 @@
+import { Injectable } from '@nestjs/common';
 import type { Request } from 'express';
+
 import { getCookieString } from 'src/common/http/cookies';
+import { SecurityPolicyService } from 'src/common/security/policy/security-policy.service';
 
-const REFRESH_COOKIE_NAME = 'refreshToken';
+@Injectable()
+export class RefreshTokenRequestService {
+  constructor(private readonly securityPolicy: SecurityPolicyService) {}
 
-export function getRefreshTokenFromRequest(req: Request): string | undefined {
-  return getCookieString(req, REFRESH_COOKIE_NAME, { signed: true });
+  getRefreshTokenFromRequest(req: Request): string | undefined {
+    const cookieName = this.securityPolicy.get().auth.refreshCookieName;
+    return getCookieString(req, cookieName, { signed: true });
+  }
 }

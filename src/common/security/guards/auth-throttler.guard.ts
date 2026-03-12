@@ -206,7 +206,10 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
         return `${ip}:${uaHash}`;
       }
 
-      const refreshCookie = getSignedCookie(r, 'refreshToken');
+      const refreshCookieName =
+        this.securityPolicy.get().auth.refreshCookieName;
+
+      const refreshCookie = getSignedCookie(r, refreshCookieName);
       if (!refreshCookie) {
         return `${ip}:${uaHash}:nocookie`;
       }
