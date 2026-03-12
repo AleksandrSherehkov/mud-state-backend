@@ -259,11 +259,22 @@ export class AuthChallengeService {
 
   private async consumeNonce(nonce: string): Promise<boolean> {
     const key = this.keyNonce(nonce);
-    const val = await this.redis.get(key);
-    if (!val) return false;
 
-    await this.redis.del(key);
-    return true;
+    const result = await this.redis.eval(
+      `
+        local val = redis.call('GET', KEYS[1])
+        if not val then
+          return 0
+        end
+
+        redis.call('DEL', KEYS[1])
+        return 1
+      `,
+      1,
+      key,
+    );
+
+    return result === 1 || result === '1';
   }
 
   private registerAlwaysRequired(): boolean {
