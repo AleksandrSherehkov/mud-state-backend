@@ -43,9 +43,9 @@ export class SessionLifecycleService {
       }),
     ]);
 
-    this.logger.warn(
+    this.logger.audit(
       'Lifecycle applied: revoke all + terminate all',
-      undefined,
+      SessionLifecycleService.name,
       {
         event: 'lifecycle.user_wide_applied',
         userId: params.userId,
@@ -91,9 +91,9 @@ export class SessionLifecycleService {
       }),
     ]);
 
-    this.logger.warn(
+    this.logger.audit(
       'Lifecycle applied: revoke jti + terminate sid',
-      undefined,
+      SessionLifecycleService.name,
       {
         event: 'lifecycle.scoped_applied',
         userId: params.userId,

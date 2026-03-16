@@ -136,7 +136,7 @@ export class AuthTokensService {
       throw err;
     }
 
-    this.logger.log('Tokens issued', AuthTokensService.name, {
+    this.logger.audit('Tokens issued', AuthTokensService.name, {
       event: 'auth.tokens.issued',
       userId: params.userId,
       role: params.role,

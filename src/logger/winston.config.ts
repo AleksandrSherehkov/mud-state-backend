@@ -8,6 +8,7 @@ import { sanitizeFormat } from './formats/sanitize.format';
 type LogInfo = winston.Logform.TransformableInfo & {
   context?: string;
   requestId?: string;
+  logKind?: 'operational' | 'audit';
 };
 
 function stringifyMessage(msg: unknown): string {
@@ -30,6 +31,12 @@ const addRequestId = winston.format((info: LogInfo) => {
   const rid = getRequestId();
   return rid ? { ...info, requestId: rid } : info;
 });
+
+const onlyLogKind = (kind: 'operational' | 'audit') =>
+  winston.format((info: LogInfo) => {
+    const current = info.logKind ?? 'operational';
+    return current === kind ? info : false;
+  });
 
 const consoleFormat = winston.format.combine(
   sanitizeFormat(),
@@ -59,7 +66,7 @@ const consoleFormat = winston.format.combine(
   }),
 );
 
-const fileFormat = winston.format.combine(
+const jsonFormat = winston.format.combine(
   sanitizeFormat(),
   addRequestId(),
   winston.format.timestamp(),
@@ -75,25 +82,57 @@ export const createWinstonTransports = (
 
   const isTest = env === 'test' || process.env.NODE_ENV === 'test';
 
-  const consoleTransport = new winston.transports.Console({
-    format: consoleFormat,
+  const logDir = config.get<string>('LOG_DIR', 'logs');
+  const datePattern = config.get<string>('LOG_DATE_PATTERN', 'YYYY-MM-DD');
+  const zippedArchive = config.get<boolean>('LOG_ZIPPED_ARCHIVE', true);
+  const maxSize = config.get<string>('LOG_MAX_SIZE', '10m');
+  const maxFiles = config.get<string>('LOG_MAX_FILES', '14d');
+  const logFileName = config.get<string>('LOG_FILE_NAME', '%DATE%.log');
+  const auditLogFileName = config.get<string>(
+    'LOG_AUDIT_FILE_NAME',
+    'audit-%DATE%.log',
+  );
 
+  const operationalConsoleTransport = new winston.transports.Console({
+    format: winston.format.combine(onlyLogKind('operational')(), consoleFormat),
     stderrLevels: ['error'],
     handleExceptions: true,
   });
 
-  const fileTransport = new winston.transports.DailyRotateFile({
-    dirname: config.get('LOG_DIR', 'logs'),
-    filename: config.get('LOG_FILE_NAME', '%DATE%.log'),
-    datePattern: config.get('LOG_DATE_PATTERN', 'YYYY-MM-DD'),
-    zippedArchive: config.get<boolean>('LOG_ZIPPED_ARCHIVE', true),
-    maxSize: config.get('LOG_MAX_SIZE', '10m'),
-    maxFiles: config.get('LOG_MAX_FILES', '14d'),
-    format: fileFormat,
+  const auditConsoleTransport = new winston.transports.Console({
+    format: winston.format.combine(onlyLogKind('audit')(), consoleFormat),
+    stderrLevels: ['error'],
     handleExceptions: true,
   });
 
-  if (isTest) return [fileTransport];
+  const operationalFileTransport = new winston.transports.DailyRotateFile({
+    dirname: logDir,
+    filename: logFileName,
+    datePattern,
+    zippedArchive,
+    maxSize,
+    maxFiles,
+    format: winston.format.combine(onlyLogKind('operational')(), jsonFormat),
+    handleExceptions: true,
+  });
 
-  return [consoleTransport, fileTransport];
+  const auditFileTransport = new winston.transports.DailyRotateFile({
+    dirname: logDir,
+    filename: auditLogFileName,
+    datePattern,
+    zippedArchive,
+    maxSize,
+    maxFiles,
+    format: winston.format.combine(onlyLogKind('audit')(), jsonFormat),
+    handleExceptions: true,
+  });
+
+  if (isTest) return [operationalFileTransport, auditFileTransport];
+
+  return [
+    operationalConsoleTransport,
+    auditConsoleTransport,
+    operationalFileTransport,
+    auditFileTransport,
+  ];
 };

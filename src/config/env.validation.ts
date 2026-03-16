@@ -426,6 +426,7 @@ export const envValidationSchema = Joi.object({
   // ===== Logging =====
   LOG_DIR: Joi.string().default('logs'),
   LOG_FILE_NAME: Joi.string().default('%DATE%.log'),
+  LOG_AUDIT_FILE_NAME: Joi.string().default('audit-%DATE%.log'),
   LOG_DATE_PATTERN: Joi.string().default('YYYY-MM-DD'),
   LOG_ZIPPED_ARCHIVE: Joi.boolean().default(true),
   LOG_MAX_SIZE: Joi.string().default('10m'),

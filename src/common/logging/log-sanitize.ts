@@ -21,11 +21,36 @@ const SENSITIVE_KEY_SUBSTRINGS = [
   'access_token',
 ];
 
+const SECURITY_IDENTIFIER_KEYS = new Set([
+  'userid',
+  'tokenuserid',
+  'sid',
+  'reusesid',
+  'sidnew',
+  'jti',
+  'oldjti',
+  'newjti',
+  'boundjti',
+  'presentedjti',
+  'reusejti',
+  'jtinew',
+]);
+
 const JWT_LIKE = /eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g;
 const BEARER_LIKE = /Bearer\s+[A-Za-z0-9._-]+/gi;
 
 // eslint-disable-next-line no-control-regex
 const ASCII_CONTROL_CHARS = /[\x00-\x1F\x7F]/g;
+
+function isProdEnv(): boolean {
+  const env = String(
+    process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development',
+  )
+    .trim()
+    .toLowerCase();
+
+  return env === 'production';
+}
 
 export function maskIp(raw?: string | null): string {
   const ip = normalizeIp(raw ?? '');
@@ -73,6 +98,30 @@ function isUnknownArray(v: unknown): v is unknown[] {
   return Array.isArray(v);
 }
 
+function isSecurityIdentifierKey(key: string): boolean {
+  const lk = key.toLowerCase().trim();
+  if (SECURITY_IDENTIFIER_KEYS.has(lk)) return true;
+
+  return lk.endsWith('userid') || lk.endsWith('sid') || lk.endsWith('jti');
+}
+
+function pseudonymizeSecurityIdentifier(key: string, value: unknown): unknown {
+  if (!isProdEnv()) return sanitizeMeta(value);
+
+  if (typeof value !== 'string') return sanitizeMeta(value);
+
+  const raw = value.trim();
+  if (!raw) return raw;
+
+  const lk = key.toLowerCase();
+
+  if (lk.endsWith('userid')) return `uid_${hashId(raw, 16)}`;
+  if (lk.endsWith('sid')) return `sid_${hashId(raw, 16)}`;
+  if (lk.endsWith('jti')) return `jti_${hashId(raw, 16)}`;
+
+  return hashId(raw, 16);
+}
+
 export function sanitizeMeta<T>(value: T): T;
 export function sanitizeMeta(value: unknown): unknown;
 
@@ -90,7 +139,17 @@ export function sanitizeMeta(value: unknown): unknown {
   const out: Record<string, unknown> = {};
 
   for (const [k, v] of Object.entries(obj)) {
-    out[k] = isSensitiveKey(k) ? redactSensitiveValue(v) : sanitizeMeta(v);
+    if (isSensitiveKey(k)) {
+      out[k] = redactSensitiveValue(v);
+      continue;
+    }
+
+    if (isSecurityIdentifierKey(k)) {
+      out[k] = pseudonymizeSecurityIdentifier(k, v);
+      continue;
+    }
+
+    out[k] = sanitizeMeta(v);
   }
 
   return out;

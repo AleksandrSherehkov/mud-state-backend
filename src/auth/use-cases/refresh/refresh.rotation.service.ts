@@ -105,14 +105,13 @@ export class RefreshRotationService {
       },
       {
         name: 'auth.refresh.rotate_atomic',
-        // retry ТІЛЬКИ на транзієнтний timeout/tx-closed
-        // (safe, бо claim+create+bind всередині 1 tx; якщо tx не комітнувся — повтор ок)
+
         retries: 1,
         retryDelayMs: 50,
       },
     );
 
-    this.logger.log(
+    this.logger.audit(
       'Refresh success (atomic claim+rotate+bind)',
       RefreshRotationService.name,
       {

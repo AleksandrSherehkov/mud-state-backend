@@ -106,7 +106,7 @@ export class RefreshIncidentResponseService {
           reason: 'refresh_reuse_detected',
         });
 
-      this.logger.warn(
+      this.logger.audit(
         'Refresh reuse response applied (user-wide revoke all tokens + terminate all sessions)',
         RefreshIncidentResponseService.name,
         {
@@ -133,7 +133,7 @@ export class RefreshIncidentResponseService {
         reason: 'refresh_reuse_detected',
       });
 
-    this.logger.warn(
+    this.logger.audit(
       'Refresh reuse response applied (scoped revoke jti + terminate sid)',
       RefreshIncidentResponseService.name,
       {
