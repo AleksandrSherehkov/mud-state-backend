@@ -9,12 +9,14 @@ import { CsrfIssueGuard } from './guards/csrf-issue.guard';
 
 import { RequestInfoService } from 'src/common/http/request-info';
 import { SecurityPolicyService } from './policy/security-policy.service';
+import { TrustedProxyGeoService } from './policy/trusted-proxy-geo.service';
 
 @Global()
 @Module({
   imports: [ConfigModule, CsrfModule],
   providers: [
     SecurityPolicyService,
+    TrustedProxyGeoService,
     RefreshTokenHashService,
     CsrfGuard,
     CsrfIssueGuard,
@@ -22,6 +24,7 @@ import { SecurityPolicyService } from './policy/security-policy.service';
   ],
   exports: [
     SecurityPolicyService,
+    TrustedProxyGeoService,
     RefreshTokenHashService,
     CsrfGuard,
     CsrfIssueGuard,

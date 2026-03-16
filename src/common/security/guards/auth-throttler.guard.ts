@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
 
 import { THROTTLE_AUTH_SECONDARY } from 'src/common/throttle/config/throttle-env';
 import { SecurityPolicyService } from 'src/common/security/policy/security-policy.service';
+import { TrustedProxyGeoService } from 'src/common/security/policy/trusted-proxy-geo.service';
 
 type BodyWithEmail = { email?: unknown };
 
@@ -159,18 +160,6 @@ function sha256hex(input: string, slice = 16): string {
     .digest('hex')
     .slice(0, slice);
 }
-
-function normalizeAsn(raw?: string): number | undefined {
-  const s = (raw ?? '').trim();
-  const m = /^(?:AS)?(\d{1,10})$/i.exec(s);
-  if (!m) return undefined;
-
-  const n = Number(m[1]);
-  if (!Number.isInteger(n) || n <= 0) return undefined;
-
-  return n;
-}
-
 @Injectable()
 export class AuthThrottlerGuard extends ThrottlerGuard {
   @Inject(ConfigService)
@@ -178,6 +167,9 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
 
   @Inject(SecurityPolicyService)
   private readonly securityPolicy!: SecurityPolicyService;
+
+  @Inject(TrustedProxyGeoService)
+  private readonly trustedProxyGeo!: TrustedProxyGeoService;
 
   protected async getTracker(req: Record<string, any>): Promise<string> {
     await Promise.resolve();
@@ -246,45 +238,6 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     return ip;
   }
 
-  private isTrustedProxyRequest(r: ReqLike): boolean {
-    const pol = this.securityPolicy.get().proxyGeoTrust;
-
-    if (!pol.enabled) return false;
-
-    const allow = new Set(pol.trustedProxyIps.map((x) => normalizeIp(x)));
-    if (allow.size === 0) return false;
-
-    const remote = getIpFromSocket(r) ?? getIpFromConnection(r);
-
-    if (!remote) return false;
-
-    const remoteIp = normalizeIp(remote);
-    if (!allow.has(remoteIp)) return false;
-
-    const headers = r.headers;
-    if (!headers || typeof headers !== 'object') return false;
-
-    const raw = headers[pol.markerName];
-    const got = (
-      Array.isArray(raw)
-        ? String(raw[0] ?? '')
-        : typeof raw === 'string'
-          ? raw
-          : ''
-    ).trim();
-
-    return Boolean(got && got === pol.markerValue);
-  }
-
-  private getTrustedAsn(r: ReqLike): number | undefined {
-    if (!this.isTrustedProxyRequest(r)) return undefined;
-
-    const xGeoAsn = getHeaderString(r, 'x-geo-asn');
-    const xAsn = getHeaderString(r, 'x-asn');
-
-    return normalizeAsn(xGeoAsn || xAsn || undefined);
-  }
-
   private async enforceUnauthBurst(req: Record<string, any>, r: ReqLike) {
     const userId = getUserIdFromReq(req);
     if (userId) return;
@@ -341,7 +294,7 @@ export class AuthThrottlerGuard extends ThrottlerGuard {
     if (!isGetAndEndsWith(r, '/auth/csrf')) return;
 
     const ip = getIp(r);
-    const asn = this.getTrustedAsn(r);
+    const asn = this.trustedProxyGeo.getTrustedAsn(r);
     const asnPart = asn ?? 'noasn';
 
     const ipAsnCfg = THROTTLE_AUTH_SECONDARY.csrfIpAsn;
